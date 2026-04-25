@@ -267,9 +267,9 @@
         <div class="scard"><div class="snum" id="sB">0</div><div class="slabel">Zu bestellen</div></div>
         <div class="scard"><div class="snum" id="sE">0</div><div class="slabel">Heute erledigt</div></div>
       </div>
-      <p class="dlabel">Dringende Aufgaben</p>
+      <p class="dlabel">Offene Aufgaben</p>
       <div id="dUrgent"></div>
-      <p class="dlabel">Heute fällig</p>
+      <p class="dlabel">Daueraufgaben heute</p>
       <div id="dRec"></div>
     </div>
 
@@ -1113,18 +1113,18 @@ function renderDash(){
   }
   const ba=document.getElementById('badge-a'); ba.textContent=offen; ba.style.display=offen>0?'flex':'none';
   const bb=document.getElementById('badge-b'); bb.textContent=bestellen; bb.style.display=bestellen>0?'flex':'none';
-  const urgent=tasks.filter(t=>t.prio==='hoch'&&!t.done).slice(0,3);
-  document.getElementById('dUrgent').innerHTML=urgent.length?urgent.map(t=>`
+  const offentasks=[...tasks.filter(t=>!t.done)].sort((a,b)=>{const p={hoch:0,mittel:1,niedrig:2};return (p[a.prio]||1)-(p[b.prio]||1);});
+  document.getElementById('dUrgent').innerHTML=offentasks.length?offentasks.map(t=>`
     <div class="tcard">
       <div class="tcard-top">
-        <div class="pdot pd-hoch"></div>
+        <div class="pdot pd-${t.prio}"></div>
         <div class="tcard-body">
           <div class="tcard-title">${t.title}</div>
-          <div class="tmeta"><span class="tag tag-hoch">dringend</span><span class="${bereichColor(t.bereich||'alle')}">${bereichLabel(t.bereich||'alle')}</span><span class="tag tag-p">${t.assign}</span></div>
+          <div class="tmeta"><span class="tag tag-${t.prio}">${t.prio}</span><span class="${bereichColor(t.bereich||'alle')}">${bereichLabel(t.bereich||'alle')}</span><span class="tag tag-p">${t.assign}</span></div>
         </div>
       </div>
       <button class="erledigt-btn" onclick="markErledigt(${t.id})">✓ &nbsp; ERLEDIGT</button>
-    </div>`).join(''):'<div class="empty" style="padding:1rem 0"><div class="et">Keine dringenden Aufgaben 🎉</div></div>';
+    </div>`).join(''):'<div class="empty" style="padding:1rem 0"><div class="et">Keine offenen Aufgaben 🎉</div></div>';
   const todayRec=recs.filter(r=>r.active&&shouldFireToday(r,day)).sort((a,b)=>a.time.localeCompare(b.time)).slice(0,3);
   document.getElementById('dRec').innerHTML=todayRec.length?todayRec.map(r=>`
     <div class="rcard">
