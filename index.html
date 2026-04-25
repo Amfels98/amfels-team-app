@@ -1664,50 +1664,74 @@ async function muellScanPhoto(input) {
     return;
   }
 
-  // Bild komprimieren und als base64 vorbereiten
-  const b64full = await compressImage(file, 1600, 0.88);
-  const b64data = b64full.split(',')[1]; // nur der data-Teil ohne "data:image/jpeg;base64,"
+  // Bild ohne Komprimierung direkt als base64 lesen für beste Qualität
+  const b64full = await new Promise(res => {
+    const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(file);
+  });
+  const mimeType = file.type || 'image/jpeg';
+  const b64data = b64full.split(',')[1];
 
-  const tourInfo = tourNr ? `Die Tourennummer/Bezirksnummer des Nutzers ist: "${tourNr}". Filtere nur die Termine die zu dieser Nummer gehören.` : 'Gib alle erkannten Termine zurück.';
+  const tourInfo = tourNr
+    ? `WICHTIG: Der Nutzer hat die Tourennummer/Bezirksnummer "${tourNr}". Suche im Kalender nach dieser Nummer und gib NUR die Termine für diese Tour zurück.`
+    : 'Gib alle erkannten Termine zurück.';
 
-  const prompt = `Du analysierst ein Foto eines deutschen Müllkalenders (Abfallkalender).
+  const prompt = `Du bist ein Experte für deutsche Müllkalender. Analysiere dieses Bild eines Müllabfuhrkalenders sehr sorgfältig.
 ${tourInfo}
 
-Erkenne alle Abfallarten und deren Abholdaten. Gib das Ergebnis NUR als gültiges JSON zurück, ohne Erklärungen, ohne Markdown, ohne Codeblock. Exakt dieses Format:
-{"typen":[{"typ":"rest","name":"Restmüll","termine":["05.01.2025","19.01.2025"]},{"typ":"gelb","name":"Gelbe Tonne","termine":["12.01.2025"]},{"typ":"bio","name":"Biotonne","termine":[]},{"typ":"papier","name":"Papiertonne","termine":[]},{"typ":"glas","name":"Altglas","termine":[]},{"typ":"sperr","name":"Sperrmüll","termine":[]},{"typ":"elek","name":"Elektroschrott","termine":[]},{"typ":"gruen","name":"Grünschnitt","termine":[]}]}
+Extrahiere alle Abholtermine für jede Müllart. Achte auf Tabellen, Spalten, Zeilen und Jahreszahlen.
 
-Wichtig:
-- Nur die 8 Typen: rest, gelb, bio, papier, glas, sperr, elek, gruen
-- Datumsformat: DD.MM.YYYY
-- Leere Arrays für nicht erkannte Typen
-- Kein Text außer dem JSON`;
+Antworte AUSSCHLIESSLICH mit diesem JSON (kein Markdown, kein Text davor oder danach):
+{"typen":[{"typ":"rest","name":"Restmüll","termine":[]},{"typ":"gelb","name":"Gelbe Tonne / Plastik","termine":[]},{"typ":"bio","name":"Biotonne","termine":[]},{"typ":"papier","name":"Papiertonne","termine":[]},{"typ":"glas","name":"Altglas","termine":[]},{"typ":"sperr","name":"Sperrmüll","termine":[]},{"typ":"elek","name":"Elektroschrott","termine":[]},{"typ":"gruen","name":"Grünschnitt","termine":[]}]}
 
-  try {
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        contents:[{parts:[
-          {text: prompt},
-          {inlineData:{mimeType:'image/jpeg', data: b64data}}
-        ]}],
-        generationConfig:{temperature:0.1, maxOutputTokens:2048}
-      })
-    });
-    const d = await resp.json();
-    if(d.error) throw new Error(d.error.message);
-    const raw = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    // JSON extrahieren (Gemini gibt manchmal trotzdem Markdown zurück)
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if(!jsonMatch) throw new Error('Kein JSON in Antwort');
-    const parsed = JSON.parse(jsonMatch[0]);
-    muellScheduleData = muellGeminiToSchedule(parsed);
-    if(!muellScheduleData.some(x=>x.dates.length>0)) toast('Keine Termine erkannt – bitte manuell prüfen');
-  } catch(e) {
-    console.error('Gemini Fehler:', e);
-    muellScheduleData = [];
-    toast('⚠️ KI-Erkennung fehlgeschlagen – bitte manuell eingeben');
+Regeln:
+- Datumsformat immer DD.MM.YYYY (z.B. 05.01.2025)
+- Leere Arrays [] wenn nicht vorhanden
+- Nur diese 8 Typen verwenden`;
+
+  // Lade-Text mit mehr Info
+  document.getElementById('muellStep2').innerHTML=`<div style="text-align:center;padding:2rem 0"><div style="font-size:2.5rem;margin-bottom:0.75rem">🤖</div><div style="font-size:0.85rem;color:var(--dim)">KI liest den Kalender…<br><span style="font-size:0.72rem">Gemini analysiert das Bild</span></div></div>`;
+
+  // Modelle der Reihe nach versuchen
+  const models = ['gemini-2.0-flash','gemini-1.5-flash','gemini-1.5-pro'];
+  let lastError = '';
+
+  for (const model of models) {
+    try {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          contents:[{parts:[
+            {text: prompt},
+            {inlineData:{mimeType, data: b64data}}
+          ]}],
+          generationConfig:{temperature:0, maxOutputTokens:4096}
+        })
+      });
+      const d = await resp.json();
+      if(d.error) { lastError = d.error.message; continue; }
+      const raw = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if(!jsonMatch) { lastError = 'Kein JSON in Antwort'; continue; }
+      const parsed = JSON.parse(jsonMatch[0]);
+      muellScheduleData = muellGeminiToSchedule(parsed);
+      if(muellScheduleData.some(x=>x.dates.length>0)) {
+        const total=muellScheduleData.reduce((s,x)=>s+x.dates.length,0);
+        toast(`✓ ${total} Termine erkannt`);
+        muellZeigeEdit();
+        return;
+      }
+      lastError = 'Keine Termine im Bild gefunden';
+    } catch(e) { lastError = e.message; }
   }
+
+  // Alle Modelle fehlgeschlagen
+  muellScheduleData = [];
+  document.getElementById('muellStep2').innerHTML=`<div style="text-align:center;padding:2rem 0"><div style="font-size:2.5rem;margin-bottom:0.75rem">⏳</div><div style="font-size:0.85rem;color:var(--dim)">Kalender wird erkannt…</div></div>`;
+  const errMsg = lastError.includes('API_KEY') ? 'API-Key ungültig – bitte neu eingeben'
+    : lastError.includes('quota') ? 'Tageslimit erreicht – morgen erneut versuchen'
+    : `Erkennung fehlgeschlagen: ${lastError}`;
+  toast(`⚠️ ${errMsg}`);
   muellZeigeEdit();
 }
 
