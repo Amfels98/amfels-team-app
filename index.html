@@ -292,6 +292,7 @@
     <!-- DASHBOARD -->
     <div class="screen on" id="s-dash">
       <div id="notifBar"></div>
+      <div id="freigabeCard" style="display:none;margin-bottom:0.65rem"></div>
       <div id="fbBanner"></div>
       <div class="sgrid">
         <div class="scard"><div class="snum" id="sO">0</div><div class="slabel">Offene Aufgaben</div></div>
@@ -987,13 +988,26 @@ function addTask() {
 function markErledigt(id) {
   const tasks=g('af_tasks');
   const t=tasks.find(t=>t.id===id);
-  if(t&&!t.done) { t.done=true; t.doneBy=currentUser; t.doneAt=new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); t.doneDate=new Date().toLocaleDateString('de-DE'); }
+  if(t&&!t.done) {
+    t.done=true; t.approved=false;
+    t.doneBy=currentUser; t.doneAt=new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+    t.doneDate=new Date().toLocaleDateString('de-DE');
+  }
   s('af_tasks',tasks); render();
+  toast('✓ Als erledigt markiert – warten auf Freigabe');
+}
+
+function approveTask(id) {
+  const tasks=g('af_tasks');
+  const t=tasks.find(t=>t.id===id);
+  if(t) { t.approved=true; t.approvedBy=currentUser; t.approvedAt=new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }
+  s('af_tasks',tasks); render();
+  toast('✓ Freigegeben');
 }
 
 function undoTask(id) {
   const tasks=g('af_tasks'); const t=tasks.find(t=>t.id===id);
-  if(t){t.done=false;delete t.doneBy;delete t.doneAt;} s('af_tasks',tasks); render();
+  if(t){t.done=false;t.approved=false;delete t.doneBy;delete t.doneAt;delete t.approvedBy;} s('af_tasks',tasks); render();
 }
 
 function deleteTask(id) { if(currentUser!==ADMIN){toast('Nur Admin kann löschen');return;} s('af_tasks',g('af_tasks').filter(t=>t.id!==id)); toast('Aufgabe gelöscht'); render(); }
@@ -1009,8 +1023,8 @@ function renderTasks() {
   tasks.sort((a,b)=>{ if(!a.done&&b.done)return -1; if(a.done&&!b.done)return 1; const p={hoch:0,mittel:1,niedrig:2}; return (p[a.prio]||1)-(p[b.prio]||1); });
   if(bereichF!=='alle')tasks=tasks.filter(t=>t.bereich===bereichF||t.bereich==='alle');
   if(taskF==='meine')tasks=tasks.filter(t=>t.assign===currentUser||t.assign==='Alle');
-  if(taskF==='offen')tasks=tasks.filter(t=>!t.done);
-  if(taskF==='erledigt')tasks=tasks.filter(t=>t.done);
+  if(taskF==='offen')tasks=tasks.filter(t=>!t.done||(t.done&&!t.approved));
+  if(taskF==='erledigt')tasks=tasks.filter(t=>t.done&&t.approved);
   if(taskF==='hoch')tasks=tasks.filter(t=>t.prio==='hoch'&&!t.done);
   const list=document.getElementById('taskList');
   if(!tasks.length){list.innerHTML='<div class="empty"><div class="ei">✓</div><div class="et">Keine Aufgaben</div></div>';return;}
@@ -1029,8 +1043,24 @@ function renderTasks() {
         </div>
         ${currentUser===ADMIN?`<button class="tcard-del" onclick="deleteTask(${t.id})">✕</button>`:''}
       </div>
-      ${t.done
-        ? `<div style="display:flex;gap:0.5rem"><button class="erledigt-btn done-state" style="flex:1">✓ Erledigt von ${t.doneBy} · ${t.doneAt}</button>${currentUser===ADMIN?`<button class="erledigt-btn" style="width:auto;padding:0.65rem 0.9rem;color:var(--red);border-color:rgba(224,82,82,0.3)" onclick="deleteTask(${t.id})">🗑</button>`:''}</div>`
+      ${t.done && t.approved
+        ? `<div style="display:flex;gap:0.5rem">
+            <div class="erledigt-btn done-state" style="flex:1;flex-direction:column;gap:0.15rem">
+              <span>✓ Abgesegnet von ${t.approvedBy}</span>
+              <span style="font-size:0.62rem;opacity:0.7">Erledigt von ${t.doneBy} · ${t.doneAt}</span>
+            </div>
+            ${currentUser===ADMIN?`<button class="erledigt-btn" style="width:auto;padding:0.65rem 0.9rem;color:var(--red);border-color:rgba(224,82,82,0.3)" onclick="deleteTask(${t.id})">🗑</button>`:''}
+          </div>`
+        : t.done && !t.approved
+        ? `<div style="display:flex;gap:0.5rem">
+            <div style="flex:1;background:rgba(232,146,74,0.08);border:1.5px solid rgba(232,146,74,0.3);border-radius:10px;padding:0.6rem;font-size:0.78rem;color:var(--orange);display:flex;align-items:center;gap:0.5rem">
+              <span>⏳</span>
+              <div><div style="font-weight:600">${t.doneBy} hat abgehakt</div><div style="font-size:0.65rem;opacity:0.8">Warten auf Freigabe vom Chef</div></div>
+            </div>
+            ${currentUser===ADMIN
+              ? `<button class="erledigt-btn done-state" style="width:auto;padding:0.65rem 0.9rem;border-color:rgba(76,175,125,0.5);background:rgba(76,175,125,0.12);color:var(--green);white-space:nowrap;font-size:0.75rem" onclick="approveTask(${t.id})">✓ Freigeben</button>`
+              : ''}
+          </div>`
         : `<button class="erledigt-btn" onclick="markErledigt(${t.id})">✓ &nbsp; ERLEDIGT</button>`
       }
       <div class="cmts" id="cmts-${t.id}">
@@ -1561,11 +1591,25 @@ function renderDash(){
   const offen=tasks.filter(t=>!t.done).length;
   const meine=tasks.filter(t=>!t.done&&(t.assign===currentUser||t.assign==='Alle')).length;
   const bestellen=orders.filter(o=>!o.ordered).length;
-  const erledigt=tasks.filter(t=>t.done&&t.doneDate===today).length;
+  const erledigt=tasks.filter(t=>t.done&&t.approved&&t.doneDate===today).length;
+  const ausstehend=tasks.filter(t=>t.done&&!t.approved).length;
   document.getElementById('sO').textContent=offen;
   document.getElementById('sM').textContent=meine;
   document.getElementById('sB').textContent=bestellen;
   document.getElementById('sE').textContent=erledigt;
+  // Freigaben-Badge für Admin
+  const freigabeCard=document.getElementById('freigabeCard');
+  if(freigabeCard){
+    if(currentUser===ADMIN&&ausstehend>0){
+      freigabeCard.style.display='block';
+      freigabeCard.innerHTML=`<div style="background:rgba(232,146,74,0.1);border:1.5px solid rgba(232,146,74,0.35);border-radius:14px;padding:0.8rem 1rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="switchTab('aufgaben',document.getElementById('nav-aufgaben'))">
+        <div><div style="font-size:0.85rem;font-weight:600;color:var(--orange)">⏳ ${ausstehend} Freigabe${ausstehend>1?'n':''} ausstehend</div><div style="font-size:0.65rem;color:var(--dim);margin-top:0.15rem">Tippen zum Ansehen &amp; Freigeben</div></div>
+        <span style="font-size:1.3rem;color:var(--orange)">›</span>
+      </div>`;
+    } else {
+      freigabeCard.style.display='none';
+    }
+  }
   // Klick auf "Heute erledigt" → zeigt erledigte Aufgaben
   document.getElementById('sE').closest('.scard').onclick=()=>{
     switchTab('aufgaben',document.getElementById('nav-aufgaben'));
@@ -1587,7 +1631,7 @@ function renderDash(){
       </div>`;
     }
   }
-  const ba=document.getElementById('badge-a'); ba.textContent=offen; ba.style.display=offen>0?'flex':'none';
+  const ba=document.getElementById('badge-a'); const badgeN=currentUser===ADMIN?(offen+ausstehend):offen; ba.textContent=badgeN; ba.style.display=badgeN>0?'flex':'none';
   const bb=document.getElementById('badge-b'); bb.textContent=bestellen; bb.style.display=bestellen>0?'flex':'none';
   const offentasks=[...tasks.filter(t=>!t.done)].sort((a,b)=>{const p={hoch:0,mittel:1,niedrig:2};return (p[a.prio]||1)-(p[b.prio]||1);});
   document.getElementById('dUrgent').innerHTML=offentasks.length?offentasks.map(t=>`
@@ -1599,7 +1643,14 @@ function renderDash(){
           <div class="tmeta"><span class="tag tag-${t.prio}">${t.prio}</span><span class="${bereichColor(t.bereich||'alle')}">${bereichLabel(t.bereich||'alle')}</span><span class="tag tag-p">${t.assign}</span></div>
         </div>
       </div>
-      <button class="erledigt-btn" onclick="markErledigt(${t.id})">✓ &nbsp; ERLEDIGT</button>
+      ${t.done&&t.approved
+        ? `<div class="erledigt-btn done-state">✓ Abgesegnet · ${t.doneBy}</div>`
+        : t.done&&!t.approved
+        ? `<div style="display:flex;gap:0.5rem">
+            <div style="flex:1;background:rgba(232,146,74,0.08);border:1.5px solid rgba(232,146,74,0.3);border-radius:10px;padding:0.55rem 0.75rem;font-size:0.75rem;color:var(--orange)">⏳ ${t.doneBy} hat abgehakt – Freigabe ausstehend</div>
+            ${currentUser===ADMIN?`<button class="erledigt-btn done-state" style="width:auto;padding:0.55rem 0.8rem;font-size:0.72rem;white-space:nowrap" onclick="approveTask(${t.id})">✓ Freigeben</button>`:''}
+          </div>`
+        : `<button class="erledigt-btn" onclick="markErledigt(${t.id})">✓ &nbsp; ERLEDIGT</button>`}
       <div class="cmts" id="cmts-${t.id}">${renderComments(t.id,t.comments||[])}</div>
     </div>`).join(''):'<div class="empty" style="padding:1rem 0"><div class="et">Keine offenen Aufgaben 🎉</div></div>';
   const todayRec=recs.filter(r=>r.active&&shouldFireToday(r,day)).sort((a,b)=>a.time.localeCompare(b.time)).slice(0,3);
