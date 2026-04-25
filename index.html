@@ -197,6 +197,19 @@
     .ei { font-size:2rem; margin-bottom:0.45rem; }
     .et { font-size:0.8rem; line-height:1.5; }
 
+    /* Comments */
+    .cmts { margin-top:0.55rem; border-top:1px solid var(--border); padding-top:0.5rem; }
+    .cmt { display:flex; gap:0.5rem; margin-bottom:0.45rem; align-items:flex-start; }
+    .cmt-av { width:22px; height:22px; border-radius:50%; flex-shrink:0; overflow:hidden; background:var(--bg4); display:flex; align-items:center; justify-content:center; font-size:0.55rem; font-weight:700; color:var(--dim); }
+    .cmt-av img { width:100%; height:100%; object-fit:cover; }
+    .cmt-body { flex:1; min-width:0; background:var(--bg3); border-radius:0 10px 10px 10px; padding:0.38rem 0.6rem; }
+    .cmt-name { font-size:0.6rem; color:var(--gold); font-weight:600; margin-bottom:0.1rem; }
+    .cmt-text { font-size:0.78rem; line-height:1.4; word-break:break-word; }
+    .cmt-time { font-size:0.55rem; color:var(--dim); margin-top:0.15rem; }
+    .cmt-input-row { display:flex; gap:0.4rem; margin-top:0.45rem; }
+    .cmt-input { flex:1; background:var(--bg3); border:1px solid var(--border); border-radius:20px; padding:0.42rem 0.75rem; color:var(--text); font-family:'Inter',sans-serif; font-size:0.78rem; outline:none; }
+    .cmt-send { background:var(--gold); border:none; color:#000; border-radius:50%; width:30px; height:30px; flex-shrink:0; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; }
+
     /* Toast */
     .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(12px); background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:0.58rem 1.1rem; font-size:0.78rem; opacity:0; transition:all 0.24s; pointer-events:none; white-space:nowrap; z-index:999; }
     .toast.on { opacity:1; transform:translateX(-50%) translateY(0); }
@@ -997,8 +1010,50 @@ function renderTasks() {
         ? `<div style="display:flex;gap:0.5rem"><button class="erledigt-btn done-state" style="flex:1">✓ Erledigt von ${t.doneBy} · ${t.doneAt}</button>${currentUser===ADMIN?`<button class="erledigt-btn" style="width:auto;padding:0.65rem 0.9rem;color:var(--red);border-color:rgba(224,82,82,0.3)" onclick="deleteTask(${t.id})">🗑</button>`:''}</div>`
         : `<button class="erledigt-btn" onclick="markErledigt(${t.id})">✓ &nbsp; ERLEDIGT</button>`
       }
+      <div class="cmts" id="cmts-${t.id}">
+        ${renderComments(t.id, t.comments||[])}
+      </div>
     </div>
   `).join('');
+}
+
+// ── COMMENTS ──
+function renderComments(taskId, comments) {
+  const cmts = (comments||[]).slice(-5); // max 5 visible
+  const p = profiles[currentUser] || {};
+  const avHtml = p.photo
+    ? `<img src="${p.photo}">`
+    : `<span>${(currentUser||'?')[0]}</span>`;
+  return `
+    ${cmts.map(c => {
+      const cp = profiles[c.by] || {};
+      const cav = cp.photo ? `<img src="${cp.photo}">` : `<span>${(c.by||'?')[0]}</span>`;
+      return `<div class="cmt"><div class="cmt-av">${cav}</div><div class="cmt-body"><div class="cmt-name">${c.by}</div><div class="cmt-text">${c.text}</div><div class="cmt-time">${c.time}</div></div></div>`;
+    }).join('')}
+    <div class="cmt-input-row">
+      <div class="cmt-av">${avHtml}</div>
+      <input class="cmt-input" id="cmtinput-${taskId}" placeholder="Kommentar…" onkeydown="if(event.key==='Enter')sendComment(${taskId})">
+      <button class="cmt-send" onclick="sendComment(${taskId})">↑</button>
+    </div>
+  `;
+}
+
+function sendComment(taskId) {
+  const input = document.getElementById('cmtinput-'+taskId);
+  const text = input?.value?.trim(); if (!text) return;
+  const tasks = g('af_tasks');
+  const t = tasks.find(t=>t.id===taskId); if (!t) return;
+  if (!t.comments) t.comments = [];
+  t.comments.push({
+    by: currentUser,
+    text,
+    time: new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})
+  });
+  s('af_tasks', tasks);
+  input.value = '';
+  // Update just the comment area without full re-render
+  const el = document.getElementById('cmts-'+taskId);
+  if (el) el.innerHTML = renderComments(taskId, t.comments);
 }
 
 // ── RECURRING ──
@@ -1443,6 +1498,7 @@ function renderDash(){
         </div>
       </div>
       <button class="erledigt-btn" onclick="markErledigt(${t.id})">✓ &nbsp; ERLEDIGT</button>
+      <div class="cmts" id="cmts-${t.id}">${renderComments(t.id,t.comments||[])}</div>
     </div>`).join(''):'<div class="empty" style="padding:1rem 0"><div class="et">Keine offenen Aufgaben 🎉</div></div>';
   const todayRec=recs.filter(r=>r.active&&shouldFireToday(r,day)).sort((a,b)=>a.time.localeCompare(b.time)).slice(0,3);
   document.getElementById('dRec').innerHTML=todayRec.length?todayRec.map(r=>`
