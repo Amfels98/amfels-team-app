@@ -250,6 +250,7 @@
     </div>
     <div class="hdr-r">
       <span class="hdr-time" id="hdrTime"></span>
+      <div id="adminBtn" style="display:none"><div class="uchip" onclick="openAdmin()" style="border-color:rgba(184,146,74,0.4);color:var(--gold)">⚙ Admin</div></div>
       <div class="uchip" onclick="logout()"><div class="udot"></div><span id="uLabel">––</span></div>
     </div>
   </div>
@@ -464,6 +465,18 @@
   </div>
 </div>
 
+<!-- MODAL: ADMIN -->
+<div class="overlay" id="modal-admin" onclick="closeOut(event,'admin')">
+  <div class="modal">
+    <div class="mhdr">⚙ Admin <button class="mx" onclick="closeM('admin')">✕</button></div>
+    <p class="fl" style="margin-bottom:0.85rem">Mitarbeiter-PINs verwalten</p>
+    <div id="adminUserList"></div>
+    <div style="border-top:1px solid var(--border);margin:1rem 0 0.85rem"></div>
+    <p class="fl" style="margin-bottom:0.5rem">Firebase Einstellungen</p>
+    <button class="sbtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border)" onclick="closeM('admin');showFBSetup()">🔗 Firebase URL ändern</button>
+  </div>
+</div>
+
 <!-- MODAL: FIREBASE SETUP -->
 <div class="overlay" id="modal-fbsetup" onclick="closeOut(event,'fbsetup')">
   <div class="modal">
@@ -484,9 +497,9 @@
 
 <script>
 // ── FIREBASE REALTIME DATABASE SYNC ──────────────────────────────────────
-// DB_URL wird in den App-Einstellungen gesetzt und in localStorage gespeichert
 let DB_URL = localStorage.getItem('af_db_url') || 'https://apfels-team-default-rtdb.europe-west1.firebasedatabase.app/amfels';
 // ─────────────────────────────────────────────────────────────────────────
+const ADMIN = 'Leon'; // Nur dieser Nutzer kann löschen & verwalten
 
 const TEAM = ['Leon','Sasho','Patrik','Tea','Daniel'];
 const TEAM_ALL = ['Alle',...TEAM];
@@ -636,6 +649,7 @@ function doLogin() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('uLabel').textContent = currentUser;
+  document.getElementById('adminBtn').style.display = currentUser === ADMIN ? 'block' : 'none';
   buildAllChips();
   startClock();
   startNotif();
@@ -801,8 +815,8 @@ function undoTask(id) {
   if(t){t.done=false;delete t.doneBy;delete t.doneAt;} s('af_tasks',tasks); render();
 }
 
-function deleteTask(id) { s('af_tasks',g('af_tasks').filter(t=>t.id!==id)); toast('Aufgabe gelöscht'); render(); }
-function clearDone() { s('af_tasks',g('af_tasks').filter(t=>!t.done)); toast('Erledigte gelöscht'); render(); }
+function deleteTask(id) { if(currentUser!==ADMIN){toast('Nur Admin kann löschen');return;} s('af_tasks',g('af_tasks').filter(t=>t.id!==id)); toast('Aufgabe gelöscht'); render(); }
+function clearDone() { if(currentUser!==ADMIN){toast('Nur Admin kann löschen');return;} s('af_tasks',g('af_tasks').filter(t=>!t.done)); toast('Erledigte gelöscht'); render(); }
 
 function ftask(f,el) { taskF=f; document.querySelectorAll('#s-aufgaben .fc').forEach(c=>c.classList.remove('on')); el.classList.add('on'); renderTasks(); }
 
@@ -832,10 +846,10 @@ function renderTasks() {
             <span style="font-size:0.62rem;color:var(--dim)">${t.date}</span>
           </div>
         </div>
-        <button class="tcard-del" onclick="deleteTask(${t.id})">✕</button>
+        ${currentUser===ADMIN?`<button class="tcard-del" onclick="deleteTask(${t.id})">✕</button>`:''}
       </div>
       ${t.done
-        ? `<button class="erledigt-btn done-state" onclick="undoTask(${t.id})">✓ Erledigt von ${t.doneBy} · ${t.doneAt}</button>`
+        ? `<div style="display:flex;gap:0.5rem"><button class="erledigt-btn done-state" style="flex:1">✓ Erledigt von ${t.doneBy} · ${t.doneAt}</button>${currentUser===ADMIN?`<button class="erledigt-btn" style="width:auto;padding:0.65rem 0.9rem;color:var(--red);border-color:rgba(224,82,82,0.3)" onclick="deleteTask(${t.id})">🗑</button>`:''}</div>`
         : `<button class="erledigt-btn" onclick="markErledigt(${t.id})">✓ &nbsp; ERLEDIGT</button>`
       }
     </div>
@@ -1012,6 +1026,38 @@ function closeDetail(){document.getElementById('detailOverlay').classList.remove
 function deleteRezept(id){s('af_rezepte',g('af_rezepte').filter(r=>r.id!==id));closeDetail();toast('Rezept gelöscht');renderWiki();}
 function deleteAnleitung(id){s('af_anleitungen',g('af_anleitungen').filter(a=>a.id!==id));closeDetail();toast('Anleitung gelöscht');renderWiki();}
 
+// ── ADMIN PANEL ──
+async function openAdmin() {
+  const list = document.getElementById('adminUserList');
+  list.innerHTML = '<p style="font-size:0.75rem;color:var(--dim)">Lade...</p>';
+  document.getElementById('modal-admin').classList.add('on');
+  document.body.style.overflow='hidden';
+  let pins = {};
+  try {
+    const res = await fetch(`${DB_URL}/pins.json`, {cache:'no-store'});
+    pins = await res.json() || {};
+  } catch {}
+  list.innerHTML = TEAM.map(name => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--border)">
+      <div>
+        <span style="font-size:0.88rem;font-weight:500">${name}</span>
+        ${name===ADMIN?'<span style="font-size:0.6rem;color:var(--gold);margin-left:0.4rem">ADMIN</span>':''}
+        <div style="font-size:0.65rem;color:var(--dim);margin-top:0.1rem">${pins[name]?'PIN gesetzt ✓':'Noch kein PIN'}</div>
+      </div>
+      ${name!==ADMIN?`<button onclick="resetPin('${name}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.7rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif;">PIN zurücksetzen</button>`:''}
+    </div>
+  `).join('');
+}
+
+async function resetPin(name) {
+  if (!confirm(`PIN von ${name} wirklich zurücksetzen?`)) return;
+  try {
+    await fetch(`${DB_URL}/pins/${name}.json`, {method:'DELETE'});
+    toast(`✓ PIN von ${name} zurückgesetzt`);
+    openAdmin();
+  } catch { toast('Fehler beim Zurücksetzen'); }
+}
+
 // ── FIREBASE SETUP ──
 function showFBSetup(){
   document.getElementById('fbUrlInput').value = DB_URL || '';
@@ -1094,6 +1140,7 @@ if(currentUser){
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('uLabel').textContent=currentUser;
+  document.getElementById('adminBtn').style.display = currentUser===ADMIN ? 'block' : 'none';
   buildAllChips();startClock();startNotif();checkNotifPerm();
   loadData();
   startSync();
