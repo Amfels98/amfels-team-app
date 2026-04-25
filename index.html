@@ -1637,7 +1637,9 @@ function muellSetupApi() {
   overlay.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:1.25rem;width:100%;max-width:340px">
     <div style="font-size:0.88rem;font-weight:600;margin-bottom:0.4rem">🔑 Gemini API-Key</div>
     <div style="font-size:0.68rem;color:var(--dim);margin-bottom:0.85rem;line-height:1.6">Kostenlos holen: <strong>aistudio.google.com</strong> → "Get API key" → kopieren &amp; hier einfügen</div>
-    <input class="fi" id="geminiKeyInput" placeholder="AIza..." value="${cur}" style="font-size:0.8rem;margin-bottom:0.75rem" />
+    <input class="fi" id="geminiKeyInput" placeholder="AIza..." value="${cur}" style="font-size:0.8rem;margin-bottom:0.5rem" />
+    <div id="geminiTestResult" style="font-size:0.68rem;margin-bottom:0.5rem;min-height:1rem"></div>
+    <button onclick="muellTestKey()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:0.6rem;font-family:Inter,sans-serif;font-size:0.78rem;color:var(--dim);cursor:pointer;margin-bottom:0.5rem">🔍 Key testen</button>
     <button class="sbtn" onclick="
       const k=document.getElementById('geminiKeyInput').value.trim();
       if(k){localStorage.setItem('af_gemini_key',k);document.getElementById('muellApiHint').style.display='none';toast('✓ API-Key gespeichert');}
@@ -1646,6 +1648,26 @@ function muellSetupApi() {
   </div>`;
   document.body.appendChild(overlay);
   overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+}
+
+async function muellTestKey() {
+  const k = document.getElementById('geminiKeyInput').value.trim();
+  const res = document.getElementById('geminiTestResult');
+  if(!k){res.innerHTML='<span style="color:var(--red)">Bitte Key eingeben</span>';return;}
+  res.innerHTML='<span style="color:var(--dim)">Teste…</span>';
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${k}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text:'Antworte nur mit: OK'}]}]})
+    });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error.message);
+    const txt = d.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    res.innerHTML=`<span style="color:var(--green)">✓ Key funktioniert (${txt.trim()})</span>`;
+    localStorage.setItem('af_gemini_key', k);
+  } catch(e) {
+    res.innerHTML=`<span style="color:var(--red)">✕ Fehler: ${e.message}</span>`;
+  }
 }
 
 async function muellScanPhoto(input) {
@@ -1670,11 +1692,9 @@ async function muellScanPhoto(input) {
     return;
   }
 
-  // Bild ohne Komprimierung direkt als base64 lesen für beste Qualität
-  const b64full = await new Promise(res => {
-    const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(file);
-  });
-  const mimeType = file.type || 'image/jpeg';
+  // Auf 2000px komprimieren – optimal für Gemini Vision (lesbar aber nicht zu groß)
+  const b64full = await compressImage(file, 2000, 0.92);
+  const mimeType = 'image/jpeg';
   const b64data = b64full.split(',')[1];
 
   const tourInfo = tourNr
@@ -1731,14 +1751,16 @@ Regeln:
     } catch(e) { lastError = e.message; }
   }
 
-  // Alle Modelle fehlgeschlagen
+  // Alle Modelle fehlgeschlagen – trotzdem zu Step3, Fehler sichtbar anzeigen
   muellScheduleData = [];
   document.getElementById('muellStep2').innerHTML=`<div style="text-align:center;padding:2rem 0"><div style="font-size:2.5rem;margin-bottom:0.75rem">⏳</div><div style="font-size:0.85rem;color:var(--dim)">Kalender wird erkannt…</div></div>`;
-  const errMsg = lastError.includes('API_KEY') ? 'API-Key ungültig – bitte neu eingeben'
-    : lastError.includes('quota') ? 'Tageslimit erreicht – morgen erneut versuchen'
-    : `Erkennung fehlgeschlagen: ${lastError}`;
-  toast(`⚠️ ${errMsg}`);
+  const errMsg = lastError.includes('API_KEY') || lastError.includes('invalid') ? '⚠️ API-Key ungültig – tippe auf "Einrichten" und prüfe den Key'
+    : lastError.includes('quota') || lastError.includes('limit') ? '⚠️ Tageslimit erreicht – morgen erneut versuchen'
+    : `⚠️ Fehler: ${lastError}`;
   muellZeigeEdit();
+  // Fehler in Step3 sichtbar einblenden
+  const info = document.getElementById('muellHausNrInfo');
+  if(info) info.innerHTML = `<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.25);border-radius:10px;padding:0.6rem 0.75rem;font-size:0.72rem;color:var(--red);margin-bottom:0.5rem">${errMsg}<br><span style="opacity:0.7">Termine unten manuell eintragen oder <button onclick="muellSetupApi()" style="background:none;border:none;color:var(--red);text-decoration:underline;cursor:pointer;font-family:Inter,sans-serif;font-size:0.72rem;padding:0">API-Key prüfen</button></span></div>`;
 }
 
 function muellGeminiToSchedule(parsed) {
