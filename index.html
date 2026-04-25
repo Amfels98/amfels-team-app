@@ -951,7 +951,7 @@ function setCookie(name,val,days){const d=new Date();d.setTime(d.getTime()+days*
 
 function doLogin() {
   localStorage.setItem('af_user', currentUser);
-  setCookie('af_user', currentUser, 90); // 90 Tage Cookie als Backup
+  setCookie('af_user', currentUser, 3650); // 10 Jahre
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('uLabel').textContent = currentUser;
