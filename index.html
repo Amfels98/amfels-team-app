@@ -1747,9 +1747,12 @@ function renderDash(){
     </div>`).join(''):'<div class="empty" style="padding:1rem 0"><div class="et">Keine offenen Aufgaben 🎉</div></div>';
   const todayRec=recs.filter(r=>r.active&&shouldFireToday(r,day)).sort((a,b)=>a.time.localeCompare(b.time)).slice(0,3);
   document.getElementById('dRec').innerHTML=todayRec.length?todayRec.map(r=>`
-    <div class="rcard">
+    <div class="rcard" style="padding-bottom:0.6rem">
       <div class="rtime">${r.time}</div>
       <div class="rbody"><div class="rtitle">${r.title}</div><div class="rmeta"><span class="tag-freq">${freqLabel(r)}</span><span class="tag tag-p">${r.assign}</span></div></div>
+      ${r.doneToday?.date===today
+        ? `<button class="erledigt-btn done-state" style="margin-top:0.55rem;font-size:0.75rem" onclick="doneRecToday(${r.id})">✓ Erledigt von ${r.doneToday.by} · ${r.doneToday.at}</button>`
+        : `<button class="erledigt-btn" style="margin-top:0.55rem;font-size:0.75rem" onclick="doneRecToday(${r.id})">✓ &nbsp; ERLEDIGT – Heute</button>`}
     </div>`).join(''):'<div class="empty" style="padding:1rem 0"><div class="et">Keine Daueraufgaben heute</div></div>';
 }
 
