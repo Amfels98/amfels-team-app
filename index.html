@@ -319,6 +319,7 @@
         <div class="scard"><div class="snum" id="sB">0</div><div class="slabel">Zu bestellen</div></div>
         <div class="scard"><div class="snum" id="sE">0</div><div class="slabel">Heute erledigt</div></div>
       </div>
+      <div id="dFeiertage" style="margin-bottom:0.6rem"></div>
       <p class="dlabel">Offene Aufgaben</p>
       <div id="dUrgent"></div>
       <p class="dlabel">Daueraufgaben heute</p>
@@ -1620,12 +1621,12 @@ async function muellScanPhoto(input) {
     const d=await r.json();
     const txt=d.ParsedResults?.[0]?.ParsedText||'';
     muellScheduleData=muellParsiere(txt);
-    muellZeigeEdit();
+    if(!muellScheduleData.length) toast('Keine Termine erkannt – bitte manuell hinzufügen');
   } catch(e) {
-    document.getElementById('muellStep2').style.display='none';
-    document.getElementById('muellStep1').style.display='block';
-    toast('⚠️ Erkennung fehlgeschlagen – bitte manuell eingeben');
+    muellScheduleData=[];
+    toast('⚠️ Erkennung fehlgeschlagen – Termine manuell eintragen');
   }
+  muellZeigeEdit();
 }
 
 function muellParsiere(text) {
@@ -1878,8 +1879,116 @@ function removeFBUrl(){
   renderDash();
 }
 
+// ── FEIERTAGE ──
+const BUNDESLAENDER = {
+  'BY':'Bayern','BW':'Baden-Württemberg','NW':'Nordrhein-Westfalen','HE':'Hessen',
+  'RP':'Rheinland-Pfalz','SL':'Saarland','SN':'Sachsen','ST':'Sachsen-Anhalt',
+  'TH':'Thüringen','BB':'Brandenburg','BE':'Berlin','HB':'Bremen','HH':'Hamburg',
+  'MV':'Mecklenburg-Vorpommern','NI':'Niedersachsen','SH':'Schleswig-Holstein'
+};
+
+function getEaster(year) {
+  const a=year%19,b=Math.floor(year/100),c=year%100;
+  const d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7;
+  const m=Math.floor((a+11*h+22*l)/451);
+  const month=Math.floor((h+l-7*m+114)/31);
+  const day=(h+l-7*m+114)%31+1;
+  return new Date(year,month-1,day);
+}
+
+function getFeiertage(year, bl) {
+  const e=getEaster(year);
+  const ad=(m,d)=>new Date(year,m-1,d);
+  const ae=(offset)=>{const x=new Date(e);x.setDate(e.getDate()+offset);return x;};
+  const alle=[
+    {d:ad(1,1),  l:'Neujahr',              e:'🎊'},
+    {d:ae(-2),   l:'Karfreitag',           e:'✝️'},
+    {d:ae(0),    l:'Ostersonntag',         e:'🐣'},
+    {d:ae(1),    l:'Ostermontag',          e:'🐣'},
+    {d:ad(5,1),  l:'Tag der Arbeit',       e:'🔧'},
+    {d:ae(39),   l:'Christi Himmelfahrt',  e:'⛪'},
+    {d:ae(49),   l:'Pfingstsonntag',       e:'🕊️'},
+    {d:ae(50),   l:'Pfingstmontag',        e:'🕊️'},
+    {d:ad(10,3), l:'Tag der Deutschen Einheit', e:'🇩🇪'},
+    {d:ad(12,25),l:'1. Weihnachtstag',     e:'🎄'},
+    {d:ad(12,26),l:'2. Weihnachtstag',     e:'🎄'},
+    // Bundesland-spezifisch
+    ...((['BY','BW','NW','RP','SL','SN','ST','TH'].includes(bl))?[{d:ae(60),l:'Fronleichnam',e:'✝️'}]:[]),
+    ...((['BY','SL'].includes(bl))?[{d:ad(8,15),l:'Mariä Himmelfahrt',e:'🌸'}]:[]),
+    ...((['BW','BY','NW','RP','SL'].includes(bl))?[{d:ad(11,1),l:'Allerheiligen',e:'🕯️'}]:[]),
+    ...((['SN'].includes(bl))?[{d:ad(11,18),l:'Buß- und Bettag',e:'🙏'}]:[]),
+    ...((['BY'].includes(bl))?[{d:ad(12,8),l:'Mariä Empfängnis',e:'🌹'}]:[]),
+    ...((['BB','MV','SN','ST','TH'].includes(bl))?[{d:ad(10,31),l:'Reformationstag',e:'⛪'}]:[]),
+    ...((['HH','HB','NI','SH'].includes(bl))?[{d:ad(10,31),l:'Reformationstag',e:'⛪'}]:[]),
+    // Besondere Tage (nicht gesetzlich)
+    {d:ad(2,14), l:'Valentinstag',         e:'❤️', info:true},
+    {d:ad(10,3), l:'Erntedankfest',        e:'🌾', info:true},
+    {d:ad(11,11),l:'Sankt Martin',         e:'🕯️', info:true},
+    {d:ad(11,11),l:'Karneval Beginn',      e:'🎭', info:true},
+    {d:ad(12,6), l:'Nikolaustag',          e:'🎅', info:true},
+    {d:ad(12,24),l:'Heiligabend',          e:'🎁', info:true},
+    {d:ad(12,31),l:'Silvester',            e:'🎆', info:true},
+    {d:ad(1,6),  l:'Heilige Drei Könige',  e:'⭐', info:true},
+    {d:ae(-47),  l:'Rosenmontag',          e:'🎭', info:true},
+    {d:ae(-46),  l:'Fastnacht',            e:'🎭', info:true},
+    {d:ad(11,24),l:'Totensonntag',         e:'🕯️', info:true},
+    {d:ad(12,1), l:'1. Advent',            e:'🕯️', info:true},
+    {d:new Date(year,11,25-new Date(year,11,25).getDay()||7-24),l:'1. Advent', e:'🕯️', info:true},
+  ].filter((v,i,arr)=>arr.findIndex(x=>x.d.toDateString()===v.d.toDateString()&&x.l===v.l)===i);
+  return alle.sort((a,b)=>a.d-b.d);
+}
+
+function renderFeiertage() {
+  const el=document.getElementById('dFeiertage'); if(!el) return;
+  const bl=localStorage.getItem('af_bundesland')||'BY';
+  const now=new Date(); now.setHours(0,0,0,0);
+  const in30=new Date(now); in30.setDate(in30.getDate()+30);
+  const year=now.getFullYear();
+  let days=[...getFeiertage(year,bl),...getFeiertage(year+1,bl)]
+    .filter(f=>f.d>=now&&f.d<=in30)
+    .sort((a,b)=>a.d-b.d);
+  if(!days.length){el.innerHTML='';return;}
+  const fmt=(d)=>{
+    const diff=Math.round((d-now)/(1000*60*60*24));
+    if(diff===0)return 'Heute';
+    if(diff===1)return 'Morgen';
+    if(diff<7)return `in ${diff} Tagen`;
+    return d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'});
+  };
+  el.innerHTML=`
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:0.75rem 0.9rem;margin-bottom:0.65rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <span style="font-size:0.72rem;font-weight:600;color:var(--gold);letter-spacing:0.04em;text-transform:uppercase">Bevorstehende Tage</span>
+        <button onclick="chooseBundesland()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:0.18rem 0.55rem;font-size:0.62rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif">${BUNDESLAENDER[bl]||bl}</button>
+      </div>
+      ${days.map(f=>`
+        <div style="display:flex;align-items:center;gap:0.65rem;padding:0.35rem 0;border-bottom:1px solid var(--border);last-child{border:none}">
+          <span style="font-size:1rem;width:1.3rem;text-align:center">${f.e}</span>
+          <span style="flex:1;font-size:0.8rem;font-weight:${f.info?'400':'500'};color:${f.info?'var(--dim)':'var(--text)'}">${f.l}</span>
+          <span style="font-size:0.68rem;color:${f.d.toDateString()===now.toDateString()?'var(--green)':'var(--dim)'};font-weight:${f.d.toDateString()===now.toDateString()?'600':'400'}">${fmt(f.d)}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+function chooseBundesland(){
+  const cur=localStorage.getItem('af_bundesland')||'BY';
+  const opts=Object.entries(BUNDESLAENDER).map(([k,v])=>`<option value="${k}" ${k===cur?'selected':''}>${v}</option>`).join('');
+  const sel=`<select id="blSel" class="fsel" style="margin:0.5rem 0">${opts}</select>`;
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1.5rem';
+  overlay.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:1.25rem;width:100%;max-width:320px">
+    <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem">Bundesland wählen</div>
+    ${sel}
+    <button class="sbtn" onclick="localStorage.setItem('af_bundesland',document.getElementById('blSel').value);this.closest('[style*=fixed]').remove();renderFeiertage()">Speichern</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+}
+
 // ── DASHBOARD ──
 function renderDash(){
+  renderFeiertage();
   const tasks=g('af_tasks'); const orders=g('af_orders'); const recs=g('af_rec');
   const today=new Date().toLocaleDateString('de-DE'); const day=new Date().getDay();
   const offen=tasks.filter(t=>!t.done).length;
