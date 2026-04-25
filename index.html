@@ -570,9 +570,14 @@
     <div class="mhdr">📷 Müllkalender scannen <button class="mx" onclick="closeM('muell')">✕</button></div>
     <input type="file" id="muellPhotoInput" accept="image/*" style="display:none" onchange="muellScanPhoto(this)">
 
-    <!-- Schritt 1: Foto -->
+    <!-- Schritt 1: Hausnummer + Foto -->
     <div id="muellStep1">
-      <div id="muellPhotoPreview" style="width:100%;aspect-ratio:4/3;background:var(--bg3);border:2px dashed rgba(255,255,255,0.1);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;margin-bottom:1rem;overflow:hidden" onclick="document.getElementById('muellPhotoInput').click()">
+      <div class="fg" style="margin-bottom:0.8rem">
+        <label class="fl">Eure Hausnummer</label>
+        <input class="fi" id="muellHausNr" type="number" placeholder="z.B. 9" min="1" max="9999" style="font-size:1.1rem;font-weight:600;text-align:center" />
+        <div style="font-size:0.62rem;color:var(--dim);margin-top:0.35rem">Damit der Scanner nur eure Abholtermine rausfiltert</div>
+      </div>
+      <div id="muellPhotoPreview" style="width:100%;aspect-ratio:4/3;background:var(--bg3);border:2px dashed rgba(255,255,255,0.1);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;margin-bottom:0.75rem;overflow:hidden" onclick="document.getElementById('muellPhotoInput').click()">
         <span style="font-size:2.5rem;margin-bottom:0.5rem">📷</span>
         <span style="font-size:0.78rem;color:var(--dim)">Tippen zum Fotografieren</span>
       </div>
@@ -587,11 +592,18 @@
       <div style="font-size:0.85rem;color:var(--dim)">Kalender wird erkannt…<br><span style="font-size:0.72rem">Das dauert ca. 15 Sekunden</span></div>
     </div>
 
-    <!-- Schritt 3: Erkannte Termine bestätigen / bearbeiten -->
+    <!-- Schritt 3: Auswahl welche Müllsorten als Aufgabe -->
     <div id="muellStep3" style="display:none">
-      <p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.75rem">Erkannte Termine – überprüfe und korrigiere falls nötig:</p>
+      <div id="muellHausNrInfo" style="margin-bottom:0.65rem"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <p style="font-size:0.72rem;color:var(--dim)">Welche Sorten sollen als Aufgabe eingetragen werden?</p>
+        <div style="display:flex;gap:0.4rem">
+          <button onclick="muellToggleAll(true)" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.18rem 0.5rem;font-size:0.62rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif">Alle</button>
+          <button onclick="muellToggleAll(false)" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.18rem 0.5rem;font-size:0.62rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif">Keine</button>
+        </div>
+      </div>
       <div id="muellEditForms"></div>
-      <button class="sbtn" onclick="muellErstellen()">✓ Aufgaben für alle erstellen</button>
+      <button class="sbtn" onclick="muellErstellen()">✓ Aufgaben erstellen</button>
       <button onclick="document.getElementById('muellStep1').style.display='block';document.getElementById('muellStep3').style.display='none'" style="width:100%;margin-top:0.5rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif">← Neu fotografieren</button>
     </div>
 
@@ -1593,12 +1605,16 @@ function openMuellScanner() {
   });
   document.getElementById('muellStep1').style.display='block';
   document.getElementById('muellPhotoPreview').innerHTML='<span style="font-size:2.5rem;margin-bottom:0.5rem">📷</span><span style="font-size:0.78rem;color:var(--dim)">Tippen zum Fotografieren</span>';
+  const saved=localStorage.getItem('af_muell_hausnr');
+  if(saved) document.getElementById('muellHausNr').value=saved;
   document.getElementById('modal-muell').classList.add('on');
   document.body.style.overflow='hidden';
 }
 
 async function muellScanPhoto(input) {
   const file=input.files[0]; if(!file) return;
+  const hausNr=document.getElementById('muellHausNr').value.trim();
+  if(hausNr) localStorage.setItem('af_muell_hausnr', hausNr);
   // Zeige Foto-Vorschau
   const reader=new FileReader();
   reader.onload=e=>{
@@ -1620,7 +1636,7 @@ async function muellScanPhoto(input) {
     const r=await fetch('https://api.ocr.space/parse/image',{method:'POST',body:fd});
     const d=await r.json();
     const txt=d.ParsedResults?.[0]?.ParsedText||'';
-    muellScheduleData=muellParsiere(txt);
+    muellScheduleData=muellParsiere(txt, hausNr);
     if(!muellScheduleData.length) toast('Keine Termine erkannt – bitte manuell hinzufügen');
   } catch(e) {
     muellScheduleData=[];
@@ -1629,10 +1645,57 @@ async function muellScanPhoto(input) {
   muellZeigeEdit();
 }
 
-function muellParsiere(text) {
+let muellHausNrUsed = '';
+
+function muellFilterSection(text, hausNr) {
+  if (!hausNr) return { text, filtered: false };
+  const num = parseInt(hausNr);
+  const lines = text.split('\n');
+  // Detect section breaks by house number range headers (e.g. "1 - 30", "Nr. 31-60", "Haus-Nr. 1-50")
+  const rangeRe = /(?:nr\.?|haus|hausnr\.?)?\s*(\d+)\s*[-–bis]+\s*(\d+)/i;
+  const geradeRe = /gerade/i;
+  const ungeradeRe = /ungerade/i;
+
+  let sections = [];
+  let cur = null;
+  for (const line of lines) {
+    const rm = line.match(rangeRe);
+    const isGerade = geradeRe.test(line) && !ungeradeRe.test(line);
+    const isUngerade = ungeradeRe.test(line);
+    if (rm && !isGerade && !isUngerade) {
+      const f=parseInt(rm[1]), t=parseInt(rm[2]);
+      if (t - f > 2 && t - f < 500) {
+        if (cur) sections.push(cur);
+        cur = { lines:[line], matches: num>=f && num<=t };
+        continue;
+      }
+    } else if (isGerade) {
+      if (cur) sections.push(cur);
+      cur = { lines:[line], matches: num%2===0 };
+      continue;
+    } else if (isUngerade) {
+      if (cur) sections.push(cur);
+      cur = { lines:[line], matches: num%2!==0 };
+      continue;
+    }
+    if (cur) cur.lines.push(line); else sections.push({ lines:[line], matches: true });
+  }
+  if (cur) sections.push(cur);
+
+  const matching = sections.filter(s => s.matches);
+  if (matching.length > 0 && matching.length < sections.length) {
+    return { text: matching.map(s=>s.lines.join('\n')).join('\n'), filtered: true };
+  }
+  return { text, filtered: false };
+}
+
+function muellParsiere(text, hausNr) {
+  muellHausNrUsed = hausNr || '';
+  const { text: filtered, filtered: wasFiltered } = muellFilterSection(text, hausNr);
+  const src = wasFiltered ? filtered : text;
   const year=new Date().getFullYear();
   const MONATE={januar:1,februar:2,'märz':3,april:4,mai:5,juni:6,juli:7,august:8,september:9,oktober:10,november:11,dezember:12};
-  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const lines=src.split('\n').map(l=>l.trim()).filter(Boolean);
   const groups={};
   let curType=null;
   for(const line of lines){
@@ -1641,7 +1704,6 @@ function muellParsiere(text) {
       if(t.terms.some(kw=>ll.includes(kw))){curType=t.k;break;}
     }
     if(!curType) continue;
-    // Datum-Muster: 5.1. / 05.01. / 5.Januar / 5. Jan
     const reNum=/(\d{1,2})[.\s]+(\d{1,2})\.?/g;
     let m;
     while((m=reNum.exec(line))!==null){
@@ -1654,7 +1716,6 @@ function muellParsiere(text) {
           groups[curType].dates.push(d);
       }
     }
-    // Monatsname: 5. Januar
     const reMon=new RegExp(`(\\d{1,2})\\.?\\s*(${Object.keys(MONATE).join('|')})`,'gi');
     while((m=reMon.exec(ll))!==null){
       const day=parseInt(m[1]),mon=MONATE[m[2].toLowerCase()];
@@ -1673,6 +1734,10 @@ function muellParsiere(text) {
 function muellZeigeEdit() {
   document.getElementById('muellStep2').style.display='none';
   document.getElementById('muellStep3').style.display='block';
+  const info=document.getElementById('muellHausNrInfo');
+  if(info) info.innerHTML = muellHausNrUsed
+    ? `<div style="background:rgba(76,175,125,0.08);border:1px solid rgba(76,175,125,0.2);border-radius:10px;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--green);margin-bottom:0.5rem">🏠 Hausnummer ${muellHausNrUsed} – Termine gefiltert</div>`
+    : `<div style="background:rgba(232,146,74,0.08);border:1px solid rgba(232,146,74,0.2);border-radius:10px;padding:0.5rem 0.75rem;font-size:0.72rem;color:var(--orange)">⚠️ Keine Hausnummer angegeben – alle erkannten Termine werden angezeigt</div>`;
   const forms=document.getElementById('muellEditForms');
   if(!muellScheduleData.length){
     forms.innerHTML=`<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:12px;padding:0.85rem;margin-bottom:0.85rem;font-size:0.8rem;color:var(--red)">⚠️ Keine Termine erkannt. Bitte Foto besser beleuchten oder manuell eingeben.</div>`;
@@ -1714,6 +1779,13 @@ function muellZeigeEdit() {
 function muellCheckToggle(k, checked) {
   const lbl=document.getElementById('muell-lbl-'+k);
   if(lbl){ lbl.style.borderColor=checked?'var(--gold)':'var(--border)'; lbl.style.opacity=checked?'1':'0.5'; }
+}
+
+function muellToggleAll(state) {
+  MUELL_TYPES.forEach(t=>{
+    const cb=document.getElementById('muell-cb-'+t.k);
+    if(cb){ cb.checked=state; muellCheckToggle(t.k,state); }
+  });
 }
 
 function muellAddDate(k) {
