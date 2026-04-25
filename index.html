@@ -1100,26 +1100,49 @@ function deleteRec(id){s('af_rec',g('af_rec').filter(r=>r.id!==id));toast('Gelö
 
 function freqLabel(r){const m={täglich:'Täglich',werktags:'Mo–Fr',wochenende:'Sa–So'};if(m[r.freq])return m[r.freq];if(r.freq==='wöchentlich'&&r.days?.length){const n=['So','Mo','Di','Mi','Do','Fr','Sa'];return r.days.map(d=>n[d]).join(', ');}return r.freq;}
 
+function doneRecToday(id) {
+  const recs=g('af_rec');
+  const r=recs.find(r=>r.id===id); if(!r) return;
+  const today=new Date().toLocaleDateString('de-DE');
+  const at=new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  if(r.doneToday?.date===today) {
+    // Rückgängig
+    delete r.doneToday;
+  } else {
+    r.doneToday={date:today,by:currentUser,at};
+  }
+  s('af_rec',recs); renderRec();
+}
+
 function renderRec(){
   const recs=[...g('af_rec')].sort((a,b)=>a.time.localeCompare(b.time));
+  const today=new Date().toLocaleDateString('de-DE');
   const list=document.getElementById('recList');
   if(!recs.length){list.innerHTML='<div class="empty"><div class="ei">🔄</div><div class="et">Noch keine Daueraufgaben</div></div>';return;}
-  list.innerHTML=recs.map(r=>`
-    <div class="rcard" style="${!r.active?'opacity:0.38':''}">
-      <div class="rtime">${r.time}</div>
-      <div class="rbody">
-        <div class="rtitle">${r.title}</div>
-        <div class="rmeta">
-          <span class="tag-freq">${freqLabel(r)}</span>
-          <span class="${bereichColor(r.bereich||'alle')}">${bereichLabel(r.bereich||'alle')}</span>
-          <span class="tag tag-p">${r.assign}</span>
-          ${parseInt(r.vorab||0)>0?`<span style="font-size:0.6rem;color:var(--blue)">⏰ ${parseInt(r.vorab)>=1440?'1 Tag':(parseInt(r.vorab)/60)+'h'} vorher</span>`:''}
+  list.innerHTML=recs.map(r=>{
+    const doneToday = r.doneToday?.date===today;
+    return `
+    <div class="rcard" style="flex-direction:column;align-items:stretch;${!r.active?'opacity:0.38':''}">
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:${r.active?'0.55rem':'0'}">
+        <div class="rtime">${r.time}</div>
+        <div class="rbody">
+          <div class="rtitle" style="${doneToday?'text-decoration:line-through;opacity:0.5':''}"> ${r.title}</div>
+          <div class="rmeta">
+            <span class="tag-freq">${freqLabel(r)}</span>
+            <span class="${bereichColor(r.bereich||'alle')}">${bereichLabel(r.bereich||'alle')}</span>
+            <span class="tag tag-p">${r.assign}</span>
+            ${parseInt(r.vorab||0)>0?`<span style="font-size:0.6rem;color:var(--blue)">⏰ ${parseInt(r.vorab)>=1440?'1 Tag':(parseInt(r.vorab)/60)+'h'} vorher</span>`:''}
+          </div>
         </div>
+        <button class="rtoggle" onclick="toggleRec(${r.id})">${r.active?'⏸':'▶️'}</button>
+        ${currentUser===ADMIN?`<button class="tcard-del" onclick="deleteRec(${r.id})">✕</button>`:''}
       </div>
-      <button class="rtoggle" onclick="toggleRec(${r.id})">${r.active?'⏸':'▶️'}</button>
-      <button class="tcard-del" onclick="deleteRec(${r.id})">✕</button>
-    </div>
-  `).join('');
+      ${r.active ? (doneToday
+        ? `<button class="erledigt-btn done-state" onclick="doneRecToday(${r.id})">✓ Erledigt von ${r.doneToday.by} · ${r.doneToday.at}</button>`
+        : `<button class="erledigt-btn" onclick="doneRecToday(${r.id})">✓ &nbsp; ERLEDIGT – Heute</button>`
+      ) : ''}
+    </div>`;
+  }).join('');
 }
 
 // ── ORDERS ──
