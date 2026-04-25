@@ -714,6 +714,10 @@ async function loadData() {
     DB.anleitungen = arr(data.anleitungen);
     DB.pdfs = arr(data.pdfs);
     DB.lieferanten = arr(data.lieferanten);
+    // Gemini Key aus Firebase laden falls noch nicht lokal gesetzt
+    if(data.config?.gemini_key && !localStorage.getItem('af_gemini_key')) {
+      localStorage.setItem('af_gemini_key', data.config.gemini_key);
+    }
     // Firebase-Daten auch lokal sichern (Offline-Fallback)
     localStorage.setItem('af_tasks', JSON.stringify(DB.tasks));
     localStorage.setItem('af_rec', JSON.stringify(DB.rec));
