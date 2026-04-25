@@ -170,6 +170,11 @@
     .chip.on-kueche { background:rgba(232,146,74,0.12); border-color:var(--kueche); color:var(--kueche); }
     .chip.on-service { background:rgba(91,141,238,0.12); border-color:var(--service); color:var(--service); }
     .chip.on-theke { background:rgba(155,107,204,0.12); border-color:var(--theke); color:var(--theke); }
+    .chip.on-chef { background:rgba(184,146,74,0.15); border-color:var(--gold); color:var(--gold); }
+    .chip.on-schichtleiter { background:rgba(223,192,137,0.15); border-color:#dfc089; color:#dfc089; }
+    .chip.on-koch { background:rgba(232,146,74,0.15); border-color:var(--kueche); color:var(--kueche); }
+    .chip.on-kuechenhilfe { background:rgba(232,180,122,0.15); border-color:#e8b47a; color:#e8b47a; }
+    .chip.pending { border-style:dashed; opacity:0.75; }
 
     /* Day picker */
     .daygrid { display:grid; grid-template-columns:repeat(7,1fr); gap:0.3rem; }
@@ -732,11 +737,28 @@ function showProfileSetup() {
   }
   const chips = document.getElementById('profileBereichChips');
   chips.innerHTML = '';
+  const existingP = profiles[currentUser] || {};
+  const confirmedPos = existingP.bereich;
+  const pendingPos = existingP.pendingBereich;
+  // Info-Banner wenn Anfrage aussteht
+  if (pendingPos && currentUser !== ADMIN) {
+    const info = document.createElement('p');
+    info.style.cssText = 'font-size:0.72rem;color:var(--orange);background:rgba(232,146,74,0.08);border:1px solid rgba(232,146,74,0.25);border-radius:8px;padding:0.5rem 0.7rem;margin-bottom:0.75rem;width:100%;max-width:320px';
+    info.textContent = `⏳ Anfrage für "${BLABELS[pendingPos]||pendingPos}" wartet auf Bestätigung vom Chef`;
+    document.getElementById('stepProfile').insertBefore(info, chips.parentElement.nextSibling || chips);
+  }
   [{k:'chef',l:'👑 Chef'},{k:'schichtleiter',l:'🎯 Schichtleiter'},{k:'koch',l:'🍳 Koch'},{k:'kuechenhilfe',l:'👨‍🍳 Küchenhilfe'},{k:'service',l:'🤵 Service'},{k:'theke',l:'🍺 Theke / Bar'}].forEach(b => {
     const chip = document.createElement('button');
-    chip.className = 'chip ' + (profileBereich===b.k ? 'on-'+b.k : '');
-    chip.textContent = b.l;
-    chip.onclick = () => { chips.querySelectorAll('.chip').forEach(c=>c.className='chip'); chip.className='chip on-'+b.k; profileBereich=b.k; };
+    const isConfirmed = confirmedPos === b.k;
+    const isPending = pendingPos === b.k;
+    chip.className = 'chip' + (isConfirmed ? ' on-'+b.k : isPending ? ' on-'+b.k+' pending' : '');
+    chip.innerHTML = b.l + (isConfirmed ? ' ✓' : isPending ? ' ⏳' : '');
+    chip.onclick = () => {
+      chips.querySelectorAll('.chip').forEach(c=>{ c.className='chip'; c.innerHTML=c.innerHTML.replace(/ [✓⏳]$/,''); });
+      chip.className='chip on-'+b.k;
+      chip.innerHTML=b.l+(currentUser===ADMIN?' ✓':' ⏳');
+      profileBereich=b.k;
+    };
     chips.appendChild(chip);
   });
   document.getElementById('stepPin').style.display = 'none';
@@ -744,7 +766,29 @@ function showProfileSetup() {
 }
 
 async function saveProfile() {
-  const profile = { bereich: profileBereich, photo: profilePhotoData || profiles[currentUser]?.photo || null };
+  const existingProfile = profiles[currentUser] || {};
+  const photo = profilePhotoData || existingProfile.photo || null;
+
+  // Position: Admin bestätigt direkt, Mitarbeiter stellen Anfrage
+  let approvedBereich = existingProfile.bereich || null; // bisherige bestätigte Position
+  let pendingBereich = null;
+
+  if (currentUser === ADMIN) {
+    approvedBereich = profileBereich; // Chef bestätigt sich selbst
+  } else if (profileBereich && profileBereich !== existingProfile.bereich) {
+    pendingBereich = profileBereich; // Anfrage stellen
+    // Anfrage in Firebase speichern
+    try {
+      await fetch(`${DB_URL}/positionRequests/${currentUser}.json`, {
+        method:'PUT',
+        body:JSON.stringify({position: profileBereich, by: currentUser, at: new Date().toLocaleString('de-DE')}),
+        headers:{'Content-Type':'application/json'}
+      });
+    } catch {}
+    toast('Positions-Anfrage wurde an Chef gesendet');
+  }
+
+  const profile = { bereich: approvedBereich, pendingBereich, photo };
   profiles[currentUser] = profile;
   try {
     await fetch(`${DB_URL}/profiles/${currentUser}.json`, {
@@ -1008,6 +1052,29 @@ function approveTask(id) {
 function undoTask(id) {
   const tasks=g('af_tasks'); const t=tasks.find(t=>t.id===id);
   if(t){t.done=false;t.approved=false;delete t.doneBy;delete t.doneAt;delete t.approvedBy;} s('af_tasks',tasks); render();
+}
+
+async function approvePosition(name, position) {
+  if(currentUser!==ADMIN){toast('Nur Admin kann Positionen bestätigen');return;}
+  const profileRes = await fetch(`${DB_URL}/profiles/${name}.json`);
+  const profile = await profileRes.json() || {};
+  profile.bereich = position;
+  delete profile.pendingBereich;
+  await fetch(`${DB_URL}/profiles/${name}.json`, {method:'PUT', body:JSON.stringify(profile), headers:{'Content-Type':'application/json'}});
+  await fetch(`${DB_URL}/positionRequests/${name}.json`, {method:'DELETE'});
+  toast(`✓ Position von ${name} bestätigt`);
+  openAdmin();
+}
+
+async function denyPosition(name) {
+  if(currentUser!==ADMIN){toast('Nur Admin kann Positionen ablehnen');return;}
+  const profileRes = await fetch(`${DB_URL}/profiles/${name}.json`);
+  const profile = await profileRes.json() || {};
+  delete profile.pendingBereich;
+  await fetch(`${DB_URL}/profiles/${name}.json`, {method:'PUT', body:JSON.stringify(profile), headers:{'Content-Type':'application/json'}});
+  await fetch(`${DB_URL}/positionRequests/${name}.json`, {method:'DELETE'});
+  toast(`Anfrage von ${name} abgelehnt`);
+  openAdmin();
 }
 
 function deleteTask(id) { if(currentUser!==ADMIN){toast('Nur Admin kann löschen');return;} s('af_tasks',g('af_tasks').filter(t=>t.id!==id)); toast('Aufgabe gelöscht'); render(); }
@@ -1532,21 +1599,46 @@ async function openAdmin() {
   list.innerHTML = '<p style="font-size:0.75rem;color:var(--dim)">Lade...</p>';
   document.getElementById('modal-admin').classList.add('on');
   document.body.style.overflow='hidden';
-  let pins = {};
+  let pins = {}, posReqs = {};
   try {
-    const res = await fetch(`${DB_URL}/pins.json`, {cache:'no-store'});
-    pins = await res.json() || {};
+    const [pinsRes, reqsRes] = await Promise.all([
+      fetch(`${DB_URL}/pins.json`, {cache:'no-store'}),
+      fetch(`${DB_URL}/positionRequests.json`, {cache:'no-store'})
+    ]);
+    pins = await pinsRes.json() || {};
+    posReqs = await reqsRes.json() || {};
   } catch {}
-  list.innerHTML = TEAM.map(name => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--border)">
-      <div>
-        <span style="font-size:0.88rem;font-weight:500">${name}</span>
-        ${name===ADMIN?'<span style="font-size:0.6rem;color:var(--gold);margin-left:0.4rem">ADMIN</span>':''}
-        <div style="font-size:0.65rem;color:var(--dim);margin-top:0.1rem">${pins[name]?'PIN gesetzt ✓':'Noch kein PIN'}</div>
+  // Reload profiles too
+  await loadProfiles();
+  list.innerHTML = TEAM.map(name => {
+    const p = profiles[name] || {};
+    const req = posReqs[name];
+    return `
+    <div style="padding:0.65rem 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${req?'0.45rem':'0'}">
+        <div>
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            ${p.photo?`<img src="${p.photo}" style="width:26px;height:26px;border-radius:50%;object-fit:cover">`:''}
+            <span style="font-size:0.88rem;font-weight:500">${name}</span>
+            ${name===ADMIN?'<span style="font-size:0.58rem;color:var(--gold)">ADMIN</span>':''}
+          </div>
+          <div style="font-size:0.63rem;color:var(--dim);margin-top:0.15rem">
+            ${p.bereich?`Position: ${BLABELS[p.bereich]||p.bereich} ✓`:'Keine Position'}
+            · ${pins[name]?'PIN gesetzt':'Kein PIN'}
+          </div>
+        </div>
+        ${name!==ADMIN?`<button onclick="resetPin('${name}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.6rem;font-size:0.65rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif;">PIN reset</button>`:''}
       </div>
-      ${name!==ADMIN?`<button onclick="resetPin('${name}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.7rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif;">PIN zurücksetzen</button>`:''}
-    </div>
-  `).join('');
+      ${req ? `
+        <div style="background:rgba(232,146,74,0.08);border:1px solid rgba(232,146,74,0.3);border-radius:10px;padding:0.5rem 0.7rem;display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:0.72rem;color:var(--orange)">⏳ Anfrage: <strong>${BLABELS[req.position]||req.position}</strong></div>
+          <div style="display:flex;gap:0.35rem">
+            <button onclick="approvePosition('${name}','${req.position}')" style="background:var(--green);color:#fff;border:none;border-radius:7px;padding:0.28rem 0.65rem;font-size:0.68rem;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">✓ Bestätigen</button>
+            <button onclick="denyPosition('${name}')" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.28rem 0.55rem;font-size:0.68rem;color:var(--red);cursor:pointer;font-family:Inter,sans-serif">✕</button>
+          </div>
+        </div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 async function resetPin(name) {
