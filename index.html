@@ -1735,10 +1735,16 @@ Regeln:
         })
       });
       const d = await resp.json();
-      if(d.error) { lastError = d.error.message; continue; }
+      if(d.error) { lastError = `API-Fehler (${model}): ${d.error.message}`; continue; }
       const raw = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if(!raw) { lastError = `Leere Antwort von ${model}`; continue; }
+      // JSON extrahieren
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if(!jsonMatch) { lastError = 'Kein JSON in Antwort'; continue; }
+      if(!jsonMatch) {
+        // Gemini hat geantwortet aber kein JSON – zeige die Antwort
+        lastError = `Gemini sagt: "${raw.slice(0,200)}"`;
+        continue;
+      }
       const parsed = JSON.parse(jsonMatch[0]);
       muellScheduleData = muellGeminiToSchedule(parsed);
       if(muellScheduleData.some(x=>x.dates.length>0)) {
@@ -1747,7 +1753,7 @@ Regeln:
         muellZeigeEdit();
         return;
       }
-      lastError = 'Keine Termine im Bild gefunden';
+      lastError = `Bild gelesen aber keine Termine gefunden (${model})`;
     } catch(e) { lastError = e.message; }
   }
 
