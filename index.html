@@ -667,7 +667,9 @@ const TEAM = ['Leon','Sasho','Patrik','Tea','Daniel'];
 const TEAM_ALL = ['Alle',...TEAM];
 const BEREICHE = [{k:'alle',l:'🍽️ Alle'},{k:'kueche',l:'🍳 Küche'},{k:'service',l:'🤵 Service'},{k:'theke',l:'🍺 Theke'}];
 
-let currentUser = localStorage.getItem('af_user') || null;
+function getCookie(name){return decodeURIComponent((document.cookie.match('(?:^|; )'+name+'=([^;]*)')||[])[1]||'');}
+let currentUser = localStorage.getItem('af_user') || getCookie('af_user') || null;
+if(currentUser && !localStorage.getItem('af_user')) localStorage.setItem('af_user', currentUser); // Cookie → localStorage sync
 let taskF = 'alle', orderF = 'alle', bereichF = 'alle', wikiMode = 'rezepte';
 let tAssign = 'Alle', tBereich = 'alle', rAssign = 'Alle', rBereich = 'alle';
 let notifTimer = null;
@@ -945,8 +947,11 @@ async function submitPin() {
   }
 }
 
+function setCookie(name,val,days){const d=new Date();d.setTime(d.getTime()+days*864e5);document.cookie=`${name}=${encodeURIComponent(val)};expires=${d.toUTCString()};path=/;SameSite=Lax`;}
+
 function doLogin() {
   localStorage.setItem('af_user', currentUser);
+  setCookie('af_user', currentUser, 90); // 90 Tage Cookie als Backup
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('uLabel').textContent = currentUser;
@@ -968,6 +973,7 @@ function doLogin() {
 
 function logout() {
   localStorage.removeItem('af_user');
+  setCookie('af_user','',0);
   currentUser = null;
   if (notifTimer) clearInterval(notifTimer);
   if (sseSrc) { sseSrc.close(); sseSrc = null; }
