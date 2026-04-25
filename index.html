@@ -316,6 +316,12 @@
     <div class="screen" id="s-dauerhaft">
       <div class="sh"><span class="st">Daueraufgaben</span><button class="plus" onclick="openM('rec')">+</button></div>
       <p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.85rem;line-height:1.65;">Wiederkehrende Aufgaben mit automatischer Erinnerung zur eingestellten Uhrzeit.</p>
+      <div id="muellAdminBtn" style="display:none;margin-bottom:0.85rem">
+        <button onclick="openMuellScanner()" style="width:100%;background:rgba(76,175,125,0.08);border:1.5px dashed rgba(76,175,125,0.35);border-radius:14px;padding:0.85rem;display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-family:Inter,sans-serif;color:var(--green)">
+          <span style="font-size:1.5rem">📷</span>
+          <div style="text-align:left"><div style="font-size:0.85rem;font-weight:600">Müllkalender fotografieren</div><div style="font-size:0.68rem;opacity:0.7;margin-top:0.15rem">App erkennt Termine automatisch</div></div>
+        </button>
+      </div>
       <div id="recList"></div>
     </div>
 
@@ -484,6 +490,25 @@
   </div>
 </div>
 
+<!-- MODAL: MÜLLKALENDER -->
+<div class="overlay" id="modal-muell" onclick="closeOut(event,'muell')">
+  <div class="modal">
+    <div class="mhdr">📷 Müllkalender Scanner <button class="mx" onclick="closeM('muell')">✕</button></div>
+    <div id="muellBody">
+      <p style="font-size:0.78rem;color:var(--dim);line-height:1.65;margin-bottom:1.1rem">
+        Fotografiere deinen Müllkalender – die App erkennt automatisch Restmüll, Gelbe Tonne, Papier usw. und erstellt alle Abholtermine als Aufgaben.
+      </p>
+      <input type="file" id="muellPhotoInput" accept="image/*" style="display:none" onchange="processMuellPhoto(this)">
+      <button class="sbtn" style="margin-bottom:0.6rem" onclick="document.getElementById('muellPhotoInput').click()">📷 Foto aufnehmen / auswählen</button>
+      <div style="border-top:1px solid var(--border);margin:0.85rem 0 0.75rem"></div>
+      <p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.6rem">Oder manuell eingeben:</p>
+      <div id="muellManualForms"></div>
+      <button onclick="addMuellManualRow()" style="background:none;border:1px dashed var(--border);border-radius:10px;width:100%;padding:0.65rem;font-size:0.78rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif;margin-bottom:0.85rem">+ Müllsorte hinzufügen</button>
+      <div id="muellResultArea"></div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: ADMIN -->
 <div class="overlay" id="modal-admin" onclick="closeOut(event,'admin')">
   <div class="modal">
@@ -593,8 +618,8 @@ let profiles = {};
 let profileBereich = 'kueche';
 let profilePhotoData = null;
 
-const BCOLORS = {kueche:'#e8924a',service:'#5b8dee',theke:'#9b6bcc',alle:'#555'};
-const BLABELS = {kueche:'Küche',service:'Service',theke:'Theke',alle:''};
+const BCOLORS = {chef:'#b8924a',schichtleiter:'#dfc089',koch:'#e8924a',kuechenhilfe:'#e8b47a',service:'#5b8dee',theke:'#9b6bcc',alle:'#555'};
+const BLABELS = {chef:'Chef',schichtleiter:'Schichtleiter',koch:'Koch',kuechenhilfe:'Küchenhilfe',service:'Service',theke:'Theke',alle:''};
 
 async function loadProfiles() {
   try {
@@ -630,18 +655,17 @@ function renderNameGrid() {
   });
 }
 
-function compressImage(file) {
+function compressImage(file, maxSize=180, quality=0.72) {
   return new Promise(resolve => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const size = 180;
-      const scale = Math.min(size/img.width, size/img.height, 1);
+      const scale = Math.min(maxSize/img.width, maxSize/img.height, 1);
       const c = document.createElement('canvas');
       c.width = img.width * scale; c.height = img.height * scale;
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
-      resolve(c.toDataURL('image/jpeg', 0.72));
+      resolve(c.toDataURL('image/jpeg', quality));
     };
     img.src = url;
   });
@@ -671,7 +695,7 @@ function showProfileSetup() {
   }
   const chips = document.getElementById('profileBereichChips');
   chips.innerHTML = '';
-  [{k:'kueche',l:'🍳 Küche'},{k:'service',l:'🤵 Service'},{k:'theke',l:'🍺 Theke'}].forEach(b => {
+  [{k:'chef',l:'👑 Chef'},{k:'schichtleiter',l:'🎯 Schichtleiter'},{k:'koch',l:'🍳 Koch'},{k:'kuechenhilfe',l:'👨‍🍳 Küchenhilfe'},{k:'service',l:'🤵 Service'},{k:'theke',l:'🍺 Theke / Bar'}].forEach(b => {
     const chip = document.createElement('button');
     chip.className = 'chip ' + (profileBereich===b.k ? 'on-'+b.k : '');
     chip.textContent = b.l;
@@ -764,6 +788,8 @@ function doLogin() {
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('uLabel').textContent = currentUser;
   document.getElementById('adminBtn').style.display = currentUser === ADMIN ? 'block' : 'none';
+  const muellBtn = document.getElementById('muellAdminBtn');
+  if (muellBtn) muellBtn.style.display = currentUser === ADMIN ? 'block' : 'none';
   const p = profiles[currentUser] || {};
   const uAv = document.getElementById('uAvatar');
   uAv.innerHTML = p.photo
@@ -962,7 +988,7 @@ function renderTasks() {
             <span class="tag tag-${t.prio}">${t.prio}</span>
             <span class="${bereichColor(t.bereich)}">${bereichLabel(t.bereich)}</span>
             <span class="tag tag-p">${t.assign}</span>
-            <span style="font-size:0.62rem;color:var(--dim)">${t.date}</span>
+            ${t.dueLabel?`<span style="font-size:0.62rem;background:rgba(76,175,125,0.12);color:var(--green);padding:0.08rem 0.35rem;border-radius:4px;font-weight:600">📅 ${t.dueLabel}</span>`:`<span style="font-size:0.62rem;color:var(--dim)">${t.date}</span>`}
           </div>
         </div>
         ${currentUser===ADMIN?`<button class="tcard-del" onclick="deleteTask(${t.id})">✕</button>`:''}
@@ -1145,6 +1171,174 @@ function closeDetail(){document.getElementById('detailOverlay').classList.remove
 function deleteRezept(id){s('af_rezepte',g('af_rezepte').filter(r=>r.id!==id));closeDetail();toast('Rezept gelöscht');renderWiki();}
 function deleteAnleitung(id){s('af_anleitungen',g('af_anleitungen').filter(a=>a.id!==id));closeDetail();toast('Anleitung gelöscht');renderWiki();}
 
+// ── MÜLLKALENDER SCANNER ──
+const MUELL_TYPES = [
+  {k:'rest',  l:'Restmüll',    e:'🗑️', terms:['restmüll','restabfall','rest müll','schwarze tonne','rest-müll']},
+  {k:'gelb',  l:'Gelbe Tonne', e:'♻️', terms:['gelbe tonne','gelber sack','plastik','leichtverp','lvp','wertstoff','gelbe']},
+  {k:'papier',l:'Papiertonne', e:'📰', terms:['papier','karton','altpapier','blaue tonne']},
+  {k:'bio',   l:'Biotonne',    e:'🌿', terms:['bio','kompost','bioabfall','biotonne','braune']},
+  {k:'glas',  l:'Altglas',     e:'🫙', terms:['glas','altglas']},
+];
+let muellScheduleData = [];
+
+function openMuellScanner() {
+  document.getElementById('muellResultArea').innerHTML = '';
+  document.getElementById('muellManualForms').innerHTML = '';
+  muellScheduleData = [];
+  document.getElementById('modal-muell').classList.add('on');
+  document.body.style.overflow='hidden';
+}
+
+async function processMuellPhoto(input) {
+  const file = input.files[0]; if (!file) return;
+  const area = document.getElementById('muellResultArea');
+  area.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--dim)">⏳ Kalender wird erkannt… (10–20 Sek.)</div>';
+  const b64 = await compressImage(file, 1800, 0.88);
+  const fd = new FormData();
+  fd.append('base64Image', b64);
+  fd.append('language', 'ger');
+  fd.append('apikey', 'helloworld');
+  fd.append('OCREngine', '2');
+  fd.append('isOverlayRequired', 'false');
+  try {
+    const r = await fetch('https://api.ocr.space/parse/image', {method:'POST', body:fd});
+    const d = await r.json();
+    const txt = d.ParsedResults?.[0]?.ParsedText || '';
+    if (!txt.trim()) throw new Error('Kein Text erkannt');
+    muellScheduleData = parseMuellText(txt);
+    renderMuellResult(area);
+  } catch(e) {
+    area.innerHTML = `<p style="color:var(--red);font-size:0.8rem">⚠️ Erkennung fehlgeschlagen: ${e.message}<br>Bitte manuell eingeben.</p>`;
+  }
+}
+
+function parseMuellText(text) {
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const year = new Date().getFullYear();
+  const groups = {};
+  let curType = null;
+  for (const line of lines) {
+    const ll = line.toLowerCase();
+    for (const wt of MUELL_TYPES) {
+      if (wt.terms.some(t=>ll.includes(t))) { curType=wt.k; break; }
+    }
+    if (!curType) continue;
+    const re = /(\d{1,2})[.\s]+(\d{1,2})\.?/g;
+    let m;
+    while ((m=re.exec(line))!==null) {
+      const day=parseInt(m[1]), mon=parseInt(m[2]);
+      if (day>=1&&day<=31&&mon>=1&&mon<=12) {
+        if (!groups[curType]) groups[curType]={...MUELL_TYPES.find(w=>w.k===curType), dates:[]};
+        let d=new Date(year,mon-1,day);
+        if (d<new Date(Date.now()-7*86400000)) d=new Date(year+1,mon-1,day);
+        if (!groups[curType].dates.find(x=>x.toDateString()===d.toDateString()))
+          groups[curType].dates.push(d);
+      }
+    }
+  }
+  return Object.values(groups).map(g=>({...g,dates:g.dates.sort((a,b)=>a-b)}));
+}
+
+function renderMuellResult(el) {
+  if (!muellScheduleData.length) {
+    el.innerHTML='<p style="color:var(--dim);font-size:0.8rem">Keine Termine erkannt. Bitte manuell eingeben.</p>'; return;
+  }
+  el.innerHTML = `
+    <div style="background:rgba(76,175,125,0.07);border:1px solid rgba(76,175,125,0.2);border-radius:12px;padding:0.85rem;margin-bottom:0.85rem">
+      <div style="font-size:0.72rem;font-weight:600;color:var(--green);margin-bottom:0.6rem">✓ ${muellScheduleData.reduce((s,i)=>s+i.dates.length,0)} Termine erkannt</div>
+      ${muellScheduleData.map((item,i)=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.45rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+          <div>
+            <span style="font-size:0.88rem">${item.e} ${item.l}</span>
+            <div style="font-size:0.62rem;color:var(--dim);margin-top:0.15rem">${item.dates.length} Termine · ${item.dates.slice(0,3).map(d=>d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})).join(', ')}${item.dates.length>3?' …':''}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+    <button class="sbtn" onclick="createAllMuellTasks()">✓ Alle ${muellScheduleData.reduce((s,i)=>s+i.dates.length,0)} Termine als Aufgaben erstellen</button>
+  `;
+}
+
+function addMuellManualRow() {
+  const forms = document.getElementById('muellManualForms');
+  const div = document.createElement('div');
+  div.style.cssText = 'background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.75rem;margin-bottom:0.6rem';
+  div.innerHTML = `
+    <div class="fg"><label class="fl">Müllsorte</label>
+      <select class="fsel" style="margin-bottom:0.5rem">
+        ${MUELL_TYPES.map(t=>`<option value="${t.k}">${t.e} ${t.l}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Häufigkeit</label>
+      <select class="fsel" style="margin-bottom:0.5rem">
+        <option value="7">Jede Woche</option>
+        <option value="14" selected>Alle 2 Wochen</option>
+        <option value="28">Alle 4 Wochen</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Erster Termin</label>
+      <input type="date" class="fi" style="margin-bottom:0.5rem" value="${new Date().toISOString().split('T')[0]}">
+    </div>
+    <div class="fg"><label class="fl">Anzahl Termine</label>
+      <input type="number" class="fi" value="12" min="1" max="52">
+    </div>
+    <button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--red);font-size:0.72rem;cursor:pointer;font-family:Inter,sans-serif">Entfernen</button>
+  `;
+  forms.appendChild(div);
+}
+
+function generateMuellDates(startDate, intervalDays, count) {
+  const dates = [];
+  let d = new Date(startDate);
+  for (let i=0;i<count;i++) {
+    dates.push(new Date(d));
+    d.setDate(d.getDate()+intervalDays);
+  }
+  return dates;
+}
+
+function createAllMuellTasks() {
+  // From OCR results
+  let items = [...muellScheduleData];
+  // From manual forms
+  document.querySelectorAll('#muellManualForms > div').forEach(row => {
+    const sels = row.querySelectorAll('select');
+    const inputs = row.querySelectorAll('input');
+    if (!sels.length) return;
+    const typeKey = sels[0].value;
+    const interval = parseInt(sels[1].value);
+    const startDate = inputs[0].value;
+    const count = parseInt(inputs[1].value) || 12;
+    const wt = MUELL_TYPES.find(t=>t.k===typeKey);
+    if (wt && startDate) {
+      items.push({...wt, dates: generateMuellDates(startDate, interval, count)});
+    }
+  });
+  if (!items.length) { toast('Keine Termine vorhanden'); return; }
+  const tasks = g('af_tasks');
+  let total = 0;
+  items.forEach(item => {
+    item.dates.forEach(d => {
+      const iso = d.toISOString().split('T')[0];
+      const de = d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'});
+      tasks.push({
+        id: Date.now() + Math.random(),
+        title: `${item.e} ${item.l} rausstellen`,
+        prio: 'mittel', assign:'Alle', bereich:'alle',
+        done:false, by:currentUser,
+        date: d.toLocaleDateString('de-DE'),
+        dueDate: iso,
+        dueLabel: de,
+        muell: true
+      });
+      total++;
+    });
+  });
+  s('af_tasks', tasks);
+  toast(`✓ ${total} Müll-Aufgaben erstellt`);
+  closeM('muell');
+  render();
+}
+
 // ── ADMIN PANEL ──
 async function openAdmin() {
   const list = document.getElementById('adminUserList');
@@ -1268,6 +1462,8 @@ if(currentUser){
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('uLabel').textContent=currentUser;
   document.getElementById('adminBtn').style.display = currentUser===ADMIN ? 'block' : 'none';
+  const muellBtnI = document.getElementById('muellAdminBtn');
+  if (muellBtnI) muellBtnI.style.display = currentUser===ADMIN ? 'block' : 'none';
   // Avatar aus gecachten Profilen setzen (wird nach loadProfiles aktualisiert)
   loadProfiles().then(() => {
     const p = profiles[currentUser] || {};
