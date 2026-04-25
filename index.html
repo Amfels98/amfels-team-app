@@ -218,9 +218,27 @@
   <p class="ll">Restaurant</p>
   <h1 class="lt">Am Fels</h1>
   <p class="ls">Team · App</p>
-  <p class="llab">Wer bist du?</p>
-  <div class="ngrid" id="nameGrid"></div>
-  <button class="lbtn" id="loginBtn" disabled onclick="login()">Einloggen</button>
+
+  <!-- Schritt 1: Name -->
+  <div id="stepName" style="width:100%;max-width:320px;display:flex;flex-direction:column;align-items:center;">
+    <p class="llab">Wer bist du?</p>
+    <div class="ngrid" id="nameGrid"></div>
+    <button class="lbtn" id="loginBtn" disabled onclick="goToPin()">Weiter →</button>
+  </div>
+
+  <!-- Schritt 2: PIN -->
+  <div id="stepPin" style="width:100%;max-width:320px;display:none;flex-direction:column;align-items:center;">
+    <p class="llab" id="pinLabel">PIN eingeben</p>
+    <input id="pinInput" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]*"
+      class="fi" style="max-width:320px;font-size:1.6rem;letter-spacing:0.5rem;text-align:center;margin-bottom:0.8rem"
+      placeholder="••••" oninput="this.value=this.value.replace(/\D/g,'')" onkeydown="if(event.key==='Enter')submitPin()" />
+    <input id="pinConfirm" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]*"
+      class="fi" style="max-width:320px;font-size:1.6rem;letter-spacing:0.5rem;text-align:center;margin-bottom:0.8rem;display:none"
+      placeholder="••••  bestätigen" oninput="this.value=this.value.replace(/\D/g,'')" />
+    <p id="pinError" style="color:var(--red);font-size:0.78rem;margin-bottom:0.65rem;min-height:1rem"></p>
+    <button class="lbtn" onclick="submitPin()">Einloggen</button>
+    <button onclick="backToName()" style="margin-top:0.75rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif;">← Zurück</button>
+  </div>
 </div>
 
 <!-- APP -->
@@ -552,8 +570,68 @@ TEAM.forEach((name,i) => {
   document.getElementById('nameGrid').appendChild(btn);
 });
 
-function login() {
+let pinMode = 'enter'; // 'enter' | 'create'
+
+async function goToPin() {
   if (!currentUser) return;
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinConfirm').value = '';
+  document.getElementById('pinError').textContent = '';
+  // Prüfe ob PIN in Firebase existiert
+  let hasPin = false;
+  try {
+    const res = await fetch(`${DB_URL}/pins/${currentUser}.json`, {cache:'no-store'});
+    const val = await res.json();
+    hasPin = val !== null;
+  } catch {}
+  if (hasPin) {
+    pinMode = 'enter';
+    document.getElementById('pinLabel').textContent = `PIN für ${currentUser}`;
+    document.getElementById('pinConfirm').style.display = 'none';
+  } else {
+    pinMode = 'create';
+    document.getElementById('pinLabel').textContent = `Neuen PIN erstellen für ${currentUser}`;
+    document.getElementById('pinConfirm').style.display = 'block';
+  }
+  document.getElementById('stepName').style.display = 'none';
+  document.getElementById('stepPin').style.display = 'flex';
+  setTimeout(() => document.getElementById('pinInput').focus(), 200);
+}
+
+function backToName() {
+  document.getElementById('stepPin').style.display = 'none';
+  document.getElementById('stepName').style.display = 'flex';
+}
+
+async function submitPin() {
+  const pin = document.getElementById('pinInput').value;
+  if (pin.length !== 4) { document.getElementById('pinError').textContent = 'PIN muss 4 Ziffern haben'; return; }
+  if (pinMode === 'create') {
+    const confirm = document.getElementById('pinConfirm').value;
+    if (pin !== confirm) { document.getElementById('pinError').textContent = 'PINs stimmen nicht überein'; return; }
+    try {
+      await fetch(`${DB_URL}/pins/${currentUser}.json`, {
+        method:'PUT', body:JSON.stringify(pin), headers:{'Content-Type':'application/json'}
+      });
+    } catch {}
+    doLogin();
+  } else {
+    let stored = null;
+    try {
+      const res = await fetch(`${DB_URL}/pins/${currentUser}.json`, {cache:'no-store'});
+      stored = await res.json();
+    } catch {}
+    if (String(stored) === pin) {
+      doLogin();
+    } else {
+      document.getElementById('pinError').textContent = '❌ Falscher PIN';
+      document.getElementById('pinInput').value = '';
+      document.getElementById('pinInput').focus();
+    }
+  }
+}
+
+function doLogin() {
   localStorage.setItem('af_user', currentUser);
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
@@ -572,6 +650,8 @@ function logout() {
   if (notifTimer) clearInterval(notifTimer);
   if (sseSrc) { sseSrc.close(); sseSrc = null; }
   document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('stepPin').style.display = 'none';
+  document.getElementById('stepName').style.display = 'flex';
   document.getElementById('app').classList.add('hidden');
   document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('sel'));
   document.getElementById('loginBtn').disabled = true;
