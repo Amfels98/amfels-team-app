@@ -12,368 +12,540 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --gold: #b8924a; --gold-light: #dfc089;
+      --gold: #b8924a; --gold-l: #dfc089;
       --bg: #0a0a0a; --bg2: #131313; --bg3: #1c1c1c; --bg4: #252525;
       --border: rgba(255,255,255,0.07);
-      --text: #f0ebe2; --text-dim: #666;
+      --text: #f0ebe2; --dim: #666;
       --green: #4caf7d; --red: #e05252; --blue: #5b8dee; --orange: #e8924a;
+      --kueche: #e8924a; --service: #5b8dee; --theke: #9b6bcc;
     }
-    html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; -webkit-font-smoothing: antialiased; }
+    html, body { height:100%; font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); overflow:hidden; -webkit-font-smoothing:antialiased; }
 
     /* ── LOGIN ── */
-    #loginScreen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; z-index: 1000; }
-    #loginScreen.hidden { display: none; }
-    .login-logo { font-size: 0.65rem; letter-spacing: 0.35em; color: var(--gold); text-transform: uppercase; margin-bottom: 0.5rem; }
-    .login-title { font-size: 2.4rem; font-weight: 200; color: var(--text); margin-bottom: 0.2rem; letter-spacing: -0.02em; }
-    .login-sub { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 3rem; letter-spacing: 0.05em; }
-    .login-label { font-size: 0.65rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.85rem; align-self: flex-start; width: 100%; max-width: 320px; }
-    .name-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; width: 100%; max-width: 320px; margin-bottom: 1.75rem; }
-    .name-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text-dim); padding: 1rem 0.75rem; border-radius: 14px; font-family: 'Inter', sans-serif; font-size: 0.88rem; font-weight: 500; cursor: pointer; transition: all 0.18s; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
-    .name-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; background: var(--bg4); }
-    .name-btn.selected { border-color: var(--gold); background: rgba(184,146,74,0.1); color: var(--gold); }
-    .name-btn.selected .name-avatar { background: rgba(184,146,74,0.2); }
-    .login-btn { width: 100%; max-width: 320px; background: var(--gold); color: #000; border: none; padding: 0.95rem; border-radius: 14px; font-family: 'Inter', sans-serif; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: background 0.2s; letter-spacing: 0.03em; }
-    .login-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-    .login-btn:not(:disabled):hover { background: var(--gold-light); }
+    #loginScreen { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem; z-index:1000; }
+    #loginScreen.hidden { display:none; }
+    .ll { font-size:0.62rem; letter-spacing:0.35em; color:var(--gold); text-transform:uppercase; margin-bottom:0.4rem; }
+    .lt { font-size:2.3rem; font-weight:200; letter-spacing:-0.02em; margin-bottom:0.2rem; }
+    .ls { font-size:0.72rem; color:var(--dim); margin-bottom:2.5rem; }
+    .llab { font-size:0.62rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:0.75rem; align-self:flex-start; width:100%; max-width:320px; }
+    .ngrid { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; width:100%; max-width:320px; margin-bottom:1.5rem; }
+    .nbtn { background:var(--bg3); border:1px solid var(--border); color:var(--dim); padding:0.85rem 0.75rem; border-radius:14px; font-family:'Inter',sans-serif; font-size:0.85rem; font-weight:500; cursor:pointer; transition:all 0.18s; text-align:center; display:flex; flex-direction:column; align-items:center; gap:0.35rem; }
+    .nbtn .av { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1rem; background:var(--bg4); }
+    .nbtn.sel { border-color:var(--gold); background:rgba(184,146,74,0.1); color:var(--gold); }
+    .lbtn { width:100%; max-width:320px; background:var(--gold); color:#000; border:none; padding:0.9rem; border-radius:14px; font-family:'Inter',sans-serif; font-size:0.88rem; font-weight:700; cursor:pointer; }
+    .lbtn:disabled { opacity:0.3; cursor:not-allowed; }
 
     /* ── APP ── */
-    #app { display: flex; flex-direction: column; height: 100%; height: 100dvh; }
-    #app.hidden { display: none; }
+    #app { display:flex; flex-direction:column; height:100%; height:100dvh; }
+    #app.hidden { display:none; }
 
-    .app-header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0.85rem 1.2rem 0.7rem; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; padding-top: max(0.85rem, env(safe-area-inset-top)); }
-    .header-brand { font-size: 0.88rem; font-weight: 600; color: var(--text); }
-    .header-sub { font-size: 0.65rem; color: var(--gold); letter-spacing: 0.06em; margin-top: 0.05rem; }
-    .header-right { display: flex; align-items: center; gap: 0.6rem; }
-    .header-time { font-size: 0.75rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
-    .user-chip { background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; padding: 0.32rem 0.8rem; font-size: 0.72rem; color: var(--text-dim); cursor: pointer; font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 0.35rem; }
-    .user-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    /* Header */
+    .hdr { background:var(--bg2); border-bottom:1px solid var(--border); padding:0.8rem 1.15rem 0.65rem; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; padding-top:max(0.8rem,env(safe-area-inset-top)); }
+    .hdr-brand { font-size:0.88rem; font-weight:600; }
+    .hdr-sub { font-size:0.62rem; color:var(--gold); letter-spacing:0.05em; margin-top:0.05rem; }
+    .hdr-r { display:flex; align-items:center; gap:0.55rem; }
+    .hdr-time { font-size:0.72rem; color:var(--dim); font-variant-numeric:tabular-nums; }
+    .uchip { background:var(--bg3); border:1px solid var(--border); border-radius:20px; padding:0.3rem 0.75rem; font-size:0.7rem; color:var(--dim); cursor:pointer; font-family:'Inter',sans-serif; display:flex; align-items:center; gap:0.3rem; }
+    .udot { width:6px; height:6px; border-radius:50%; background:var(--green); }
 
-    .app-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 1rem 1rem 0.75rem; }
+    /* Content */
+    .content { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0.9rem 0.9rem 0.6rem; }
 
-    /* ── BOTTOM NAV ── */
-    .bottom-nav { background: var(--bg2); border-top: 1px solid var(--border); display: flex; padding-bottom: env(safe-area-inset-bottom); flex-shrink: 0; }
-    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 0.6rem 0.2rem; cursor: pointer; color: var(--text-dim); font-size: 0.56rem; letter-spacing: 0.04em; text-transform: uppercase; gap: 0.22rem; border: none; background: none; font-family: 'Inter', sans-serif; position: relative; transition: color 0.18s; }
-    .nav-item.active { color: var(--gold); }
-    .nav-icon { font-size: 1.15rem; line-height: 1; }
-    .nav-badge { position: absolute; top: 0.35rem; right: calc(50% - 1rem); background: var(--red); color: #fff; font-size: 0.55rem; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 3px; }
+    /* Bottom Nav */
+    .bnav { background:var(--bg2); border-top:1px solid var(--border); display:flex; padding-bottom:env(safe-area-inset-bottom); flex-shrink:0; }
+    .ni { flex:1; display:flex; flex-direction:column; align-items:center; padding:0.55rem 0.2rem; cursor:pointer; color:var(--dim); font-size:0.55rem; letter-spacing:0.04em; text-transform:uppercase; gap:0.2rem; border:none; background:none; font-family:'Inter',sans-serif; position:relative; transition:color 0.18s; }
+    .ni.on { color:var(--gold); }
+    .ni-icon { font-size:1.1rem; line-height:1; }
+    .nbadge { position:absolute; top:0.3rem; right:calc(50% - 1.1rem); background:var(--red); color:#fff; font-size:0.5rem; font-weight:700; min-width:15px; height:15px; border-radius:8px; display:flex; align-items:center; justify-content:center; padding:0 2px; }
 
-    /* ── SCREENS ── */
-    .screen { display: none; }
-    .screen.active { display: block; }
+    /* Screens */
+    .screen { display:none; }
+    .screen.on { display:block; }
 
-    /* ── SECTION HEADER ── */
-    .sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.9rem; }
-    .sec-title { font-size: 1rem; font-weight: 600; }
-    .add-btn { background: var(--gold); color: #000; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0; }
+    /* Section header */
+    .sh { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.85rem; }
+    .st { font-size:0.98rem; font-weight:600; }
+    .plus { background:var(--gold); color:#000; border:none; width:29px; height:29px; border-radius:50%; font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1; }
 
-    /* ── CARDS ── */
-    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 0.85rem 0.95rem; margin-bottom: 0.55rem; display: flex; align-items: flex-start; gap: 0.8rem; transition: opacity 0.2s; }
-    .card.done { opacity: 0.35; }
-    .card.done .card-title { text-decoration: line-through; }
-    .check { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.14); flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.62rem; transition: all 0.18s; margin-top: 1px; }
-    .check.on { background: var(--green); border-color: var(--green); color: #fff; }
-    .card-body { flex: 1; min-width: 0; }
-    .card-title { font-size: 0.9rem; font-weight: 500; margin-bottom: 0.25rem; line-height: 1.35; }
-    .card-meta { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-    .tag { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.06em; padding: 0.1rem 0.42rem; border-radius: 4px; text-transform: uppercase; white-space: nowrap; }
-    .tag-hoch { background: rgba(224,82,82,0.14); color: var(--red); }
-    .tag-mittel { background: rgba(184,146,74,0.14); color: var(--gold); }
-    .tag-niedrig { background: rgba(76,175,125,0.14); color: var(--green); }
-    .tag-person { background: var(--bg4); color: var(--text-dim); }
-    .tag-date { color: var(--text-dim); font-size: 0.62rem; font-weight: 400; }
-    .del-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 0.85rem; padding: 0.2rem; opacity: 0.35; transition: all 0.18s; flex-shrink: 0; }
-    .del-btn:hover { opacity: 1; color: var(--red); }
+    /* Bereich badges */
+    .b-kueche { background:rgba(232,146,74,0.14); color:var(--kueche); }
+    .b-service { background:rgba(91,141,238,0.14); color:var(--service); }
+    .b-theke { background:rgba(155,107,204,0.14); color:var(--theke); }
+    .b-alle { background:var(--bg4); color:var(--dim); }
+
+    /* ── TASK CARDS ── */
+    .tcard { background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:0.9rem; margin-bottom:0.6rem; transition:opacity 0.2s; }
+    .tcard.done { opacity:0.35; }
+    .tcard-top { display:flex; align-items:flex-start; gap:0.7rem; margin-bottom:0.75rem; }
+    .pdot { width:7px; height:7px; border-radius:50%; flex-shrink:0; margin-top:5px; }
+    .pd-hoch { background:var(--red); }
+    .pd-mittel { background:var(--gold); }
+    .pd-niedrig { background:var(--green); }
+    .tcard-body { flex:1; min-width:0; }
+    .tcard-title { font-size:0.9rem; font-weight:500; margin-bottom:0.28rem; line-height:1.35; }
+    .tcard-title.struck { text-decoration:line-through; }
+    .tmeta { display:flex; gap:0.45rem; flex-wrap:wrap; align-items:center; }
+    .tag { font-size:0.58rem; font-weight:600; letter-spacing:0.06em; padding:0.1rem 0.4rem; border-radius:4px; text-transform:uppercase; }
+    .tag-hoch { background:rgba(224,82,82,0.14); color:var(--red); }
+    .tag-mittel { background:rgba(184,146,74,0.14); color:var(--gold); }
+    .tag-niedrig { background:rgba(76,175,125,0.14); color:var(--green); }
+    .tag-p { background:var(--bg4); color:var(--dim); }
+    .tcard-del { background:none; border:none; color:var(--dim); cursor:pointer; font-size:0.82rem; opacity:0.35; transition:opacity 0.18s; flex-shrink:0; padding:0.2rem; }
+    .tcard-del:hover { opacity:1; color:var(--red); }
+
+    /* ERLEDIGT button */
+    .erledigt-btn { width:100%; background:var(--bg3); border:1.5px solid var(--border); border-radius:10px; padding:0.65rem; font-family:'Inter',sans-serif; font-size:0.82rem; font-weight:600; color:var(--dim); cursor:pointer; transition:all 0.18s; display:flex; align-items:center; justify-content:center; gap:0.5rem; letter-spacing:0.04em; }
+    .erledigt-btn:hover { border-color:var(--green); color:var(--green); background:rgba(76,175,125,0.08); }
+    .erledigt-btn.done-state { background:rgba(76,175,125,0.1); border-color:rgba(76,175,125,0.3); color:var(--green); }
+    .done-info { font-size:0.68rem; color:var(--green); margin-top:0.45rem; text-align:center; }
 
     /* ── RECURRING CARDS ── */
-    .rec-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 0.85rem 0.95rem; margin-bottom: 0.55rem; display: flex; align-items: center; gap: 0.8rem; }
-    .rec-time-box { background: rgba(184,146,74,0.1); border: 1px solid rgba(184,146,74,0.22); border-radius: 9px; padding: 0.32rem 0.65rem; font-size: 0.9rem; font-weight: 700; color: var(--gold); min-width: 52px; text-align: center; flex-shrink: 0; font-variant-numeric: tabular-nums; }
-    .rec-body { flex: 1; min-width: 0; }
-    .rec-title { font-size: 0.9rem; font-weight: 500; margin-bottom: 0.22rem; }
-    .rec-meta { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-    .tag-freq { background: rgba(91,141,238,0.12); color: var(--blue); font-size: 0.6rem; font-weight: 600; padding: 0.1rem 0.42rem; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .rec-toggle { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.2rem; opacity: 0.5; flex-shrink: 0; transition: opacity 0.18s; }
-    .rec-toggle:hover { opacity: 1; }
+    .rcard { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:0.85rem 0.9rem; margin-bottom:0.55rem; display:flex; align-items:center; gap:0.75rem; }
+    .rtime { background:rgba(184,146,74,0.1); border:1px solid rgba(184,146,74,0.2); border-radius:8px; padding:0.3rem 0.6rem; font-size:0.88rem; font-weight:700; color:var(--gold); min-width:50px; text-align:center; flex-shrink:0; font-variant-numeric:tabular-nums; }
+    .rbody { flex:1; min-width:0; }
+    .rtitle { font-size:0.88rem; font-weight:500; margin-bottom:0.22rem; }
+    .rmeta { display:flex; gap:0.45rem; flex-wrap:wrap; align-items:center; }
+    .tag-freq { background:rgba(91,141,238,0.12); color:var(--blue); font-size:0.58rem; font-weight:600; padding:0.1rem 0.4rem; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em; }
+    .rtoggle { background:none; border:none; cursor:pointer; font-size:0.95rem; padding:0.2rem; opacity:0.5; flex-shrink:0; }
 
     /* ── ORDER CARDS ── */
-    .order-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 0.85rem 0.95rem; margin-bottom: 0.55rem; display: flex; align-items: center; gap: 0.8rem; transition: opacity 0.2s; }
-    .order-card.ordered { opacity: 0.35; }
-    .order-card.ordered .card-title { text-decoration: line-through; }
-    .qty-box { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 0.28rem 0.55rem; font-size: 0.8rem; font-weight: 600; color: var(--gold); min-width: 40px; text-align: center; flex-shrink: 0; }
+    .ocard { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:0.85rem 0.9rem; margin-bottom:0.55rem; display:flex; align-items:center; gap:0.75rem; transition:opacity 0.2s; }
+    .ocard.ord { opacity:0.35; }
+    .ocard.ord .otitle { text-decoration:line-through; }
+    .ocheck { width:22px; height:22px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.14); flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:0.62rem; transition:all 0.18s; }
+    .ocheck.on { background:var(--green); border-color:var(--green); color:#fff; }
+    .oqty { background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:0.28rem 0.5rem; font-size:0.8rem; font-weight:600; color:var(--gold); min-width:38px; text-align:center; flex-shrink:0; }
+    .otitle { font-size:0.88rem; font-weight:500; margin-bottom:0.18rem; }
+
+    /* ── WIKI (REZEPTE + ANLEITUNGEN) ── */
+    .wiki-tabs { display:flex; gap:0.45rem; margin-bottom:0.85rem; }
+    .wtab { flex:1; background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:0.6rem; font-size:0.78rem; font-weight:500; color:var(--dim); cursor:pointer; text-align:center; font-family:'Inter',sans-serif; transition:all 0.18s; }
+    .wtab.on { background:rgba(184,146,74,0.12); border-color:var(--gold); color:var(--gold); }
+    .wcard { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:0.9rem; margin-bottom:0.6rem; cursor:pointer; transition:all 0.18s; }
+    .wcard:hover { border-color:rgba(184,146,74,0.3); }
+    .wcard-title { font-size:0.92rem; font-weight:600; margin-bottom:0.25rem; }
+    .wcard-sub { font-size:0.72rem; color:var(--dim); }
+    .wcat { font-size:0.58rem; font-weight:600; padding:0.1rem 0.4rem; border-radius:4px; text-transform:uppercase; background:var(--bg4); color:var(--dim); letter-spacing:0.05em; display:inline-block; margin-bottom:0.35rem; }
+
+    /* Wiki Detail */
+    .detail-overlay { display:none; position:fixed; inset:0; background:var(--bg); z-index:300; flex-direction:column; overflow-y:auto; }
+    .detail-overlay.on { display:flex; }
+    .detail-hdr { background:var(--bg2); border-bottom:1px solid var(--border); padding:0.9rem 1rem 0.75rem; display:flex; align-items:center; gap:0.75rem; flex-shrink:0; padding-top:max(0.9rem,env(safe-area-inset-top)); }
+    .back-btn { background:var(--bg3); border:none; color:var(--text); width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .detail-body { padding:1.2rem 1rem; flex:1; }
+    .detail-title { font-size:1.4rem; font-weight:700; margin-bottom:0.5rem; line-height:1.25; }
+    .detail-section { font-size:0.65rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--gold); margin:1.2rem 0 0.5rem; }
+    .detail-text { font-size:0.88rem; color:var(--text); line-height:1.75; white-space:pre-wrap; }
+    .detail-step { display:flex; gap:0.75rem; margin-bottom:0.65rem; }
+    .step-num { width:24px; height:24px; border-radius:50%; background:rgba(184,146,74,0.15); border:1px solid rgba(184,146,74,0.3); color:var(--gold); font-size:0.72rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+    .yt-embed { position:relative; width:100%; padding-bottom:56.25%; border-radius:12px; overflow:hidden; margin:1rem 0; background:var(--bg3); }
+    .yt-embed iframe { position:absolute; inset:0; width:100%; height:100%; border:none; }
 
     /* ── STATS ── */
-    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-bottom: 1.1rem; }
-    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 0.85rem 1rem; }
-    .stat-num { font-size: 2rem; font-weight: 700; color: var(--gold); line-height: 1; margin-bottom: 0.25rem; }
-    .stat-label { font-size: 0.65rem; color: var(--text-dim); letter-spacing: 0.03em; }
-    .dash-section-label { font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); margin: 1rem 0 0.65rem; }
+    .sgrid { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; margin-bottom:1rem; }
+    .scard { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:0.8rem; }
+    .snum { font-size:1.9rem; font-weight:700; color:var(--gold); line-height:1; margin-bottom:0.22rem; }
+    .slabel { font-size:0.62rem; color:var(--dim); }
+    .dlabel { font-size:0.62rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); margin:0.85rem 0 0.55rem; }
 
     /* ── MODAL ── */
-    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.78); backdrop-filter: blur(10px); z-index: 500; align-items: flex-end; justify-content: center; }
-    .overlay.open { display: flex; }
-    .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 22px 22px 0 0; padding: 1.35rem 1.15rem max(2rem, env(safe-area-inset-bottom)); width: 100%; max-width: 500px; animation: up 0.26s ease; max-height: 92vh; overflow-y: auto; }
-    @keyframes up { from { transform: translateY(100%); } to { transform: translateY(0); } }
-    .modal-hdr { font-size: 0.98rem; font-weight: 600; margin-bottom: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
-    .modal-x { background: var(--bg3); border: none; color: var(--text-dim); width: 27px; height: 27px; border-radius: 50%; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; }
-    .fg { margin-bottom: 0.85rem; }
-    .fl { font-size: 0.65rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.32rem; display: block; }
-    .fi, .fs { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 0.72rem 0.88rem; color: var(--text); font-family: 'Inter', sans-serif; font-size: 0.92rem; outline: none; transition: border-color 0.18s; }
-    .fi:focus, .fs:focus { border-color: var(--gold); }
-    .fs option { background: var(--bg3); }
-    .submit-btn { width: 100%; background: var(--gold); color: #000; border: none; padding: 0.88rem; border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 0.88rem; font-weight: 700; cursor: pointer; margin-top: 0.35rem; transition: background 0.18s; }
-    .submit-btn:hover { background: var(--gold-light); }
+    .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(10px); z-index:500; align-items:flex-end; justify-content:center; }
+    .overlay.on { display:flex; }
+    .modal { background:var(--bg2); border:1px solid var(--border); border-radius:22px 22px 0 0; padding:1.3rem 1.1rem max(2rem,env(safe-area-inset-bottom)); width:100%; max-width:500px; animation:up 0.25s ease; max-height:92vh; overflow-y:auto; }
+    @keyframes up { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    .mhdr { font-size:0.96rem; font-weight:600; margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center; }
+    .mx { background:var(--bg3); border:none; color:var(--dim); width:26px; height:26px; border-radius:50%; cursor:pointer; font-size:0.82rem; display:flex; align-items:center; justify-content:center; }
+    .fg { margin-bottom:0.8rem; }
+    .fl { font-size:0.62rem; letter-spacing:0.09em; text-transform:uppercase; color:var(--dim); margin-bottom:0.3rem; display:block; }
+    .fi, .fsel, .fta { width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:0.7rem 0.85rem; color:var(--text); font-family:'Inter',sans-serif; font-size:0.92rem; outline:none; transition:border-color 0.18s; }
+    .fi:focus, .fsel:focus, .fta:focus { border-color:var(--gold); }
+    .fsel option { background:var(--bg3); }
+    .fta { resize:none; min-height:80px; }
+    .sbtn { width:100%; background:var(--gold); color:#000; border:none; padding:0.88rem; border-radius:12px; font-family:'Inter',sans-serif; font-size:0.86rem; font-weight:700; cursor:pointer; margin-top:0.3rem; }
 
-    /* ── ASSIGN CHIPS ── */
-    .assign-chips { display: flex; gap: 0.45rem; flex-wrap: wrap; }
-    .assign-chip { background: var(--bg3); border: 1.5px solid var(--border); border-radius: 20px; padding: 0.38rem 0.8rem; font-size: 0.78rem; font-weight: 500; color: var(--text-dim); cursor: pointer; transition: all 0.18s; font-family: 'Inter', sans-serif; }
-    .assign-chip.sel { background: rgba(184,146,74,0.12); border-color: var(--gold); color: var(--gold); }
+    /* Assign chips */
+    .chips { display:flex; gap:0.4rem; flex-wrap:wrap; }
+    .chip { background:var(--bg3); border:1.5px solid var(--border); border-radius:20px; padding:0.32rem 0.72rem; font-size:0.75rem; font-weight:500; color:var(--dim); cursor:pointer; transition:all 0.18s; font-family:'Inter',sans-serif; }
+    .chip.on { background:rgba(184,146,74,0.12); border-color:var(--gold); color:var(--gold); }
+    .chip.on-kueche { background:rgba(232,146,74,0.12); border-color:var(--kueche); color:var(--kueche); }
+    .chip.on-service { background:rgba(91,141,238,0.12); border-color:var(--service); color:var(--service); }
+    .chip.on-theke { background:rgba(155,107,204,0.12); border-color:var(--theke); color:var(--theke); }
 
-    /* ── DAYS ── */
-    .day-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem; }
-    .day-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.1rem; font-size: 0.65rem; color: var(--text-dim); cursor: pointer; text-align: center; font-family: 'Inter', sans-serif; transition: all 0.18s; }
-    .day-btn.sel { background: rgba(184,146,74,0.14); border-color: var(--gold); color: var(--gold); font-weight: 600; }
+    /* Day picker */
+    .daygrid { display:grid; grid-template-columns:repeat(7,1fr); gap:0.3rem; }
+    .dbtn { background:var(--bg3); border:1px solid var(--border); border-radius:7px; padding:0.42rem 0.1rem; font-size:0.62rem; color:var(--dim); cursor:pointer; text-align:center; font-family:'Inter',sans-serif; transition:all 0.18s; }
+    .dbtn.on { background:rgba(184,146,74,0.14); border-color:var(--gold); color:var(--gold); font-weight:600; }
 
-    /* ── FILTER CHIPS ── */
-    .filter-row { display: flex; gap: 0.4rem; margin-bottom: 0.85rem; overflow-x: auto; padding-bottom: 0.15rem; -webkit-overflow-scrolling: touch; }
-    .filter-row::-webkit-scrollbar { display: none; }
-    .fc { background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; padding: 0.28rem 0.75rem; font-size: 0.7rem; color: var(--text-dim); cursor: pointer; white-space: nowrap; font-family: 'Inter', sans-serif; transition: all 0.18s; }
-    .fc.on { background: rgba(184,146,74,0.12); border-color: var(--gold); color: var(--gold); }
+    /* Filter row */
+    .frow { display:flex; gap:0.38rem; margin-bottom:0.8rem; overflow-x:auto; padding-bottom:0.15rem; -webkit-overflow-scrolling:touch; }
+    .frow::-webkit-scrollbar { display:none; }
+    .fc { background:var(--bg3); border:1px solid var(--border); border-radius:20px; padding:0.26rem 0.72rem; font-size:0.68rem; color:var(--dim); cursor:pointer; white-space:nowrap; font-family:'Inter',sans-serif; transition:all 0.18s; }
+    .fc.on { background:rgba(184,146,74,0.12); border-color:var(--gold); color:var(--gold); }
 
-    /* ── ACTION ROW ── */
-    .action-row { display: flex; justify-content: flex-end; margin-bottom: 0.65rem; }
-    .ghost-btn { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 0.28rem 0.7rem; font-size: 0.7rem; color: var(--text-dim); cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.18s; }
-    .ghost-btn:hover { border-color: var(--red); color: var(--red); }
+    /* Action row */
+    .arow { display:flex; justify-content:flex-end; margin-bottom:0.6rem; }
+    .gbtn { background:none; border:1px solid var(--border); border-radius:8px; padding:0.25rem 0.65rem; font-size:0.68rem; color:var(--dim); cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.18s; }
+    .gbtn:hover { border-color:var(--red); color:var(--red); }
 
-    /* ── NOTIF BANNER ── */
-    .notif-bar { background: rgba(184,146,74,0.09); border: 1px solid rgba(184,146,74,0.22); border-radius: 12px; padding: 0.75rem 0.9rem; margin-bottom: 0.9rem; display: flex; align-items: center; gap: 0.7rem; }
-    .notif-bar-text { flex: 1; font-size: 0.77rem; color: var(--text); line-height: 1.4; }
-    .notif-bar-btn { background: var(--gold); color: #000; border: none; border-radius: 8px; padding: 0.4rem 0.85rem; font-size: 0.72rem; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; white-space: nowrap; }
+    /* Notif bar */
+    .nbar { background:rgba(184,146,74,0.09); border:1px solid rgba(184,146,74,0.2); border-radius:12px; padding:0.7rem 0.85rem; margin-bottom:0.85rem; display:flex; align-items:center; gap:0.65rem; }
+    .nbar-t { flex:1; font-size:0.75rem; line-height:1.4; }
+    .nbar-btn { background:var(--gold); color:#000; border:none; border-radius:8px; padding:0.38rem 0.8rem; font-size:0.7rem; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; white-space:nowrap; }
 
-    /* ── EMPTY ── */
-    .empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-dim); }
-    .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-    .empty-text { font-size: 0.82rem; line-height: 1.5; }
+    /* Empty */
+    .empty { text-align:center; padding:2.5rem 1rem; color:var(--dim); }
+    .ei { font-size:2rem; margin-bottom:0.45rem; }
+    .et { font-size:0.8rem; line-height:1.5; }
 
-    /* ── TOAST ── */
-    .toast { position: fixed; bottom: 82px; left: 50%; transform: translateX(-50%) translateY(14px); background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 0.6rem 1.1rem; font-size: 0.8rem; color: var(--text); opacity: 0; transition: all 0.25s; pointer-events: none; white-space: nowrap; z-index: 999; }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    /* Toast */
+    .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(12px); background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:0.58rem 1.1rem; font-size:0.78rem; opacity:0; transition:all 0.24s; pointer-events:none; white-space:nowrap; z-index:999; }
+    .toast.on { opacity:1; transform:translateX(-50%) translateY(0); }
 
-    /* ── PRIO INDICATOR ── */
-    .prio-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; }
-    .dot-hoch { background: var(--red); }
-    .dot-mittel { background: var(--gold); }
-    .dot-niedrig { background: var(--green); }
+    /* Bereich filter buttons */
+    .brow { display:flex; gap:0.4rem; margin-bottom:0.75rem; overflow-x:auto; }
+    .brow::-webkit-scrollbar { display:none; }
+    .bbtn { background:var(--bg3); border:1.5px solid var(--border); border-radius:20px; padding:0.3rem 0.8rem; font-size:0.7rem; font-weight:500; color:var(--dim); cursor:pointer; white-space:nowrap; font-family:'Inter',sans-serif; transition:all 0.18s; }
+    .bbtn.on-alle { background:rgba(184,146,74,0.1); border-color:var(--gold); color:var(--gold); }
+    .bbtn.on-kueche { background:rgba(232,146,74,0.12); border-color:var(--kueche); color:var(--kueche); }
+    .bbtn.on-service { background:rgba(91,141,238,0.12); border-color:var(--service); color:var(--service); }
+    .bbtn.on-theke { background:rgba(155,107,204,0.12); border-color:var(--theke); color:var(--theke); }
   </style>
 </head>
 <body>
 
 <!-- LOGIN -->
 <div id="loginScreen">
-  <p class="login-logo">Restaurant</p>
-  <h1 class="login-title">Am Fels</h1>
-  <p class="login-sub">Team · App</p>
-  <p class="login-label">Wer bist du?</p>
-  <div class="name-grid" id="nameGrid"></div>
-  <button class="login-btn" id="loginBtn" disabled onclick="login()">Einloggen</button>
+  <p class="ll">Restaurant</p>
+  <h1 class="lt">Am Fels</h1>
+  <p class="ls">Team · App</p>
+  <p class="llab">Wer bist du?</p>
+  <div class="ngrid" id="nameGrid"></div>
+  <button class="lbtn" id="loginBtn" disabled onclick="login()">Einloggen</button>
 </div>
 
 <!-- APP -->
 <div id="app" class="hidden">
-  <div class="app-header">
+  <div class="hdr">
     <div>
-      <div class="header-brand">Am Fels</div>
-      <div class="header-sub" id="headerSub">Übersicht</div>
+      <div class="hdr-brand">Am Fels</div>
+      <div class="hdr-sub" id="hdrSub">Übersicht</div>
     </div>
-    <div class="header-right">
-      <span class="header-time" id="headerTime"></span>
-      <div class="user-chip" onclick="logout()">
-        <div class="user-dot"></div>
-        <span id="userLabel">––</span>
-      </div>
+    <div class="hdr-r">
+      <span class="hdr-time" id="hdrTime"></span>
+      <div class="uchip" onclick="logout()"><div class="udot"></div><span id="uLabel">––</span></div>
     </div>
   </div>
 
-  <div class="app-content">
+  <div class="content">
 
     <!-- DASHBOARD -->
-    <div class="screen active" id="screen-dashboard">
+    <div class="screen on" id="s-dash">
       <div id="notifBar"></div>
-      <div class="stats-grid">
-        <div class="stat-card"><div class="stat-num" id="sOffen">0</div><div class="stat-label">Offene Aufgaben</div></div>
-        <div class="stat-card"><div class="stat-num" id="sMeine">0</div><div class="stat-label">Meine Aufgaben</div></div>
-        <div class="stat-card"><div class="stat-num" id="sBestellen">0</div><div class="stat-label">Zu bestellen</div></div>
-        <div class="stat-card"><div class="stat-num" id="sErledigt">0</div><div class="stat-label">Heute erledigt</div></div>
+      <div id="fbBanner"></div>
+      <div class="sgrid">
+        <div class="scard"><div class="snum" id="sO">0</div><div class="slabel">Offene Aufgaben</div></div>
+        <div class="scard"><div class="snum" id="sM">0</div><div class="slabel">Meine Aufgaben</div></div>
+        <div class="scard"><div class="snum" id="sB">0</div><div class="slabel">Zu bestellen</div></div>
+        <div class="scard"><div class="snum" id="sE">0</div><div class="slabel">Heute erledigt</div></div>
       </div>
-      <p class="dash-section-label">Dringende Aufgaben</p>
-      <div id="dashUrgent"></div>
-      <p class="dash-section-label">Heutige Daueraufgaben</p>
-      <div id="dashRec"></div>
+      <p class="dlabel">Dringende Aufgaben</p>
+      <div id="dUrgent"></div>
+      <p class="dlabel">Heute fällig</p>
+      <div id="dRec"></div>
     </div>
 
     <!-- AUFGABEN -->
-    <div class="screen" id="screen-aufgaben">
-      <div class="sec-header">
-        <span class="sec-title">Aufgaben</span>
-        <button class="add-btn" onclick="openModal('task')">+</button>
+    <div class="screen" id="s-aufgaben">
+      <div class="sh"><span class="st">Aufgaben</span><button class="plus" onclick="openM('task')">+</button></div>
+      <div class="brow" id="bereichFilter">
+        <button class="bbtn on-alle" onclick="setBF('alle',this)">🍽️ Alle</button>
+        <button class="bbtn" onclick="setBF('kueche',this)">🍳 Küche</button>
+        <button class="bbtn" onclick="setBF('service',this)">🤵 Service</button>
+        <button class="bbtn" onclick="setBF('theke',this)">🍺 Theke</button>
       </div>
-      <div class="filter-row">
+      <div class="frow">
         <button class="fc on" onclick="ftask('alle',this)">Alle</button>
         <button class="fc" onclick="ftask('meine',this)">Meine</button>
         <button class="fc" onclick="ftask('offen',this)">Offen</button>
         <button class="fc" onclick="ftask('hoch',this)">🔴 Dringend</button>
         <button class="fc" onclick="ftask('erledigt',this)">✓ Erledigt</button>
       </div>
-      <div class="action-row">
-        <button class="ghost-btn" onclick="clearDone()">Erledigte löschen</button>
-      </div>
+      <div class="arow"><button class="gbtn" onclick="clearDone()">Erledigte löschen</button></div>
       <div id="taskList"></div>
     </div>
 
     <!-- DAUERAUFGABEN -->
-    <div class="screen" id="screen-dauerhaft">
-      <div class="sec-header">
-        <span class="sec-title">Daueraufgaben</span>
-        <button class="add-btn" onclick="openModal('rec')">+</button>
-      </div>
-      <p style="font-size:0.73rem;color:var(--text-dim);margin-bottom:0.9rem;line-height:1.65;">Wiederkehrende Aufgaben — du bekommst zur eingestellten Uhrzeit eine Benachrichtigung.</p>
+    <div class="screen" id="s-dauerhaft">
+      <div class="sh"><span class="st">Daueraufgaben</span><button class="plus" onclick="openM('rec')">+</button></div>
+      <p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.85rem;line-height:1.65;">Wiederkehrende Aufgaben mit automatischer Erinnerung zur eingestellten Uhrzeit.</p>
       <div id="recList"></div>
     </div>
 
-    <!-- BESTELLUNG -->
-    <div class="screen" id="screen-bestellung">
-      <div class="sec-header">
-        <span class="sec-title">Bestellliste</span>
-        <button class="add-btn" onclick="openModal('order')">+</button>
-      </div>
-      <div class="filter-row">
+    <!-- BESTELLLISTE -->
+    <div class="screen" id="s-bestellen">
+      <div class="sh"><span class="st">Bestellliste</span><button class="plus" onclick="openM('order')">+</button></div>
+      <div class="frow">
         <button class="fc on" onclick="forder('alle',this)">Alle</button>
         <button class="fc" onclick="forder('offen',this)">Zu bestellen</button>
         <button class="fc" onclick="forder('bestellt',this)">Bestellt ✓</button>
       </div>
-      <div class="action-row">
-        <button class="ghost-btn" onclick="clearOrdered()">Bestellte löschen</button>
-      </div>
+      <div class="arow"><button class="gbtn" onclick="clearOrdered()">Bestellte löschen</button></div>
       <div id="orderList"></div>
+    </div>
+
+    <!-- WIKI -->
+    <div class="screen" id="s-wiki">
+      <div class="sh"><span class="st" id="wikiTitle">Rezepte</span><button class="plus" id="wikiAdd" onclick="openWikiAdd()">+</button></div>
+      <div class="wiki-tabs">
+        <button class="wtab on" onclick="switchWiki('rezepte',this)">📖 Rezepte</button>
+        <button class="wtab" onclick="switchWiki('anleitungen',this)">📋 Anleitungen</button>
+      </div>
+      <div id="wikiList"></div>
     </div>
 
   </div>
 
-  <nav class="bottom-nav">
-    <button class="nav-item active" onclick="switchTab('dashboard',this)" id="nav-dashboard">
-      <span class="nav-icon">🏠</span><span>Start</span>
-    </button>
-    <button class="nav-item" onclick="switchTab('aufgaben',this)" id="nav-aufgaben">
-      <span class="nav-icon">✓</span><span>Aufgaben</span>
-      <span class="nav-badge" id="badge-aufgaben" style="display:none"></span>
-    </button>
-    <button class="nav-item" onclick="switchTab('dauerhaft',this)" id="nav-dauerhaft">
-      <span class="nav-icon">🔄</span><span>Täglich</span>
-    </button>
-    <button class="nav-item" onclick="switchTab('bestellung',this)" id="nav-bestellung">
-      <span class="nav-icon">📦</span><span>Bestellen</span>
-      <span class="nav-badge" id="badge-bestellung" style="display:none"></span>
-    </button>
+  <nav class="bnav">
+    <button class="ni on" onclick="switchTab('dash',this)" id="nav-dash"><span class="ni-icon">🏠</span><span>Start</span></button>
+    <button class="ni" onclick="switchTab('aufgaben',this)" id="nav-aufgaben"><span class="ni-icon">✓</span><span>Aufgaben</span><span class="nbadge" id="badge-a" style="display:none"></span></button>
+    <button class="ni" onclick="switchTab('dauerhaft',this)" id="nav-dauerhaft"><span class="ni-icon">🔄</span><span>Täglich</span></button>
+    <button class="ni" onclick="switchTab('bestellen',this)" id="nav-bestellen"><span class="ni-icon">📦</span><span>Bestellen</span><span class="nbadge" id="badge-b" style="display:none"></span></button>
+    <button class="ni" onclick="switchTab('wiki',this)" id="nav-wiki"><span class="ni-icon">📚</span><span>Wiki</span></button>
   </nav>
+</div>
+
+<!-- DETAIL OVERLAY (Wiki) -->
+<div class="detail-overlay" id="detailOverlay">
+  <div class="detail-hdr">
+    <button class="back-btn" onclick="closeDetail()">←</button>
+    <span id="detailHdrTitle" style="font-size:0.9rem;font-weight:600;"></span>
+  </div>
+  <div class="detail-body" id="detailBody"></div>
 </div>
 
 <!-- MODAL: AUFGABE -->
 <div class="overlay" id="modal-task" onclick="closeOut(event,'task')">
   <div class="modal">
-    <div class="modal-hdr">Neue Aufgabe <button class="modal-x" onclick="closeModal('task')">✕</button></div>
-    <div class="fg"><label class="fl">Aufgabe</label><input class="fi" id="taskTitle" placeholder="Was muss gemacht werden?" /></div>
+    <div class="mhdr">Neue Aufgabe <button class="mx" onclick="closeM('task')">✕</button></div>
+    <div class="fg"><label class="fl">Aufgabe</label><input class="fi" id="tTitle" placeholder="Was muss gemacht werden?" /></div>
+    <div class="fg">
+      <label class="fl">Bereich</label>
+      <div class="chips" id="tBereichChips"></div>
+    </div>
     <div class="fg">
       <label class="fl">Priorität</label>
-      <select class="fs" id="taskPrio">
+      <select class="fsel" id="tPrio">
         <option value="mittel">Mittel</option>
         <option value="hoch">🔴 Hoch – Dringend</option>
         <option value="niedrig">Niedrig</option>
       </select>
     </div>
-    <div class="fg">
-      <label class="fl">Zuweisen an</label>
-      <div class="assign-chips" id="taskAssignChips"></div>
-    </div>
-    <button class="submit-btn" onclick="addTask()">Aufgabe erstellen</button>
+    <div class="fg"><label class="fl">Zuweisen an</label><div class="chips" id="tAssignChips"></div></div>
+    <button class="sbtn" onclick="addTask()">Aufgabe erstellen</button>
   </div>
 </div>
 
 <!-- MODAL: DAUERAUFGABE -->
 <div class="overlay" id="modal-rec" onclick="closeOut(event,'rec')">
   <div class="modal">
-    <div class="modal-hdr">Neue Daueraufgabe <button class="modal-x" onclick="closeModal('rec')">✕</button></div>
-    <div class="fg"><label class="fl">Aufgabe</label><input class="fi" id="recTitle" placeholder="z.B. Küche reinigen" /></div>
-    <div class="fg"><label class="fl">Uhrzeit</label><input class="fi" id="recTime" type="time" value="09:00" /></div>
+    <div class="mhdr">Neue Daueraufgabe <button class="mx" onclick="closeM('rec')">✕</button></div>
+    <div class="fg"><label class="fl">Aufgabe</label><input class="fi" id="rTitle" placeholder="z.B. Küche reinigen" /></div>
+    <div class="fg"><label class="fl">Uhrzeit Erinnerung</label><input class="fi" id="rTime" type="time" value="09:00" /></div>
+    <div class="fg">
+      <label class="fl">Vorab erinnern</label>
+      <select class="fsel" id="rVorab">
+        <option value="0">Nur zur Uhrzeit</option>
+        <option value="60">1 Stunde vorher</option>
+        <option value="120">2 Stunden vorher</option>
+        <option value="1440">1 Tag vorher</option>
+        <option value="2880">2 Tage vorher</option>
+      </select>
+    </div>
     <div class="fg">
       <label class="fl">Häufigkeit</label>
-      <select class="fs" id="recFreq" onchange="toggleDays()">
+      <select class="fsel" id="rFreq" onchange="toggleDays()">
         <option value="täglich">Täglich</option>
         <option value="werktags">Werktags (Mo–Fr)</option>
         <option value="wochenende">Wochenende (Sa–So)</option>
-        <option value="wöchentlich">Bestimmte Tage wählen</option>
+        <option value="wöchentlich">Bestimmte Tage</option>
       </select>
     </div>
     <div class="fg" id="dayPicker" style="display:none">
       <label class="fl">Tage</label>
-      <div class="day-grid">
-        <button class="day-btn" data-d="1" onclick="toggleDay(this)">Mo</button>
-        <button class="day-btn" data-d="2" onclick="toggleDay(this)">Di</button>
-        <button class="day-btn" data-d="3" onclick="toggleDay(this)">Mi</button>
-        <button class="day-btn" data-d="4" onclick="toggleDay(this)">Do</button>
-        <button class="day-btn" data-d="5" onclick="toggleDay(this)">Fr</button>
-        <button class="day-btn" data-d="6" onclick="toggleDay(this)">Sa</button>
-        <button class="day-btn" data-d="0" onclick="toggleDay(this)">So</button>
+      <div class="daygrid">
+        <button class="dbtn" data-d="1" onclick="toggleDay(this)">Mo</button>
+        <button class="dbtn" data-d="2" onclick="toggleDay(this)">Di</button>
+        <button class="dbtn" data-d="3" onclick="toggleDay(this)">Mi</button>
+        <button class="dbtn" data-d="4" onclick="toggleDay(this)">Do</button>
+        <button class="dbtn" data-d="5" onclick="toggleDay(this)">Fr</button>
+        <button class="dbtn" data-d="6" onclick="toggleDay(this)">Sa</button>
+        <button class="dbtn" data-d="0" onclick="toggleDay(this)">So</button>
       </div>
     </div>
     <div class="fg">
-      <label class="fl">Zuweisen an</label>
-      <div class="assign-chips" id="recAssignChips"></div>
+      <label class="fl">Bereich</label>
+      <div class="chips" id="rBereichChips"></div>
     </div>
-    <button class="submit-btn" onclick="addRec()">Speichern</button>
+    <div class="fg"><label class="fl">Zuweisen an</label><div class="chips" id="rAssignChips"></div></div>
+    <button class="sbtn" onclick="addRec()">Speichern</button>
   </div>
 </div>
 
 <!-- MODAL: BESTELLUNG -->
 <div class="overlay" id="modal-order" onclick="closeOut(event,'order')">
   <div class="modal">
-    <div class="modal-hdr">Artikel hinzufügen <button class="modal-x" onclick="closeModal('order')">✕</button></div>
-    <div class="fg"><label class="fl">Artikel</label><input class="fi" id="orderItem" placeholder="z.B. Olivenöl, Fleisch ..." /></div>
-    <div class="fg"><label class="fl">Menge</label><input class="fi" id="orderQty" placeholder="z.B. 2x · 5kg · 3 Fl." /></div>
+    <div class="mhdr">Artikel hinzufügen <button class="mx" onclick="closeM('order')">✕</button></div>
+    <div class="fg"><label class="fl">Artikel</label><input class="fi" id="oItem" placeholder="z.B. Olivenöl, Fleisch ..." /></div>
+    <div class="fg"><label class="fl">Menge</label><input class="fi" id="oQty" placeholder="z.B. 2x · 5kg · 3 Fl." /></div>
     <div class="fg">
       <label class="fl">Kategorie</label>
-      <select class="fs" id="orderCat">
-        <option>Fleisch &amp; Fisch</option>
-        <option>Gemüse &amp; Obst</option>
-        <option>Getränke</option>
-        <option>Trockenwaren</option>
-        <option>Reinigung</option>
-        <option>Sonstiges</option>
+      <select class="fsel" id="oCat">
+        <option>Fleisch &amp; Fisch</option><option>Gemüse &amp; Obst</option>
+        <option>Getränke</option><option>Trockenwaren</option>
+        <option>Reinigung</option><option>Sonstiges</option>
       </select>
     </div>
-    <button class="submit-btn" onclick="addOrder()">Hinzufügen</button>
+    <button class="sbtn" onclick="addOrder()">Hinzufügen</button>
+  </div>
+</div>
+
+<!-- MODAL: REZEPT -->
+<div class="overlay" id="modal-rezept" onclick="closeOut(event,'rezept')">
+  <div class="modal">
+    <div class="mhdr">Neues Rezept <button class="mx" onclick="closeM('rezept')">✕</button></div>
+    <div class="fg"><label class="fl">Name</label><input class="fi" id="rzName" placeholder="z.B. Cevapcici" /></div>
+    <div class="fg">
+      <label class="fl">Kategorie</label>
+      <select class="fsel" id="rzCat">
+        <option>Fleisch &amp; Grill</option><option>Fisch</option><option>Vorspeisen</option>
+        <option>Hauptgerichte</option><option>Desserts</option><option>Saucen &amp; Dips</option><option>Sonstiges</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Zutaten</label><textarea class="fta" id="rzZutaten" placeholder="Eine Zutat pro Zeile..."></textarea></div>
+    <div class="fg"><label class="fl">Zubereitung (Schritte, eine pro Zeile)</label><textarea class="fta" id="rzSchritte" placeholder="Schritt 1...&#10;Schritt 2..."></textarea></div>
+    <div class="fg"><label class="fl">YouTube-Link (optional)</label><input class="fi" id="rzYT" placeholder="https://youtube.com/..." /></div>
+    <button class="sbtn" onclick="addRezept()">Rezept speichern</button>
+  </div>
+</div>
+
+<!-- MODAL: ANLEITUNG -->
+<div class="overlay" id="modal-anleitung" onclick="closeOut(event,'anleitung')">
+  <div class="modal">
+    <div class="mhdr">Neue Anleitung <button class="mx" onclick="closeM('anleitung')">✕</button></div>
+    <div class="fg"><label class="fl">Titel</label><input class="fi" id="alTitel" placeholder="z.B. Kassensystem öffnen" /></div>
+    <div class="fg">
+      <label class="fl">Bereich</label>
+      <select class="fsel" id="alCat">
+        <option>Kassensystem</option><option>Theke</option><option>Küche</option>
+        <option>Service</option><option>Öffnung &amp; Schließung</option><option>Sonstiges</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Schritte (eine pro Zeile)</label><textarea class="fta" id="alSchritte" style="min-height:120px;" placeholder="Schritt 1: ...&#10;Schritt 2: ..."></textarea></div>
+    <div class="fg"><label class="fl">YouTube-Link (optional)</label><input class="fi" id="alYT" placeholder="https://youtube.com/..." /></div>
+    <button class="sbtn" onclick="addAnleitung()">Anleitung speichern</button>
+  </div>
+</div>
+
+<!-- MODAL: FIREBASE SETUP -->
+<div class="overlay" id="modal-fbsetup" onclick="closeOut(event,'fbsetup')">
+  <div class="modal">
+    <div class="mhdr">🔗 Firebase einrichten <button class="mx" onclick="closeM('fbsetup')">✕</button></div>
+    <p style="font-size:0.78rem;color:var(--dim);line-height:1.65;margin-bottom:1rem;">So verbindest du alle Geräte in Echtzeit:<br><br>
+      <strong style="color:var(--text)">1.</strong> Gehe zu <span style="color:var(--gold)">console.firebase.google.com</span><br>
+      <strong style="color:var(--text)">2.</strong> Dein Projekt → <em>Realtime Database</em> → <em>Datenbank erstellen</em> → Europa → <em>Im Testmodus starten</em><br>
+      <strong style="color:var(--text)">3.</strong> Kopiere die URL (z.B. <em>https://…-default-rtdb.europe-west1.firebasedatabase.app</em>)<br>
+      <strong style="color:var(--text)">4.</strong> Füge die URL unten ein und tippe auf Speichern
+    </p>
+    <div class="fg"><label class="fl">Firebase RTDB URL</label><input class="fi" id="fbUrlInput" placeholder="https://dein-projekt-default-rtdb.europe-west1.firebasedatabase.app" /></div>
+    <button class="sbtn" onclick="saveFBUrl()">Verbinden &amp; Speichern</button>
+    <button onclick="removeFBUrl()" style="width:100%;margin-top:0.5rem;background:none;border:1px solid var(--border);border-radius:12px;padding:0.7rem;font-family:Inter,sans-serif;font-size:0.8rem;color:var(--dim);cursor:pointer;">Firebase deaktivieren</button>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
+// ── FIREBASE REALTIME DATABASE SYNC ──────────────────────────────────────
+// DB_URL wird in den App-Einstellungen gesetzt und in localStorage gespeichert
+let DB_URL = localStorage.getItem('af_db_url') || null;
+// ─────────────────────────────────────────────────────────────────────────
+
 const TEAM = ['Leon','Sasho','Patrik','Tea','Daniel'];
-const TEAM_ALL = ['Alle', ...TEAM];
-let currentUser = localStorage.getItem('amfels_user') || null;
-let taskF = 'alle', orderF = 'alle';
-let taskAssign = 'Alle', recAssign = 'Alle';
+const TEAM_ALL = ['Alle',...TEAM];
+const BEREICHE = [{k:'alle',l:'🍽️ Alle'},{k:'kueche',l:'🍳 Küche'},{k:'service',l:'🤵 Service'},{k:'theke',l:'🍺 Theke'}];
+
+let currentUser = localStorage.getItem('af_user') || null;
+let taskF = 'alle', orderF = 'alle', bereichF = 'alle', wikiMode = 'rezepte';
+let tAssign = 'Alle', tBereich = 'alle', rAssign = 'Alle', rBereich = 'alle';
 let notifTimer = null;
 
-const get = k => JSON.parse(localStorage.getItem(k) || '[]');
-const set = (k,v) => localStorage.setItem(k, JSON.stringify(v));
+// ── LOCAL CACHE (synchroner Zugriff, async Firebase-Sync im Hintergrund) ──
+let DB = {tasks:[],rec:[],orders:[],rezepte:[],anleitungen:[]};
+const COLS = {af_tasks:'tasks',af_rec:'rec',af_orders:'orders',af_rezepte:'rezepte',af_anleitungen:'anleitungen'};
+
+const g = key => DB[COLS[key]] || [];
+const s = (key, val) => {
+  const col = COLS[key];
+  DB[col] = val;
+  localStorage.setItem(key, JSON.stringify(val)); // immer lokal sichern
+  if (!DB_URL) return;
+  const obj = {};
+  val.forEach(i => { obj[i.id] = i; });
+  fetch(`${DB_URL}/${col}.json`, {
+    method:'PUT', body:JSON.stringify(obj), headers:{'Content-Type':'application/json'}
+  }).catch(() => {}); // Fehler ignorieren – lokal gesichert
+};
+
+async function loadData() {
+  // Sofort lokal laden (kein Flash)
+  DB.tasks = JSON.parse(localStorage.getItem('af_tasks')||'[]');
+  DB.rec   = JSON.parse(localStorage.getItem('af_rec')||'[]');
+  DB.orders = JSON.parse(localStorage.getItem('af_orders')||'[]');
+  DB.rezepte = JSON.parse(localStorage.getItem('af_rezepte')||'[]');
+  DB.anleitungen = JSON.parse(localStorage.getItem('af_anleitungen')||'[]');
+  render();
+  if (!DB_URL) return;
+  try {
+    const res = await fetch(DB_URL + '.json', {cache:'no-store'});
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json() || {};
+    const arr = o => o ? Object.values(o) : [];
+    DB.tasks = arr(data.tasks);
+    DB.rec = arr(data.rec);
+    DB.orders = arr(data.orders);
+    DB.rezepte = arr(data.rezepte);
+    DB.anleitungen = arr(data.anleitungen);
+    // Firebase-Daten auch lokal sichern (Offline-Fallback)
+    localStorage.setItem('af_tasks', JSON.stringify(DB.tasks));
+    localStorage.setItem('af_rec', JSON.stringify(DB.rec));
+    localStorage.setItem('af_orders', JSON.stringify(DB.orders));
+    localStorage.setItem('af_rezepte', JSON.stringify(DB.rezepte));
+    localStorage.setItem('af_anleitungen', JSON.stringify(DB.anleitungen));
+    render();
+  } catch(e) { console.warn('Firebase fetch:', e); }
+}
+
+let sseSrc = null;
+function startSync() {
+  if (!DB_URL) return;
+  if (sseSrc) { sseSrc.close(); sseSrc = null; }
+  try {
+    sseSrc = new EventSource(DB_URL + '.json');
+    sseSrc.addEventListener('put', () => loadData());
+    sseSrc.addEventListener('patch', () => loadData());
+    sseSrc.onerror = () => { if(sseSrc){sseSrc.close();sseSrc=null;} setTimeout(startSync, 8000); };
+  } catch { setTimeout(startSync, 8000); }
+}
 
 // ── LOGIN ──
-const avatarEmoji = ['👨‍🍳','👨‍🍳','👩‍🍳','👩‍🍳','👨‍🍳'];
-TEAM.forEach((name, i) => {
+const EMOJIS = ['👨‍🍳','👨‍🍳','🍺','👩‍🍳','👨‍🍳'];
+TEAM.forEach((name,i) => {
   const btn = document.createElement('button');
-  btn.className = 'name-btn';
-  btn.innerHTML = `<span class="name-avatar">${avatarEmoji[i]||'👤'}</span>${name}`;
+  btn.className = 'nbtn';
+  btn.innerHTML = `<span class="av">${EMOJIS[i]}</span>${name}`;
   btn.onclick = () => {
-    document.querySelectorAll('.name-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
+    document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('sel'));
+    btn.classList.add('sel');
     currentUser = name;
     document.getElementById('loginBtn').disabled = false;
   };
@@ -382,449 +554,475 @@ TEAM.forEach((name, i) => {
 
 function login() {
   if (!currentUser) return;
-  localStorage.setItem('amfels_user', currentUser);
+  localStorage.setItem('af_user', currentUser);
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  document.getElementById('userLabel').textContent = currentUser;
-  buildAssignChips();
-  render();
+  document.getElementById('uLabel').textContent = currentUser;
+  buildAllChips();
   startClock();
-  startNotifScheduler();
-  checkNotifPermission();
+  startNotif();
+  checkNotifPerm();
+  loadData();
+  startSync();
 }
 
 function logout() {
-  localStorage.removeItem('amfels_user');
+  localStorage.removeItem('af_user');
   currentUser = null;
   if (notifTimer) clearInterval(notifTimer);
+  if (sseSrc) { sseSrc.close(); sseSrc = null; }
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('app').classList.add('hidden');
-  document.querySelectorAll('.name-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('sel'));
   document.getElementById('loginBtn').disabled = true;
 }
 
 // ── CLOCK ──
 function startClock() {
-  const el = document.getElementById('headerTime');
-  const tick = () => {
-    const now = new Date();
-    el.textContent = now.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-  };
-  tick();
-  setInterval(tick, 10000);
+  const el = document.getElementById('hdrTime');
+  const tick = () => el.textContent = new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  tick(); setInterval(tick, 10000);
 }
 
-// ── ASSIGN CHIPS ──
-function buildAssignChips() {
-  buildChips('taskAssignChips', TEAM_ALL, v => { taskAssign = v; }, 'Alle');
-  buildChips('recAssignChips', TEAM_ALL, v => { recAssign = v; }, 'Alle');
+// ── CHIPS ──
+function buildAllChips() {
+  buildChips('tBereichChips', BEREICHE.map(b=>({k:b.k,l:b.l})), v=>{tBereich=v;}, 'alle', 'bereich');
+  buildChips('tAssignChips', TEAM_ALL.map(n=>({k:n,l:n})), v=>{tAssign=v;}, 'Alle', 'assign');
+  buildChips('rBereichChips', BEREICHE.map(b=>({k:b.k,l:b.l})), v=>{rBereich=v;}, 'alle', 'bereich');
+  buildChips('rAssignChips', TEAM_ALL.map(n=>({k:n,l:n})), v=>{rAssign=v;}, 'Alle', 'assign');
 }
 
-function buildChips(containerId, options, onChange, defaultVal) {
-  const container = document.getElementById(containerId);
-  container.innerHTML = '';
-  options.forEach(opt => {
+function buildChips(id, items, onChange, def, type) {
+  const c = document.getElementById(id); c.innerHTML = '';
+  items.forEach(item => {
     const chip = document.createElement('button');
-    chip.className = 'assign-chip' + (opt === defaultVal ? ' sel' : '');
-    chip.textContent = opt;
+    chip.className = 'chip' + (item.k === def ? (type==='bereich'?' on-alle':' on') : '');
+    chip.textContent = item.l;
     chip.onclick = () => {
-      container.querySelectorAll('.assign-chip').forEach(c => c.classList.remove('sel'));
-      chip.classList.add('sel');
-      onChange(opt);
+      c.querySelectorAll('.chip').forEach(x=>x.className='chip');
+      chip.className = 'chip ' + (type==='bereich' ? 'on-'+item.k : 'on');
+      onChange(item.k);
     };
-    container.appendChild(chip);
+    c.appendChild(chip);
   });
 }
 
 // ── NAV ──
 function switchTab(tab, el) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('screen-' + tab).classList.add('active');
-  el.classList.add('active');
-  const labels = {dashboard:'Übersicht', aufgaben:'Aufgaben', dauerhaft:'Daueraufgaben', bestellung:'Bestellliste'};
-  document.getElementById('headerSub').textContent = labels[tab];
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+  document.getElementById('s-'+tab).classList.add('on');
+  el.classList.add('on');
+  const labels = {dash:'Übersicht',aufgaben:'Aufgaben',dauerhaft:'Daueraufgaben',bestellen:'Bestellliste',wiki:'Wiki'};
+  document.getElementById('hdrSub').textContent = labels[tab];
   render();
 }
 
 // ── MODALS ──
-function openModal(type) {
-  // Reset assign chips
-  if (type === 'task') {
-    taskAssign = 'Alle';
-    buildChips('taskAssignChips', TEAM_ALL, v => { taskAssign = v; }, 'Alle');
-  }
-  if (type === 'rec') {
-    recAssign = 'Alle';
-    buildChips('recAssignChips', TEAM_ALL, v => { recAssign = v; }, 'Alle');
-  }
-  document.getElementById('modal-' + type).classList.add('open');
-  document.body.style.overflow = 'hidden';
-  setTimeout(() => {
-    const m = {task:'taskTitle', rec:'recTitle', order:'orderItem'};
-    const el = document.getElementById(m[type]);
-    if (el) el.focus();
-  }, 300);
+function openM(type) {
+  if (type==='task') { tAssign='Alle'; tBereich='alle'; buildAllChips(); }
+  if (type==='rec') { rAssign='Alle'; rBereich='alle'; buildAllChips(); }
+  document.getElementById('modal-'+type).classList.add('on');
+  document.body.style.overflow='hidden';
+  setTimeout(()=>{ const m={task:'tTitle',rec:'rTitle',order:'oItem',rezept:'rzName',anleitung:'alTitel'}; const el=document.getElementById(m[type]); if(el)el.focus(); },300);
 }
-function closeModal(type) {
-  document.getElementById('modal-' + type).classList.remove('open');
-  document.body.style.overflow = '';
-}
-function closeOut(e, type) {
-  if (e.target === document.getElementById('modal-' + type)) closeModal(type);
-}
+function closeM(type) { document.getElementById('modal-'+type).classList.remove('on'); document.body.style.overflow=''; }
+function closeOut(e,type) { if(e.target===document.getElementById('modal-'+type))closeM(type); }
 
 // ── TOAST ──
 function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2400);
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on');
+  setTimeout(()=>t.classList.remove('on'),2400);
 }
 
 // ── NOTIFICATIONS ──
-function checkNotifPermission() {
-  if (!('Notification' in window)) return;
-  const bar = document.getElementById('notifBar');
-  if (Notification.permission === 'default') {
-    bar.innerHTML = `<div class="notif-bar"><div class="notif-bar-text">🔔 Benachrichtigungen aktivieren für Daueraufgaben-Erinnerungen</div><button class="notif-bar-btn" onclick="requestNotif()">Aktivieren</button></div>`;
-  } else bar.innerHTML = '';
+function checkNotifPerm() {
+  if(!('Notification' in window))return;
+  const bar=document.getElementById('notifBar');
+  if(Notification.permission==='default') {
+    bar.innerHTML=`<div class="nbar"><div class="nbar-t">🔔 Benachrichtigungen für Daueraufgaben aktivieren</div><button class="nbar-btn" onclick="reqNotif()">Aktivieren</button></div>`;
+  } else bar.innerHTML='';
 }
-function requestNotif() {
-  Notification.requestPermission().then(p => {
-    document.getElementById('notifBar').innerHTML = '';
-    toast(p === 'granted' ? '✓ Benachrichtigungen aktiviert' : 'Benachrichtigungen blockiert');
+function reqNotif() {
+  Notification.requestPermission().then(p=>{
+    document.getElementById('notifBar').innerHTML='';
+    toast(p==='granted'?'✓ Benachrichtigungen aktiv':'Benachrichtigungen blockiert');
   });
 }
-function sendNotif(title, body) {
-  if (Notification.permission === 'granted') {
-    new Notification('Am Fels – ' + title, {body});
-  }
-}
+function sendNotif(title,body) { if(Notification.permission==='granted') new Notification('Am Fels – '+title,{body}); }
 
-function startNotifScheduler() {
-  checkDueRec();
-  notifTimer = setInterval(checkDueRec, 30000);
-}
+function startNotif() { checkDue(); notifTimer=setInterval(checkDue,30000); }
 
-function checkDueRec() {
-  const recs = get('amfels_rec');
-  const now = new Date();
-  const hhmm = now.getHours() * 60 + now.getMinutes();
-  const day = now.getDay();
-  const dateStr = now.toDateString();
+function checkDue() {
+  const recs=g('af_rec'); const now=new Date();
+  const hhmm=now.getHours()*60+now.getMinutes();
+  const day=now.getDay(); const ds=now.toDateString();
 
-  recs.forEach(r => {
-    if (!r.active) return;
-    const [rh, rm] = r.time.split(':').map(Number);
-    if (Math.abs(rh * 60 + rm - hhmm) > 1) return;
-    let fire = false;
-    if (r.freq === 'täglich') fire = true;
-    else if (r.freq === 'werktags') fire = day >= 1 && day <= 5;
-    else if (r.freq === 'wochenende') fire = day === 0 || day === 6;
-    else if (r.freq === 'wöchentlich') fire = r.days?.includes(day);
-    if (!fire) return;
-    const key = 'nf_' + r.id;
-    if (localStorage.getItem(key) === dateStr) return;
-    localStorage.setItem(key, dateStr);
-    if (r.assign === 'Alle' || r.assign === currentUser) {
-      sendNotif('Erinnerung', r.title + ' · ' + r.time + ' Uhr');
-      toast('🔔 ' + r.title);
+  recs.forEach(r=>{
+    if(!r.active)return;
+    const [rh,rm]=r.time.split(':').map(Number);
+    const targetMins=rh*60+rm;
+    const vorab=parseInt(r.vorab||0);
+
+    // Check main time
+    if(Math.abs(targetMins-hhmm)<=1 && shouldFireToday(r,day)) {
+      const key='nf_'+r.id; if(localStorage.getItem(key)===ds)return;
+      localStorage.setItem(key,ds);
+      if(r.assign==='Alle'||r.assign===currentUser) { sendNotif('Erinnerung',r.title+' · '+r.time+' Uhr'); toast('🔔 '+r.title); }
+    }
+    // Check vorab reminder
+    if(vorab>0) {
+      const vorabMins=targetMins-vorab;
+      if(Math.abs(vorabMins-hhmm)<=1 && shouldFireToday(r,day)) {
+        const key='nfv_'+r.id; if(localStorage.getItem(key)===ds)return;
+        localStorage.setItem(key,ds);
+        const label=vorab>=1440?'Morgen':'In '+(vorab>=60?(vorab/60)+'h':vorab+'min');
+        if(r.assign==='Alle'||r.assign===currentUser) { sendNotif(label+': '+r.title,'Fällig um '+r.time+' Uhr'); toast('⏰ '+label+': '+r.title); }
+      }
     }
   });
 }
 
-// ── DAUERAUFGABEN ──
-function toggleDay(btn) { btn.classList.toggle('sel'); }
-function toggleDays() {
-  document.getElementById('dayPicker').style.display =
-    document.getElementById('recFreq').value === 'wöchentlich' ? 'block' : 'none';
+function shouldFireToday(r,day) {
+  if(r.freq==='täglich')return true;
+  if(r.freq==='werktags')return day>=1&&day<=5;
+  if(r.freq==='wochenende')return day===0||day===6;
+  if(r.freq==='wöchentlich')return r.days?.includes(day);
+  return false;
 }
 
-function addRec() {
-  const title = document.getElementById('recTitle').value.trim();
-  if (!title) return;
-  const freq = document.getElementById('recFreq').value;
-  const days = freq === 'wöchentlich'
-    ? [...document.querySelectorAll('#dayPicker .day-btn.sel')].map(b => parseInt(b.dataset.d))
-    : [];
-  const recs = get('amfels_rec');
-  recs.unshift({id: Date.now(), title, time: document.getElementById('recTime').value, freq, days, assign: recAssign, active: true});
-  set('amfels_rec', recs);
-  document.getElementById('recTitle').value = '';
-  document.querySelectorAll('#dayPicker .day-btn').forEach(b => b.classList.remove('sel'));
-  closeModal('rec');
-  toast('✓ Daueraufgabe gespeichert');
-  render();
+// ── BEREICH FILTER ──
+function setBF(b,el) {
+  bereichF=b;
+  document.querySelectorAll('#bereichFilter .bbtn').forEach(x=>x.className='bbtn');
+  el.className='bbtn on-'+b;
+  renderTasks();
 }
 
-function toggleRec(id) {
-  const recs = get('amfels_rec');
-  const r = recs.find(r => r.id === id);
-  if (r) r.active = !r.active;
-  set('amfels_rec', recs);
-  render();
+// ── TASKS ──
+function addTask() {
+  const title=document.getElementById('tTitle').value.trim(); if(!title)return;
+  const tasks=g('af_tasks');
+  tasks.unshift({id:Date.now(),title,prio:document.getElementById('tPrio').value,assign:tAssign,bereich:tBereich,done:false,by:currentUser,date:new Date().toLocaleDateString('de-DE')});
+  s('af_tasks',tasks);
+  document.getElementById('tTitle').value='';
+  closeM('task'); toast('✓ Aufgabe erstellt'); render();
 }
 
-function deleteRec(id) {
-  set('amfels_rec', get('amfels_rec').filter(r => r.id !== id));
-  toast('Gelöscht');
-  render();
+function markErledigt(id) {
+  const tasks=g('af_tasks');
+  const t=tasks.find(t=>t.id===id);
+  if(t&&!t.done) { t.done=true; t.doneBy=currentUser; t.doneAt=new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); t.doneDate=new Date().toLocaleDateString('de-DE'); }
+  s('af_tasks',tasks); render();
 }
 
-function freqLabel(r) {
-  const map = {täglich:'Täglich', werktags:'Mo–Fr', wochenende:'Sa–So'};
-  if (map[r.freq]) return map[r.freq];
-  if (r.freq === 'wöchentlich' && r.days?.length) {
-    const n = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-    return r.days.map(d => n[d]).join(', ');
-  }
-  return r.freq;
+function undoTask(id) {
+  const tasks=g('af_tasks'); const t=tasks.find(t=>t.id===id);
+  if(t){t.done=false;delete t.doneBy;delete t.doneAt;} s('af_tasks',tasks); render();
 }
 
-function renderRec() {
-  const recs = [...get('amfels_rec')].sort((a,b) => a.time.localeCompare(b.time));
-  const list = document.getElementById('recList');
-  if (!recs.length) { list.innerHTML = '<div class="empty"><div class="empty-icon">🔄</div><div class="empty-text">Noch keine Daueraufgaben.<br>Tippe auf + um eine anzulegen.</div></div>'; return; }
-  list.innerHTML = recs.map(r => `
-    <div class="rec-card" style="${!r.active ? 'opacity:0.38' : ''}">
-      <div class="rec-time-box">${r.time}</div>
-      <div class="rec-body">
-        <div class="rec-title">${r.title}</div>
-        <div class="rec-meta">
-          <span class="tag-freq">${freqLabel(r)}</span>
-          <span class="tag tag-person">→ ${r.assign}</span>
+function deleteTask(id) { s('af_tasks',g('af_tasks').filter(t=>t.id!==id)); toast('Aufgabe gelöscht'); render(); }
+function clearDone() { s('af_tasks',g('af_tasks').filter(t=>!t.done)); toast('Erledigte gelöscht'); render(); }
+
+function ftask(f,el) { taskF=f; document.querySelectorAll('#s-aufgaben .fc').forEach(c=>c.classList.remove('on')); el.classList.add('on'); renderTasks(); }
+
+function bereichLabel(k) { const m={alle:'Alle',kueche:'Küche',service:'Service',theke:'Theke'}; return m[k]||k; }
+function bereichColor(k) { const m={kueche:'tag b-kueche',service:'tag b-service',theke:'tag b-theke',alle:'tag b-alle'}; return m[k]||'tag b-alle'; }
+
+function renderTasks() {
+  let tasks=g('af_tasks');
+  tasks.sort((a,b)=>{ if(!a.done&&b.done)return -1; if(a.done&&!b.done)return 1; const p={hoch:0,mittel:1,niedrig:2}; return (p[a.prio]||1)-(p[b.prio]||1); });
+  if(bereichF!=='alle')tasks=tasks.filter(t=>t.bereich===bereichF||t.bereich==='alle');
+  if(taskF==='meine')tasks=tasks.filter(t=>t.assign===currentUser||t.assign==='Alle');
+  if(taskF==='offen')tasks=tasks.filter(t=>!t.done);
+  if(taskF==='erledigt')tasks=tasks.filter(t=>t.done);
+  if(taskF==='hoch')tasks=tasks.filter(t=>t.prio==='hoch'&&!t.done);
+  const list=document.getElementById('taskList');
+  if(!tasks.length){list.innerHTML='<div class="empty"><div class="ei">✓</div><div class="et">Keine Aufgaben</div></div>';return;}
+  list.innerHTML=tasks.map(t=>`
+    <div class="tcard ${t.done?'done':''}">
+      <div class="tcard-top">
+        <div class="pdot pd-${t.prio}"></div>
+        <div class="tcard-body">
+          <div class="tcard-title ${t.done?'struck':''}">${t.title}</div>
+          <div class="tmeta">
+            <span class="tag tag-${t.prio}">${t.prio}</span>
+            <span class="${bereichColor(t.bereich)}">${bereichLabel(t.bereich)}</span>
+            <span class="tag tag-p">${t.assign}</span>
+            <span style="font-size:0.62rem;color:var(--dim)">${t.date}</span>
+          </div>
         </div>
+        <button class="tcard-del" onclick="deleteTask(${t.id})">✕</button>
       </div>
-      <button class="rec-toggle" onclick="toggleRec(${r.id})" title="${r.active?'Pausieren':'Aktivieren'}">${r.active?'⏸':'▶️'}</button>
-      <button class="del-btn" onclick="deleteRec(${r.id})">✕</button>
+      ${t.done
+        ? `<button class="erledigt-btn done-state" onclick="undoTask(${t.id})">✓ Erledigt von ${t.doneBy} · ${t.doneAt}</button>`
+        : `<button class="erledigt-btn" onclick="markErledigt(${t.id})">✓ &nbsp; ERLEDIGT</button>`
+      }
     </div>
   `).join('');
 }
 
-// ── AUFGABEN ──
-function addTask() {
-  const title = document.getElementById('taskTitle').value.trim();
-  if (!title) return;
-  const tasks = get('amfels_tasks');
-  tasks.unshift({id: Date.now(), title, prio: document.getElementById('taskPrio').value, assign: taskAssign, done: false, by: currentUser, date: new Date().toLocaleDateString('de-DE')});
-  set('amfels_tasks', tasks);
-  document.getElementById('taskTitle').value = '';
-  closeModal('task');
-  toast('✓ Aufgabe erstellt');
-  render();
+// ── RECURRING ──
+function toggleDay(btn){btn.classList.toggle('on');}
+function toggleDays(){document.getElementById('dayPicker').style.display=document.getElementById('rFreq').value==='wöchentlich'?'block':'none';}
+
+function addRec() {
+  const title=document.getElementById('rTitle').value.trim(); if(!title)return;
+  const freq=document.getElementById('rFreq').value;
+  const days=freq==='wöchentlich'?[...document.querySelectorAll('#dayPicker .dbtn.on')].map(b=>parseInt(b.dataset.d)):[];
+  const recs=g('af_rec');
+  recs.unshift({id:Date.now(),title,time:document.getElementById('rTime').value,vorab:document.getElementById('rVorab').value,freq,days,bereich:rBereich,assign:rAssign,active:true});
+  s('af_rec',recs);
+  document.getElementById('rTitle').value='';
+  document.querySelectorAll('#dayPicker .dbtn').forEach(b=>b.classList.remove('on'));
+  closeM('rec'); toast('✓ Daueraufgabe gespeichert'); render();
 }
 
-function toggleTask(id) {
-  const tasks = get('amfels_tasks');
-  const t = tasks.find(t => t.id === id);
-  if (t) { t.done = !t.done; t.doneDate = t.done ? new Date().toLocaleDateString('de-DE') : null; }
-  set('amfels_tasks', tasks);
-  render();
-}
+function toggleRec(id){const recs=g('af_rec');const r=recs.find(r=>r.id===id);if(r)r.active=!r.active;s('af_rec',recs);render();}
+function deleteRec(id){s('af_rec',g('af_rec').filter(r=>r.id!==id));toast('Gelöscht');render();}
 
-function deleteTask(id) {
-  set('amfels_tasks', get('amfels_tasks').filter(t => t.id !== id));
-  toast('Aufgabe gelöscht');
-  render();
-}
+function freqLabel(r){const m={täglich:'Täglich',werktags:'Mo–Fr',wochenende:'Sa–So'};if(m[r.freq])return m[r.freq];if(r.freq==='wöchentlich'&&r.days?.length){const n=['So','Mo','Di','Mi','Do','Fr','Sa'];return r.days.map(d=>n[d]).join(', ');}return r.freq;}
 
-function clearDone() {
-  const tasks = get('amfels_tasks').filter(t => !t.done);
-  set('amfels_tasks', tasks);
-  toast('Erledigte Aufgaben gelöscht');
-  render();
-}
-
-function ftask(f, el) {
-  taskF = f;
-  document.querySelectorAll('#screen-aufgaben .fc').forEach(c => c.classList.remove('on'));
-  el.classList.add('on');
-  renderTasks();
-}
-
-function renderTasks() {
-  let tasks = get('amfels_tasks');
-  // Sort: high prio first, then undone first, then by date
-  tasks.sort((a,b) => {
-    if (!a.done && b.done) return -1;
-    if (a.done && !b.done) return 1;
-    const p = {hoch:0, mittel:1, niedrig:2};
-    return (p[a.prio]||1) - (p[b.prio]||1);
-  });
-  if (taskF === 'meine') tasks = tasks.filter(t => t.assign === currentUser || t.assign === 'Alle');
-  if (taskF === 'offen') tasks = tasks.filter(t => !t.done);
-  if (taskF === 'erledigt') tasks = tasks.filter(t => t.done);
-  if (taskF === 'hoch') tasks = tasks.filter(t => t.prio === 'hoch' && !t.done);
-  const list = document.getElementById('taskList');
-  if (!tasks.length) { list.innerHTML = '<div class="empty"><div class="empty-icon">✓</div><div class="empty-text">Keine Aufgaben</div></div>'; return; }
-  list.innerHTML = tasks.map(t => `
-    <div class="card ${t.done?'done':''}">
-      <div class="prio-dot dot-${t.prio}"></div>
-      <div class="check ${t.done?'on':''}" onclick="toggleTask(${t.id})">${t.done?'✓':''}</div>
-      <div class="card-body">
-        <div class="card-title">${t.title}</div>
-        <div class="card-meta">
-          <span class="tag tag-${t.prio}">${t.prio}</span>
-          <span class="tag tag-person">${t.assign}</span>
-          <span class="tag-date">${t.date}</span>
+function renderRec(){
+  const recs=[...g('af_rec')].sort((a,b)=>a.time.localeCompare(b.time));
+  const list=document.getElementById('recList');
+  if(!recs.length){list.innerHTML='<div class="empty"><div class="ei">🔄</div><div class="et">Noch keine Daueraufgaben</div></div>';return;}
+  list.innerHTML=recs.map(r=>`
+    <div class="rcard" style="${!r.active?'opacity:0.38':''}">
+      <div class="rtime">${r.time}</div>
+      <div class="rbody">
+        <div class="rtitle">${r.title}</div>
+        <div class="rmeta">
+          <span class="tag-freq">${freqLabel(r)}</span>
+          <span class="${bereichColor(r.bereich||'alle')}">${bereichLabel(r.bereich||'alle')}</span>
+          <span class="tag tag-p">${r.assign}</span>
+          ${parseInt(r.vorab||0)>0?`<span style="font-size:0.6rem;color:var(--blue)">⏰ ${parseInt(r.vorab)>=1440?'1 Tag':(parseInt(r.vorab)/60)+'h'} vorher</span>`:''}
         </div>
       </div>
-      <button class="del-btn" onclick="deleteTask(${t.id})">✕</button>
+      <button class="rtoggle" onclick="toggleRec(${r.id})">${r.active?'⏸':'▶️'}</button>
+      <button class="tcard-del" onclick="deleteRec(${r.id})">✕</button>
     </div>
   `).join('');
 }
 
 // ── ORDERS ──
-function addOrder() {
-  const item = document.getElementById('orderItem').value.trim();
-  if (!item) return;
-  const orders = get('amfels_orders');
-  orders.unshift({id: Date.now(), item, qty: document.getElementById('orderQty').value || '1x', cat: document.getElementById('orderCat').value, ordered: false, by: currentUser, date: new Date().toLocaleDateString('de-DE')});
-  set('amfels_orders', orders);
-  document.getElementById('orderItem').value = '';
-  document.getElementById('orderQty').value = '';
-  closeModal('order');
-  toast('✓ Artikel hinzugefügt');
-  render();
+function addOrder(){
+  const item=document.getElementById('oItem').value.trim();if(!item)return;
+  const orders=g('af_orders');
+  orders.unshift({id:Date.now(),item,qty:document.getElementById('oQty').value||'1x',cat:document.getElementById('oCat').value,ordered:false,by:currentUser,date:new Date().toLocaleDateString('de-DE')});
+  s('af_orders',orders);
+  document.getElementById('oItem').value=''; document.getElementById('oQty').value='';
+  closeM('order');toast('✓ Artikel hinzugefügt');render();
 }
+function toggleOrder(id){const o=g('af_orders');const x=o.find(o=>o.id===id);if(x)x.ordered=!x.ordered;s('af_orders',o);render();}
+function deleteOrder(id){s('af_orders',g('af_orders').filter(o=>o.id!==id));toast('Gelöscht');render();}
+function clearOrdered(){s('af_orders',g('af_orders').filter(o=>!o.ordered));toast('Bestellte gelöscht');render();}
+function forder(f,el){orderF=f;document.querySelectorAll('#s-bestellen .fc').forEach(c=>c.classList.remove('on'));el.classList.add('on');renderOrders();}
 
-function toggleOrder(id) {
-  const orders = get('amfels_orders');
-  const o = orders.find(o => o.id === id);
-  if (o) o.ordered = !o.ordered;
-  set('amfels_orders', orders);
-  render();
-}
-
-function deleteOrder(id) {
-  set('amfels_orders', get('amfels_orders').filter(o => o.id !== id));
-  toast('Artikel gelöscht');
-  render();
-}
-
-function clearOrdered() {
-  set('amfels_orders', get('amfels_orders').filter(o => !o.ordered));
-  toast('Bestellte Artikel gelöscht');
-  render();
-}
-
-function forder(f, el) {
-  orderF = f;
-  document.querySelectorAll('#screen-bestellung .fc').forEach(c => c.classList.remove('on'));
-  el.classList.add('on');
-  renderOrders();
-}
-
-function renderOrders() {
-  let orders = get('amfels_orders');
-  if (orderF === 'offen') orders = orders.filter(o => !o.ordered);
-  if (orderF === 'bestellt') orders = orders.filter(o => o.ordered);
-  const list = document.getElementById('orderList');
-  if (!orders.length) { list.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Keine Artikel</div></div>'; return; }
-  list.innerHTML = orders.map(o => `
-    <div class="order-card ${o.ordered?'ordered':''}">
-      <div class="check ${o.ordered?'on':''}" onclick="toggleOrder(${o.id})">${o.ordered?'✓':''}</div>
-      <div class="qty-box">${o.qty}</div>
-      <div class="card-body">
-        <div class="card-title">${o.item}</div>
-        <div class="card-meta">
-          <span class="tag tag-person">${o.cat}</span>
-          <span class="tag-date">von ${o.by}</span>
-        </div>
+function renderOrders(){
+  let orders=g('af_orders');
+  if(orderF==='offen')orders=orders.filter(o=>!o.ordered);
+  if(orderF==='bestellt')orders=orders.filter(o=>o.ordered);
+  const list=document.getElementById('orderList');
+  if(!orders.length){list.innerHTML='<div class="empty"><div class="ei">📦</div><div class="et">Keine Artikel</div></div>';return;}
+  list.innerHTML=orders.map(o=>`
+    <div class="ocard ${o.ordered?'ord':''}">
+      <div class="ocheck ${o.ordered?'on':''}" onclick="toggleOrder(${o.id})">${o.ordered?'✓':''}</div>
+      <div class="oqty">${o.qty}</div>
+      <div style="flex:1;min-width:0">
+        <div class="otitle">${o.item}</div>
+        <div class="rmeta"><span class="tag tag-p">${o.cat}</span><span style="font-size:0.62rem;color:var(--dim)">von ${o.by}</span></div>
       </div>
-      <button class="del-btn" onclick="deleteOrder(${o.id})">✕</button>
+      <button class="tcard-del" onclick="deleteOrder(${o.id})">✕</button>
     </div>
   `).join('');
 }
 
+// ── WIKI ──
+let wikiType = 'rezepte';
+function switchWiki(type,el){
+  wikiType=type;
+  document.querySelectorAll('.wtab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('wikiTitle').textContent=type==='rezepte'?'Rezepte':'Anleitungen';
+  renderWiki();
+}
+function openWikiAdd(){openM(wikiType==='rezepte'?'rezept':'anleitung');}
+
+function addRezept(){
+  const name=document.getElementById('rzName').value.trim();if(!name)return;
+  const list=g('af_rezepte');
+  list.unshift({id:Date.now(),name,cat:document.getElementById('rzCat').value,zutaten:document.getElementById('rzZutaten').value,schritte:document.getElementById('rzSchritte').value,yt:document.getElementById('rzYT').value,by:currentUser});
+  s('af_rezepte',list);
+  ['rzName','rzZutaten','rzSchritte','rzYT'].forEach(id=>document.getElementById(id).value='');
+  closeM('rezept');toast('✓ Rezept gespeichert');renderWiki();
+}
+
+function addAnleitung(){
+  const titel=document.getElementById('alTitel').value.trim();if(!titel)return;
+  const list=g('af_anleitungen');
+  list.unshift({id:Date.now(),titel,cat:document.getElementById('alCat').value,schritte:document.getElementById('alSchritte').value,yt:document.getElementById('alYT').value,by:currentUser});
+  s('af_anleitungen',list);
+  ['alTitel','alSchritte','alYT'].forEach(id=>document.getElementById(id).value='');
+  closeM('anleitung');toast('✓ Anleitung gespeichert');renderWiki();
+}
+
+function renderWiki(){
+  const list=document.getElementById('wikiList');
+  if(wikiType==='rezepte'){
+    const rz=g('af_rezepte');
+    if(!rz.length){list.innerHTML='<div class="empty"><div class="ei">📖</div><div class="et">Noch keine Rezepte.<br>Tippe auf + um eines anzulegen.</div></div>';return;}
+    list.innerHTML=rz.map(r=>`
+      <div class="wcard" onclick="showRezept(${r.id})">
+        <span class="wcat">${r.cat}</span>
+        <div class="wcard-title">${r.name}</div>
+        <div class="wcard-sub">${r.zutaten.split('\n').filter(Boolean).length} Zutaten · von ${r.by}</div>
+      </div>
+    `).join('');
+  } else {
+    const al=g('af_anleitungen');
+    if(!al.length){list.innerHTML='<div class="empty"><div class="ei">📋</div><div class="et">Noch keine Anleitungen.<br>Tippe auf + um eine anzulegen.</div></div>';return;}
+    list.innerHTML=al.map(a=>`
+      <div class="wcard" onclick="showAnleitung(${a.id})">
+        <span class="wcat">${a.cat}</span>
+        <div class="wcard-title">${a.titel}</div>
+        <div class="wcard-sub">${a.schritte.split('\n').filter(Boolean).length} Schritte · von ${a.by}</div>
+      </div>
+    `).join('');
+  }
+}
+
+function getYTId(url){try{const u=new URL(url);return u.searchParams.get('v')||u.pathname.split('/').pop();}catch{return null;}}
+
+function showRezept(id){
+  const r=g('af_rezepte').find(r=>r.id===id);if(!r)return;
+  document.getElementById('detailHdrTitle').textContent=r.name;
+  const ytId=r.yt?getYTId(r.yt):null;
+  document.getElementById('detailBody').innerHTML=`
+    <div class="detail-title">${r.name}</div>
+    <span class="wcat">${r.cat}</span>
+    ${ytId?`<div class="yt-embed"><iframe src="https://www.youtube.com/embed/${ytId}" allowfullscreen></iframe></div>`:''}
+    <p class="detail-section">Zutaten</p>
+    <p class="detail-text">${r.zutaten||'–'}</p>
+    <p class="detail-section">Zubereitung</p>
+    ${r.schritte.split('\n').filter(Boolean).map((step,i)=>`<div class="detail-step"><div class="step-num">${i+1}</div><div class="detail-text" style="flex:1">${step}</div></div>`).join('')}
+    <p style="margin-top:2rem;font-size:0.68rem;color:var(--dim)">Hinzugefügt von ${r.by}</p>
+    <button onclick="deleteRezept(${r.id})" style="margin-top:1rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;font-size:0.75rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif;">Rezept löschen</button>
+  `;
+  document.getElementById('detailOverlay').classList.add('on');
+}
+
+function showAnleitung(id){
+  const a=g('af_anleitungen').find(a=>a.id===id);if(!a)return;
+  document.getElementById('detailHdrTitle').textContent=a.titel;
+  const ytId=a.yt?getYTId(a.yt):null;
+  document.getElementById('detailBody').innerHTML=`
+    <div class="detail-title">${a.titel}</div>
+    <span class="wcat">${a.cat}</span>
+    ${ytId?`<div class="yt-embed"><iframe src="https://www.youtube.com/embed/${ytId}" allowfullscreen></iframe></div>`:''}
+    <p class="detail-section">Schritte</p>
+    ${a.schritte.split('\n').filter(Boolean).map((step,i)=>`<div class="detail-step"><div class="step-num">${i+1}</div><div class="detail-text" style="flex:1">${step}</div></div>`).join('')}
+    <p style="margin-top:2rem;font-size:0.68rem;color:var(--dim)">Hinzugefügt von ${a.by}</p>
+    <button onclick="deleteAnleitung(${a.id})" style="margin-top:1rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;font-size:0.75rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif;">Anleitung löschen</button>
+  `;
+  document.getElementById('detailOverlay').classList.add('on');
+}
+
+function closeDetail(){document.getElementById('detailOverlay').classList.remove('on');}
+function deleteRezept(id){s('af_rezepte',g('af_rezepte').filter(r=>r.id!==id));closeDetail();toast('Rezept gelöscht');renderWiki();}
+function deleteAnleitung(id){s('af_anleitungen',g('af_anleitungen').filter(a=>a.id!==id));closeDetail();toast('Anleitung gelöscht');renderWiki();}
+
+// ── FIREBASE SETUP ──
+function showFBSetup(){
+  document.getElementById('fbUrlInput').value = DB_URL || '';
+  document.getElementById('modal-fbsetup').classList.add('on');
+  document.body.style.overflow='hidden';
+}
+function saveFBUrl(){
+  const url = document.getElementById('fbUrlInput').value.trim().replace(/\/+$/, '');
+  if (!url) return;
+  DB_URL = url + '/amfels';
+  localStorage.setItem('af_db_url', DB_URL);
+  closeM('fbsetup');
+  toast('✓ Firebase verbunden! Lade Daten...');
+  loadData();
+  startSync();
+  renderDash();
+}
+function removeFBUrl(){
+  DB_URL = null;
+  localStorage.removeItem('af_db_url');
+  if (sseSrc) { sseSrc.close(); sseSrc = null; }
+  closeM('fbsetup');
+  toast('Firebase deaktiviert');
+  renderDash();
+}
+
 // ── DASHBOARD ──
-function renderDashboard() {
-  const tasks = get('amfels_tasks');
-  const orders = get('amfels_orders');
-  const recs = get('amfels_rec');
-  const today = new Date().toLocaleDateString('de-DE');
-  const day = new Date().getDay();
-
-  const offen = tasks.filter(t => !t.done).length;
-  const meine = tasks.filter(t => !t.done && (t.assign === currentUser || t.assign === 'Alle')).length;
-  const bestellen = orders.filter(o => !o.ordered).length;
-  const erledigt = tasks.filter(t => t.done && t.doneDate === today).length;
-
-  document.getElementById('sOffen').textContent = offen;
-  document.getElementById('sMeine').textContent = meine;
-  document.getElementById('sBestellen').textContent = bestellen;
-  document.getElementById('sErledigt').textContent = erledigt;
-
-  // Badges
-  const bA = document.getElementById('badge-aufgaben');
-  bA.textContent = offen; bA.style.display = offen > 0 ? 'flex' : 'none';
-  const bB = document.getElementById('badge-bestellung');
-  bB.textContent = bestellen; bB.style.display = bestellen > 0 ? 'flex' : 'none';
-
-  // Urgent tasks
-  const urgent = tasks.filter(t => t.prio === 'hoch' && !t.done).slice(0,4);
-  const du = document.getElementById('dashUrgent');
-  du.innerHTML = urgent.length ? urgent.map(t => `
-    <div class="card">
-      <div class="prio-dot dot-hoch"></div>
-      <div class="check" onclick="toggleTask(${t.id})"></div>
-      <div class="card-body">
-        <div class="card-title">${t.title}</div>
-        <div class="card-meta"><span class="tag tag-hoch">dringend</span><span class="tag tag-person">${t.assign}</span></div>
+function renderDash(){
+  const tasks=g('af_tasks'); const orders=g('af_orders'); const recs=g('af_rec');
+  const today=new Date().toLocaleDateString('de-DE'); const day=new Date().getDay();
+  const offen=tasks.filter(t=>!t.done).length;
+  const meine=tasks.filter(t=>!t.done&&(t.assign===currentUser||t.assign==='Alle')).length;
+  const bestellen=orders.filter(o=>!o.ordered).length;
+  const erledigt=tasks.filter(t=>t.done&&t.doneDate===today).length;
+  document.getElementById('sO').textContent=offen;
+  document.getElementById('sM').textContent=meine;
+  document.getElementById('sB').textContent=bestellen;
+  document.getElementById('sE').textContent=erledigt;
+  // Firebase Sync Banner
+  const fb=document.getElementById('fbBanner');
+  if(fb){
+    if(DB_URL){
+      fb.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;padding:0.4rem 0.65rem;background:rgba(76,175,125,0.07);border:1px solid rgba(76,175,125,0.18);border-radius:10px;font-size:0.67rem;color:var(--green)">
+        <span>🟢 Echtzeit-Sync aktiv</span>
+        <button onclick="showFBSetup()" style="background:none;border:none;color:var(--dim);font-size:0.67rem;cursor:pointer;font-family:Inter,sans-serif;">⚙</button>
+      </div>`;
+    } else {
+      fb.innerHTML=`<div class="nbar" style="background:rgba(91,141,238,0.08);border-color:rgba(91,141,238,0.25);margin-bottom:0.75rem">
+        <div class="nbar-t">🔗 <strong>Sync nicht aktiv</strong> – Daten sieht nur dieses Gerät. Tippe auf <em>Einrichten</em> um alle zu verbinden.</div>
+        <button class="nbar-btn" style="background:var(--blue)" onclick="showFBSetup()">Einrichten</button>
+      </div>`;
+    }
+  }
+  const ba=document.getElementById('badge-a'); ba.textContent=offen; ba.style.display=offen>0?'flex':'none';
+  const bb=document.getElementById('badge-b'); bb.textContent=bestellen; bb.style.display=bestellen>0?'flex':'none';
+  const urgent=tasks.filter(t=>t.prio==='hoch'&&!t.done).slice(0,3);
+  document.getElementById('dUrgent').innerHTML=urgent.length?urgent.map(t=>`
+    <div class="tcard">
+      <div class="tcard-top">
+        <div class="pdot pd-hoch"></div>
+        <div class="tcard-body">
+          <div class="tcard-title">${t.title}</div>
+          <div class="tmeta"><span class="tag tag-hoch">dringend</span><span class="${bereichColor(t.bereich||'alle')}">${bereichLabel(t.bereich||'alle')}</span><span class="tag tag-p">${t.assign}</span></div>
+        </div>
       </div>
-    </div>`).join('') : '<div class="empty" style="padding:1rem 0;"><div class="empty-text">Keine dringenden Aufgaben 🎉</div></div>';
-
-  // Today's recurring
-  const todayRec = recs.filter(r => {
-    if (!r.active) return false;
-    if (r.freq === 'täglich') return true;
-    if (r.freq === 'werktags') return day >= 1 && day <= 5;
-    if (r.freq === 'wochenende') return day === 0 || day === 6;
-    if (r.freq === 'wöchentlich') return r.days?.includes(day);
-    return false;
-  }).sort((a,b) => a.time.localeCompare(b.time)).slice(0,4);
-
-  const dr = document.getElementById('dashRec');
-  dr.innerHTML = todayRec.length ? todayRec.map(r => `
-    <div class="rec-card">
-      <div class="rec-time-box">${r.time}</div>
-      <div class="rec-body">
-        <div class="rec-title">${r.title}</div>
-        <div class="rec-meta"><span class="tag tag-freq">${freqLabel(r)}</span><span class="tag tag-person">${r.assign}</span></div>
-      </div>
-    </div>`).join('') : '<div class="empty" style="padding:1rem 0;"><div class="empty-text">Keine Daueraufgaben für heute</div></div>';
+      <button class="erledigt-btn" onclick="markErledigt(${t.id})">✓ &nbsp; ERLEDIGT</button>
+    </div>`).join(''):'<div class="empty" style="padding:1rem 0"><div class="et">Keine dringenden Aufgaben 🎉</div></div>';
+  const todayRec=recs.filter(r=>r.active&&shouldFireToday(r,day)).sort((a,b)=>a.time.localeCompare(b.time)).slice(0,3);
+  document.getElementById('dRec').innerHTML=todayRec.length?todayRec.map(r=>`
+    <div class="rcard">
+      <div class="rtime">${r.time}</div>
+      <div class="rbody"><div class="rtitle">${r.title}</div><div class="rmeta"><span class="tag-freq">${freqLabel(r)}</span><span class="tag tag-p">${r.assign}</span></div></div>
+    </div>`).join(''):'<div class="empty" style="padding:1rem 0"><div class="et">Keine Daueraufgaben heute</div></div>';
 }
 
-// ── RENDER ──
-function render() {
-  renderDashboard();
-  renderTasks();
-  renderRec();
-  renderOrders();
-}
+function render(){renderDash();renderTasks();renderRec();renderOrders();renderWiki();}
 
 // ── INIT ──
-if (currentUser) {
+if(currentUser){
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  document.getElementById('userLabel').textContent = currentUser;
-  buildAssignChips();
-  render();
-  startClock();
-  startNotifScheduler();
-  checkNotifPermission();
+  document.getElementById('uLabel').textContent=currentUser;
+  buildAllChips();startClock();startNotif();checkNotifPerm();
+  loadData();
+  startSync();
 }
 
-// Enter shortcuts
-['taskTitle','recTitle','orderItem'].forEach(id => {
-  document.getElementById(id).addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      if (id === 'taskTitle') addTask();
-      else if (id === 'recTitle') addRec();
-      else addOrder();
-    }
-  });
+['tTitle','rTitle','oItem','rzName','alTitel'].forEach(id=>{
+  const el=document.getElementById(id);
+  const fn={tTitle:addTask,rTitle:addRec,oItem:addOrder,rzName:addRezept,alTitel:addAnleitung};
+  el.addEventListener('keydown',e=>{if(e.key==='Enter')fn[id]();});
 });
 </script>
 </body>
