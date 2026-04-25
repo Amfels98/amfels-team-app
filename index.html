@@ -180,6 +180,20 @@
     .daygrid { display:grid; grid-template-columns:repeat(7,1fr); gap:0.3rem; }
     .dbtn { background:var(--bg3); border:1px solid var(--border); border-radius:7px; padding:0.42rem 0.1rem; font-size:0.62rem; color:var(--dim); cursor:pointer; text-align:center; font-family:'Inter',sans-serif; transition:all 0.18s; }
     .dbtn.on { background:rgba(184,146,74,0.14); border-color:var(--gold); color:var(--gold); font-weight:600; }
+    .pdf-card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:0.8rem 0.9rem; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.75rem; }
+    .pdf-icon { font-size:1.5rem; flex-shrink:0; }
+    .pdf-info { flex:1; min-width:0; }
+    .pdf-name { font-size:0.85rem; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pdf-meta { font-size:0.62rem; color:var(--dim); margin-top:0.15rem; }
+    .pdf-open { background:rgba(184,146,74,0.12); border:1px solid rgba(184,146,74,0.3); border-radius:8px; padding:0.3rem 0.65rem; font-size:0.7rem; font-weight:600; color:var(--gold); cursor:pointer; white-space:nowrap; font-family:'Inter',sans-serif; }
+    .pdf-upload-btn { width:100%; background:var(--bg3); border:1.5px dashed rgba(255,255,255,0.15); border-radius:12px; padding:0.85rem; font-family:'Inter',sans-serif; font-size:0.82rem; color:var(--dim); cursor:pointer; text-align:center; margin-bottom:0.6rem; transition:all 0.18s; }
+    .pdf-upload-btn:hover { border-color:var(--gold); color:var(--gold); }
+    .lieferant-card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:0.85rem 0.9rem; margin-bottom:0.55rem; }
+    .lieferant-name { font-size:0.9rem; font-weight:600; margin-bottom:0.3rem; }
+    .lieferant-meta { font-size:0.68rem; color:var(--dim); display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.45rem; }
+    .lieferant-tag { background:var(--bg4); border-radius:5px; padding:0.08rem 0.38rem; font-size:0.62rem; color:var(--dim); }
+    .day-chip { background:var(--bg3); border:1.5px solid var(--border); border-radius:20px; padding:0.25rem 0.6rem; font-size:0.72rem; color:var(--dim); cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.18s; }
+    .day-chip.on { background:rgba(184,146,74,0.12); border-color:var(--gold); color:var(--gold); font-weight:600; }
 
     /* Filter row */
     .frow { display:flex; gap:0.38rem; margin-bottom:0.8rem; overflow-x:auto; padding-bottom:0.15rem; -webkit-overflow-scrolling:touch; }
@@ -346,14 +360,37 @@
 
     <!-- BESTELLLISTE -->
     <div class="screen" id="s-bestellen">
-      <div class="sh"><span class="st">Bestellliste</span><button class="plus" onclick="openM('order')">+</button></div>
-      <div class="frow">
-        <button class="fc on" onclick="forder('alle',this)">Alle</button>
-        <button class="fc" onclick="forder('offen',this)">Zu bestellen</button>
-        <button class="fc" onclick="forder('bestellt',this)">Bestellt ✓</button>
+      <div class="frow" style="margin-bottom:0.7rem">
+        <button class="fc on" onclick="showOrderTab('liste',this)">📋 Liste</button>
+        <button class="fc" onclick="showOrderTab('lieferanten',this)">🚚 Lieferanten</button>
+        <button class="fc" onclick="showOrderTab('dokumente',this)">📄 Dokumente</button>
       </div>
-      <div class="arow"><button class="gbtn" onclick="clearOrdered()">Bestellte löschen</button></div>
-      <div id="orderList"></div>
+
+      <!-- Bestellliste -->
+      <div id="ot-liste">
+        <div class="sh"><span class="st">Bestellliste</span><button class="plus" onclick="openM('order')">+</button></div>
+        <div class="frow">
+          <button class="fc on" onclick="forder('alle',this)">Alle</button>
+          <button class="fc" onclick="forder('offen',this)">Zu bestellen</button>
+          <button class="fc" onclick="forder('bestellt',this)">Bestellt ✓</button>
+        </div>
+        <div class="arow"><button class="gbtn" onclick="clearOrdered()">Bestellte löschen</button></div>
+        <div id="orderList"></div>
+      </div>
+
+      <!-- Lieferanten -->
+      <div id="ot-lieferanten" style="display:none">
+        <div class="sh"><span class="st">Lieferanten</span><button class="plus" onclick="openM_lieferant()">+</button></div>
+        <div id="lieferantList"></div>
+      </div>
+
+      <!-- Dokumente / PDFs -->
+      <div id="ot-dokumente" style="display:none">
+        <div class="sh"><span class="st">Dokumente</span></div>
+        <button class="pdf-upload-btn" onclick="document.getElementById('pdfInput').click()">📎 &nbsp; PDF hochladen</button>
+        <input type="file" id="pdfInput" accept=".pdf,application/pdf" style="display:none" onchange="uploadPdf(this)" />
+        <div id="pdfList"></div>
+      </div>
     </div>
 
     <!-- WIKI -->
@@ -469,6 +506,23 @@
       </select>
     </div>
     <button class="sbtn" onclick="addOrder()">Hinzufügen</button>
+  </div>
+</div>
+
+<!-- MODAL: LIEFERANT -->
+<div class="overlay" id="modal-lieferant" onclick="closeOut(event,'lieferant')">
+  <div class="modal">
+    <div class="mhdr"><span id="lieferantModalTitle">Lieferant hinzufügen</span> <button class="mx" onclick="closeM('lieferant')">✕</button></div>
+    <input type="hidden" id="lEditId" value="" />
+    <div class="fg"><label class="fl">Name</label><input class="fi" id="lName" placeholder="z.B. Handelshof, Metro ..." /></div>
+    <div class="fg">
+      <label class="fl">Liefertage</label>
+      <div class="chips" id="lDayChips" style="gap:0.4rem;flex-wrap:wrap"></div>
+    </div>
+    <div class="fg"><label class="fl">Kategorien (z.B. Fleisch, Getränke)</label><input class="fi" id="lKats" placeholder="Fleisch, Getränke, Gemüse ..." /></div>
+    <div class="fg"><label class="fl">Telefon / Kontakt (optional)</label><input class="fi" id="lTel" placeholder="+49 ..." /></div>
+    <div class="fg"><label class="fl">Notiz (optional)</label><input class="fi" id="lNote" placeholder="Bestellfrist, Hinweise ..." /></div>
+    <button class="sbtn" onclick="saveLieferant()">Speichern</button>
   </div>
 </div>
 
@@ -597,8 +651,8 @@ let tAssign = 'Alle', tBereich = 'alle', rAssign = 'Alle', rBereich = 'alle';
 let notifTimer = null;
 
 // ── LOCAL CACHE (synchroner Zugriff, async Firebase-Sync im Hintergrund) ──
-let DB = {tasks:[],rec:[],orders:[],rezepte:[],anleitungen:[]};
-const COLS = {af_tasks:'tasks',af_rec:'rec',af_orders:'orders',af_rezepte:'rezepte',af_anleitungen:'anleitungen'};
+let DB = {tasks:[],rec:[],orders:[],rezepte:[],anleitungen:[],pdfs:[],lieferanten:[]};
+const COLS = {af_tasks:'tasks',af_rec:'rec',af_orders:'orders',af_rezepte:'rezepte',af_anleitungen:'anleitungen',af_pdfs:'pdfs',af_lieferanten:'lieferanten'};
 
 const g = key => DB[COLS[key]] || [];
 const s = (key, val) => {
@@ -620,6 +674,8 @@ async function loadData() {
   DB.orders = JSON.parse(localStorage.getItem('af_orders')||'[]');
   DB.rezepte = JSON.parse(localStorage.getItem('af_rezepte')||'[]');
   DB.anleitungen = JSON.parse(localStorage.getItem('af_anleitungen')||'[]');
+  DB.pdfs = JSON.parse(localStorage.getItem('af_pdfs')||'[]');
+  DB.lieferanten = JSON.parse(localStorage.getItem('af_lieferanten')||'[]');
   render();
   if (!DB_URL) return;
   try {
@@ -632,12 +688,16 @@ async function loadData() {
     DB.orders = arr(data.orders);
     DB.rezepte = arr(data.rezepte);
     DB.anleitungen = arr(data.anleitungen);
+    DB.pdfs = arr(data.pdfs);
+    DB.lieferanten = arr(data.lieferanten);
     // Firebase-Daten auch lokal sichern (Offline-Fallback)
     localStorage.setItem('af_tasks', JSON.stringify(DB.tasks));
     localStorage.setItem('af_rec', JSON.stringify(DB.rec));
     localStorage.setItem('af_orders', JSON.stringify(DB.orders));
     localStorage.setItem('af_rezepte', JSON.stringify(DB.rezepte));
     localStorage.setItem('af_anleitungen', JSON.stringify(DB.anleitungen));
+    localStorage.setItem('af_pdfs', JSON.stringify(DB.pdfs));
+    localStorage.setItem('af_lieferanten', JSON.stringify(DB.lieferanten));
     render();
   } catch(e) { console.warn('Firebase fetch:', e); }
 }
@@ -1254,7 +1314,19 @@ function addOrder(){
 function toggleOrder(id){const o=g('af_orders');const x=o.find(o=>o.id===id);if(x)x.ordered=!x.ordered;s('af_orders',o);render();}
 function deleteOrder(id){s('af_orders',g('af_orders').filter(o=>o.id!==id));toast('Gelöscht');render();}
 function clearOrdered(){s('af_orders',g('af_orders').filter(o=>!o.ordered));toast('Bestellte gelöscht');render();}
-function forder(f,el){orderF=f;document.querySelectorAll('#s-bestellen .fc').forEach(c=>c.classList.remove('on'));el.classList.add('on');renderOrders();}
+function forder(f,el){orderF=f;document.querySelectorAll('#ot-liste .fc').forEach(c=>c.classList.remove('on'));el.classList.add('on');renderOrders();}
+
+let orderTab='liste';
+function showOrderTab(tab,el){
+  orderTab=tab;
+  document.querySelectorAll('#s-bestellen>.frow .fc').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('ot-liste').style.display=tab==='liste'?'block':'none';
+  document.getElementById('ot-lieferanten').style.display=tab==='lieferanten'?'block':'none';
+  document.getElementById('ot-dokumente').style.display=tab==='dokumente'?'block':'none';
+  if(tab==='lieferanten') renderLieferanten();
+  if(tab==='dokumente') renderPdfs();
+}
 
 function renderOrders(){
   let orders=g('af_orders');
@@ -1271,6 +1343,136 @@ function renderOrders(){
         <div class="rmeta"><span class="tag tag-p">${o.cat}</span><span style="font-size:0.62rem;color:var(--dim)">von ${o.by}</span></div>
       </div>
       <button class="tcard-del" onclick="deleteOrder(${o.id})">✕</button>
+    </div>
+  `).join('');
+}
+
+// ── LIEFERANTEN ──
+const DAYS_DE = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+let lDaysSel = [];
+
+function openM_lieferant(editId){
+  lDaysSel=[];
+  document.getElementById('lEditId').value='';
+  document.getElementById('lName').value='';
+  document.getElementById('lKats').value='';
+  document.getElementById('lTel').value='';
+  document.getElementById('lNote').value='';
+  document.getElementById('lieferantModalTitle').textContent='Lieferant hinzufügen';
+  if(editId){
+    const l=g('af_lieferanten').find(x=>x.id===editId);
+    if(l){
+      document.getElementById('lEditId').value=l.id;
+      document.getElementById('lName').value=l.name;
+      document.getElementById('lKats').value=(l.kats||[]).join(', ');
+      document.getElementById('lTel').value=l.tel||'';
+      document.getElementById('lNote').value=l.note||'';
+      lDaysSel=[...(l.days||[])];
+      document.getElementById('lieferantModalTitle').textContent='Lieferant bearbeiten';
+    }
+  }
+  renderDayChips();
+  openM('lieferant');
+}
+
+function renderDayChips(){
+  document.getElementById('lDayChips').innerHTML=DAYS_DE.map((d,i)=>`
+    <button class="day-chip ${lDaysSel.includes(i)?'on':''}" onclick="toggleLDay(${i},this)">${d}</button>
+  `).join('');
+}
+
+function toggleLDay(i,el){
+  if(lDaysSel.includes(i))lDaysSel=lDaysSel.filter(x=>x!==i);
+  else lDaysSel.push(i);
+  el.classList.toggle('on',lDaysSel.includes(i));
+}
+
+function saveLieferant(){
+  const name=document.getElementById('lName').value.trim();if(!name)return;
+  const editId=document.getElementById('lEditId').value;
+  const kats=document.getElementById('lKats').value.split(',').map(x=>x.trim()).filter(Boolean);
+  const tel=document.getElementById('lTel').value.trim();
+  const note=document.getElementById('lNote').value.trim();
+  const list=g('af_lieferanten');
+  if(editId){
+    const l=list.find(x=>String(x.id)===String(editId));
+    if(l){Object.assign(l,{name,days:lDaysSel,kats,tel,note});}
+  } else {
+    list.unshift({id:Date.now(),name,days:lDaysSel,kats,tel,note,by:currentUser});
+  }
+  s('af_lieferanten',list);
+  closeM('lieferant');toast('✓ Lieferant gespeichert');renderLieferanten();
+}
+
+function deleteLieferant(id){s('af_lieferanten',g('af_lieferanten').filter(l=>l.id!==id));renderLieferanten();toast('Gelöscht');}
+
+function renderLieferanten(){
+  const list=g('af_lieferanten');
+  const today=new Date().getDay();
+  const el=document.getElementById('lieferantList');
+  if(!list.length){el.innerHTML='<div class="empty"><div class="ei">🚚</div><div class="et">Noch keine Lieferanten</div></div>';return;}
+  el.innerHTML=list.map(l=>{
+    const todayDelivery=l.days?.includes(today);
+    const nextDay=l.days?.length ? DAYS_DE[l.days.sort((a,b)=>((a-today+7)%7)-((b-today+7)%7))[0]] : '';
+    return `<div class="lieferant-card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div class="lieferant-name">${todayDelivery?'🚚 ':''}${l.name}${todayDelivery?'<span style="font-size:0.68rem;color:var(--green);margin-left:0.5rem">heute</span>':''}</div>
+          <div class="lieferant-meta">
+            ${(l.days||[]).map(d=>`<span>${DAYS_DE[d]}</span>`).join('')}
+            ${nextDay&&!todayDelivery?`<span style="color:var(--dim)">· Nächste: ${nextDay}</span>`:''}
+          </div>
+          ${(l.kats||[]).length?`<div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-bottom:0.35rem">${l.kats.map(k=>`<span class="lieferant-tag">${k}</span>`).join('')}</div>`:''}
+          ${l.tel?`<div style="font-size:0.7rem;color:var(--dim)">📞 ${l.tel}</div>`:''}
+          ${l.note?`<div style="font-size:0.7rem;color:var(--dim);margin-top:0.2rem">💬 ${l.note}</div>`:''}
+        </div>
+        <div style="display:flex;gap:0.4rem">
+          <button class="tcard-del" onclick="openM_lieferant(${l.id})" style="opacity:0.5;font-size:0.75rem">✏</button>
+          <button class="tcard-del" onclick="deleteLieferant(${l.id})">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── PDFs ──
+function uploadPdf(input){
+  const file=input.files[0]; if(!file) return;
+  if(file.size>8*1024*1024){toast('PDF zu groß (max 8 MB)');input.value='';return;}
+  toast('Wird hochgeladen...');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const pdfs=g('af_pdfs');
+    pdfs.unshift({id:Date.now(),name:file.name,data:e.target.result,size:file.size,by:currentUser,date:new Date().toLocaleDateString('de-DE')});
+    s('af_pdfs',pdfs);
+    input.value='';
+    toast('✓ PDF hochgeladen');
+    renderPdfs();
+  };
+  reader.readAsDataURL(file);
+}
+
+function openPdf(id){
+  const pdf=g('af_pdfs').find(p=>p.id===id);if(!pdf)return;
+  const win=window.open();
+  win.document.write(`<iframe src="${pdf.data}" style="width:100%;height:100%;border:none"></iframe>`);
+}
+
+function deletePdf(id){s('af_pdfs',g('af_pdfs').filter(p=>p.id!==id));toast('Gelöscht');renderPdfs();}
+
+function renderPdfs(){
+  const pdfs=g('af_pdfs');
+  const el=document.getElementById('pdfList');if(!el)return;
+  if(!pdfs.length){el.innerHTML='<div class="empty"><div class="ei">📄</div><div class="et">Noch keine Dokumente</div></div>';return;}
+  el.innerHTML=pdfs.map(p=>`
+    <div class="pdf-card">
+      <div class="pdf-icon">📄</div>
+      <div class="pdf-info">
+        <div class="pdf-name">${p.name}</div>
+        <div class="pdf-meta">von ${p.by} · ${p.date} · ${(p.size/1024).toFixed(0)} KB</div>
+      </div>
+      <button class="pdf-open" onclick="openPdf(${p.id})">Öffnen</button>
+      <button class="tcard-del" onclick="deletePdf(${p.id})">✕</button>
     </div>
   `).join('');
 }
@@ -1756,7 +1958,7 @@ function renderDash(){
     </div>`).join(''):'<div class="empty" style="padding:1rem 0"><div class="et">Keine Daueraufgaben heute</div></div>';
 }
 
-function render(){renderDash();renderTasks();renderRec();renderOrders();renderWiki();}
+function render(){renderDash();renderTasks();renderRec();renderOrders();renderLieferanten();renderPdfs();renderWiki();}
 
 // ── INIT ──
 renderNameGrid(); // Sofort mit Emoji rendern, dann mit Fotos überschreiben
