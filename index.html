@@ -209,6 +209,13 @@
     .bbtn.on-kueche { background:rgba(232,146,74,0.12); border-color:var(--kueche); color:var(--kueche); }
     .bbtn.on-service { background:rgba(91,141,238,0.12); border-color:var(--service); color:var(--service); }
     .bbtn.on-theke { background:rgba(155,107,204,0.12); border-color:var(--theke); color:var(--theke); }
+
+    /* Profile */
+    .nbtn-img { width:52px; height:52px; border-radius:50%; object-fit:cover; }
+    .nbtn-badge { font-size:0.56rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:0.08rem 0.38rem; border-radius:4px; }
+    .photo-circle { width:88px; height:88px; border-radius:50%; background:var(--bg3); border:2px dashed rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; font-size:2.2rem; cursor:pointer; overflow:hidden; flex-shrink:0; }
+    .photo-circle img { width:100%; height:100%; object-fit:cover; }
+    .uavatar { width:22px; height:22px; border-radius:50%; object-fit:cover; }
   </style>
 </head>
 <body>
@@ -239,6 +246,18 @@
     <button class="lbtn" onclick="submitPin()">Einloggen</button>
     <button onclick="backToName()" style="margin-top:0.75rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif;">← Zurück</button>
   </div>
+
+  <!-- Schritt 3: Profil -->
+  <div id="stepProfile" style="width:100%;max-width:320px;display:none;flex-direction:column;align-items:center;">
+    <p class="llab">Dein Profil</p>
+    <div class="photo-circle" id="photoPreview" onclick="document.getElementById('photoInput').click()">📷</div>
+    <p style="font-size:0.68rem;color:var(--dim);margin:0.6rem 0 1.2rem;text-align:center">Tippe auf das Bild für ein Foto</p>
+    <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhoto(this)" />
+    <p class="llab" style="align-self:flex-start">Dein Bereich</p>
+    <div class="chips" id="profileBereichChips" style="width:100%;margin-bottom:1.5rem"></div>
+    <button class="lbtn" onclick="saveProfile()">Fertig &amp; Einloggen</button>
+    <button onclick="skipProfile()" style="margin-top:0.75rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif;">Überspringen</button>
+  </div>
 </div>
 
 <!-- APP -->
@@ -251,7 +270,7 @@
     <div class="hdr-r">
       <span class="hdr-time" id="hdrTime"></span>
       <div id="adminBtn" style="display:none"><div class="uchip" onclick="openAdmin()" style="border-color:rgba(184,146,74,0.4);color:var(--gold)">⚙ Admin</div></div>
-      <div class="uchip" onclick="logout()"><div class="udot"></div><span id="uLabel">––</span></div>
+      <div class="uchip" onclick="logout()" style="gap:0.45rem"><span id="uAvatar"><div class="udot"></div></span><span id="uLabel">––</span></div>
     </div>
   </div>
 
@@ -568,20 +587,115 @@ function startSync() {
   } catch { setTimeout(startSync, 8000); }
 }
 
-// ── LOGIN ──
+// ── PROFILE ──
 const EMOJIS = ['👨‍🍳','👨‍🍳','🍺','👩‍🍳','👨‍🍳'];
-TEAM.forEach((name,i) => {
-  const btn = document.createElement('button');
-  btn.className = 'nbtn';
-  btn.innerHTML = `<span class="av">${EMOJIS[i]}</span>${name}`;
-  btn.onclick = () => {
-    document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('sel'));
-    btn.classList.add('sel');
-    currentUser = name;
-    document.getElementById('loginBtn').disabled = false;
-  };
-  document.getElementById('nameGrid').appendChild(btn);
-});
+let profiles = {};
+let profileBereich = 'kueche';
+let profilePhotoData = null;
+
+const BCOLORS = {kueche:'#e8924a',service:'#5b8dee',theke:'#9b6bcc',alle:'#555'};
+const BLABELS = {kueche:'Küche',service:'Service',theke:'Theke',alle:''};
+
+async function loadProfiles() {
+  try {
+    const res = await fetch(`${DB_URL}/profiles.json`, {cache:'no-store'});
+    profiles = await res.json() || {};
+  } catch {}
+  renderNameGrid();
+}
+
+function renderNameGrid() {
+  const grid = document.getElementById('nameGrid');
+  grid.innerHTML = '';
+  TEAM.forEach((name, i) => {
+    const p = profiles[name] || {};
+    const bc = BCOLORS[p.bereich] || BCOLORS.alle;
+    const bl = BLABELS[p.bereich] || '';
+    const btn = document.createElement('button');
+    btn.className = 'nbtn';
+    btn.innerHTML = `
+      ${p.photo
+        ? `<img class="nbtn-img" src="${p.photo}" style="border:2.5px solid ${bc}">`
+        : `<span class="av" style="border:2px solid ${bc}">${EMOJIS[i]}</span>`}
+      <span>${name}</span>
+      ${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}
+    `;
+    btn.onclick = () => {
+      document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('sel'));
+      btn.classList.add('sel');
+      currentUser = name;
+      document.getElementById('loginBtn').disabled = false;
+    };
+    grid.appendChild(btn);
+  });
+}
+
+function compressImage(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const size = 180;
+      const scale = Math.min(size/img.width, size/img.height, 1);
+      const c = document.createElement('canvas');
+      c.width = img.width * scale; c.height = img.height * scale;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.72));
+    };
+    img.src = url;
+  });
+}
+
+function handlePhoto(input) {
+  const file = input.files[0]; if (!file) return;
+  compressImage(file).then(b64 => {
+    profilePhotoData = b64;
+    const prev = document.getElementById('photoPreview');
+    prev.style.border = 'none';
+    prev.innerHTML = `<img src="${b64}" style="width:88px;height:88px;border-radius:50%;object-fit:cover">`;
+  });
+}
+
+function showProfileSetup() {
+  const p = profiles[currentUser] || {};
+  profileBereich = p.bereich || 'kueche';
+  profilePhotoData = p.photo || null;
+  const prev = document.getElementById('photoPreview');
+  if (profilePhotoData) {
+    prev.style.border = 'none';
+    prev.innerHTML = `<img src="${profilePhotoData}" style="width:88px;height:88px;border-radius:50%;object-fit:cover">`;
+  } else {
+    prev.style.border = '2px dashed rgba(255,255,255,0.12)';
+    prev.innerHTML = '📷';
+  }
+  const chips = document.getElementById('profileBereichChips');
+  chips.innerHTML = '';
+  [{k:'kueche',l:'🍳 Küche'},{k:'service',l:'🤵 Service'},{k:'theke',l:'🍺 Theke'}].forEach(b => {
+    const chip = document.createElement('button');
+    chip.className = 'chip ' + (profileBereich===b.k ? 'on-'+b.k : '');
+    chip.textContent = b.l;
+    chip.onclick = () => { chips.querySelectorAll('.chip').forEach(c=>c.className='chip'); chip.className='chip on-'+b.k; profileBereich=b.k; };
+    chips.appendChild(chip);
+  });
+  document.getElementById('stepPin').style.display = 'none';
+  document.getElementById('stepProfile').style.display = 'flex';
+}
+
+async function saveProfile() {
+  const profile = { bereich: profileBereich, photo: profilePhotoData || profiles[currentUser]?.photo || null };
+  profiles[currentUser] = profile;
+  try {
+    await fetch(`${DB_URL}/profiles/${currentUser}.json`, {
+      method:'PUT', body:JSON.stringify(profile), headers:{'Content-Type':'application/json'}
+    });
+  } catch {}
+  doLogin();
+}
+
+function skipProfile() { doLogin(); }
+
+// ── LOGIN ──
 
 let pinMode = 'enter'; // 'enter' | 'create'
 
@@ -627,7 +741,7 @@ async function submitPin() {
         method:'PUT', body:JSON.stringify(pin), headers:{'Content-Type':'application/json'}
       });
     } catch {}
-    doLogin();
+    showProfileSetup();
   } else {
     let stored = null;
     try {
@@ -635,7 +749,7 @@ async function submitPin() {
       stored = await res.json();
     } catch {}
     if (String(stored) === pin) {
-      doLogin();
+      showProfileSetup();
     } else {
       document.getElementById('pinError').textContent = '❌ Falscher PIN';
       document.getElementById('pinInput').value = '';
@@ -650,6 +764,11 @@ function doLogin() {
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('uLabel').textContent = currentUser;
   document.getElementById('adminBtn').style.display = currentUser === ADMIN ? 'block' : 'none';
+  const p = profiles[currentUser] || {};
+  const uAv = document.getElementById('uAvatar');
+  uAv.innerHTML = p.photo
+    ? `<img src="${p.photo}" class="uavatar" style="border:1.5px solid ${BCOLORS[p.bereich]||BCOLORS.alle}">`
+    : '<div class="udot"></div>';
   buildAllChips();
   startClock();
   startNotif();
@@ -1096,6 +1215,12 @@ function renderDash(){
   document.getElementById('sM').textContent=meine;
   document.getElementById('sB').textContent=bestellen;
   document.getElementById('sE').textContent=erledigt;
+  // Klick auf "Heute erledigt" → zeigt erledigte Aufgaben
+  document.getElementById('sE').closest('.scard').onclick=()=>{
+    switchTab('aufgaben',document.getElementById('nav-aufgaben'));
+    ftask('erledigt',document.querySelector('#s-aufgaben .fc:last-child'));
+  };
+  document.getElementById('sE').closest('.scard').style.cursor='pointer';
   // Firebase Sync Banner
   const fb=document.getElementById('fbBanner');
   if(fb){
@@ -1136,11 +1261,21 @@ function renderDash(){
 function render(){renderDash();renderTasks();renderRec();renderOrders();renderWiki();}
 
 // ── INIT ──
+renderNameGrid(); // Sofort mit Emoji rendern, dann mit Fotos überschreiben
+loadProfiles();   // Lädt Fotos für Name-Grid aus Firebase
 if(currentUser){
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('uLabel').textContent=currentUser;
   document.getElementById('adminBtn').style.display = currentUser===ADMIN ? 'block' : 'none';
+  // Avatar aus gecachten Profilen setzen (wird nach loadProfiles aktualisiert)
+  loadProfiles().then(() => {
+    const p = profiles[currentUser] || {};
+    const uAv = document.getElementById('uAvatar');
+    uAv.innerHTML = p.photo
+      ? `<img src="${p.photo}" class="uavatar" style="border:1.5px solid ${BCOLORS[p.bereich]||BCOLORS.alle}">`
+      : '<div class="udot"></div>';
+  });
   buildAllChips();startClock();startNotif();checkNotifPerm();
   loadData();
   startSync();
