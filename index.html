@@ -570,12 +570,15 @@
     <div class="mhdr">📷 Müllkalender scannen <button class="mx" onclick="closeM('muell')">✕</button></div>
     <input type="file" id="muellPhotoInput" accept="image/*" style="display:none" onchange="muellScanPhoto(this)">
 
-    <!-- Schritt 1: Hausnummer + Foto -->
+    <!-- Schritt 1: Nummer + Foto -->
     <div id="muellStep1">
+      <div id="muellApiHint" style="display:none;background:rgba(91,141,238,0.08);border:1px solid rgba(91,141,238,0.25);border-radius:12px;padding:0.75rem;margin-bottom:0.75rem;font-size:0.72rem;color:var(--blue)">
+        🔑 Kein Gemini API-Key gesetzt. <button onclick="muellSetupApi()" style="background:none;border:none;color:var(--blue);text-decoration:underline;cursor:pointer;font-family:Inter,sans-serif;font-size:0.72rem;padding:0">Jetzt einrichten →</button>
+      </div>
       <div class="fg" style="margin-bottom:0.8rem">
-        <label class="fl">Eure Hausnummer</label>
-        <input class="fi" id="muellHausNr" type="number" placeholder="z.B. 9" min="1" max="9999" style="font-size:1.1rem;font-weight:600;text-align:center" />
-        <div style="font-size:0.62rem;color:var(--dim);margin-top:0.35rem">Damit der Scanner nur eure Abholtermine rausfiltert</div>
+        <label class="fl">Eure Nummer im Kalender <span style="color:var(--dim);font-weight:400">(optional)</span></label>
+        <input class="fi" id="muellTourNr" placeholder="z.B. 3 oder Tour B" style="font-size:1rem;font-weight:600;text-align:center" />
+        <div style="font-size:0.62rem;color:var(--dim);margin-top:0.35rem">Die Nummer/Tour auf eurem Kalender – KI filtert dann nur eure Termine</div>
       </div>
       <div id="muellPhotoPreview" style="width:100%;aspect-ratio:4/3;background:var(--bg3);border:2px dashed rgba(255,255,255,0.1);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;margin-bottom:0.75rem;overflow:hidden" onclick="document.getElementById('muellPhotoInput').click()">
         <span style="font-size:2.5rem;margin-bottom:0.5rem">📷</span>
@@ -596,15 +599,21 @@
     <div id="muellStep3" style="display:none">
       <div id="muellHausNrInfo" style="margin-bottom:0.65rem"></div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
-        <p style="font-size:0.72rem;color:var(--dim)">Welche Sorten sollen als Aufgabe eingetragen werden?</p>
+        <p style="font-size:0.72rem;color:var(--dim)">Welche Sorten eintragenl?</p>
         <div style="display:flex;gap:0.4rem">
           <button onclick="muellToggleAll(true)" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.18rem 0.5rem;font-size:0.62rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif">Alle</button>
           <button onclick="muellToggleAll(false)" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.18rem 0.5rem;font-size:0.62rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif">Keine</button>
         </div>
       </div>
       <div id="muellEditForms"></div>
+      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.72rem;color:var(--dim);margin-bottom:0.65rem;cursor:pointer">
+        <input type="checkbox" id="muellFeiertage" checked style="accent-color:var(--gold)">
+        Feiertagsverschiebungen automatisch anpassen
+      </label>
       <button class="sbtn" onclick="muellErstellen()">✓ Aufgaben erstellen</button>
-      <button onclick="document.getElementById('muellStep1').style.display='block';document.getElementById('muellStep3').style.display='none'" style="width:100%;margin-top:0.5rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif">← Neu fotografieren</button>
+      <input type="file" id="muellPhotoInput2" accept="image/*" style="display:none" onchange="muellScanPhotoExtra(this)">
+      <button onclick="document.getElementById('muellPhotoInput2').click()" style="width:100%;margin-top:0.55rem;background:none;border:1.5px dashed rgba(184,146,74,0.35);border-radius:12px;padding:0.65rem;font-family:Inter,sans-serif;font-size:0.8rem;color:var(--gold);cursor:pointer">📷 Weiteres Foto hinzufügen (z.B. Seite 2)</button>
+      <button onclick="document.getElementById('muellStep1').style.display='block';document.getElementById('muellStep3').style.display='none';muellScheduleData=[]" style="width:100%;margin-top:0.4rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif">← Von vorne</button>
     </div>
 
     <!-- Manuell -->
@@ -1180,6 +1189,7 @@ function renderTasks() {
             <span class="tag tag-p">${t.assign}</span>
             ${t.dueLabel?`<span style="font-size:0.62rem;background:rgba(76,175,125,0.12);color:var(--green);padding:0.08rem 0.35rem;border-radius:4px;font-weight:600">📅 ${t.dueLabel}</span>`:`<span style="font-size:0.62rem;color:var(--dim)">${t.date}</span>`}
           </div>
+          ${t.note?`<div style="margin-top:0.35rem;font-size:0.68rem;color:var(--orange);background:rgba(232,146,74,0.08);border-radius:7px;padding:0.3rem 0.5rem">⚠️ ${t.note}</div>`:''}
         </div>
         ${currentUser===ADMIN?`<button class="tcard-del" onclick="deleteTask(${t.id})">✕</button>`:''}
       </div>
@@ -1605,44 +1615,115 @@ function openMuellScanner() {
   });
   document.getElementById('muellStep1').style.display='block';
   document.getElementById('muellPhotoPreview').innerHTML='<span style="font-size:2.5rem;margin-bottom:0.5rem">📷</span><span style="font-size:0.78rem;color:var(--dim)">Tippen zum Fotografieren</span>';
-  const saved=localStorage.getItem('af_muell_hausnr');
-  if(saved) document.getElementById('muellHausNr').value=saved;
+  const savedNr=localStorage.getItem('af_muell_tournr');
+  if(savedNr) document.getElementById('muellTourNr').value=savedNr;
+  const apiKey=localStorage.getItem('af_gemini_key');
+  const hint=document.getElementById('muellApiHint');
+  if(hint) hint.style.display=apiKey?'none':'block';
   document.getElementById('modal-muell').classList.add('on');
   document.body.style.overflow='hidden';
 }
 
+function muellSetupApi() {
+  const cur=localStorage.getItem('af_gemini_key')||'';
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:3000;display:flex;align-items:center;justify-content:center;padding:1.5rem';
+  overlay.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:1.25rem;width:100%;max-width:340px">
+    <div style="font-size:0.88rem;font-weight:600;margin-bottom:0.4rem">🔑 Gemini API-Key</div>
+    <div style="font-size:0.68rem;color:var(--dim);margin-bottom:0.85rem;line-height:1.6">Kostenlos holen: <strong>aistudio.google.com</strong> → "Get API key" → kopieren &amp; hier einfügen</div>
+    <input class="fi" id="geminiKeyInput" placeholder="AIza..." value="${cur}" style="font-size:0.8rem;margin-bottom:0.75rem" />
+    <button class="sbtn" onclick="
+      const k=document.getElementById('geminiKeyInput').value.trim();
+      if(k){localStorage.setItem('af_gemini_key',k);document.getElementById('muellApiHint').style.display='none';toast('✓ API-Key gespeichert');}
+      this.closest('[style*=fixed]').remove();">Speichern</button>
+    <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;margin-top:0.5rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif">Abbrechen</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+}
+
 async function muellScanPhoto(input) {
   const file=input.files[0]; if(!file) return;
-  const hausNr=document.getElementById('muellHausNr').value.trim();
-  if(hausNr) localStorage.setItem('af_muell_hausnr', hausNr);
-  // Zeige Foto-Vorschau
-  const reader=new FileReader();
-  reader.onload=e=>{
-    document.getElementById('muellPhotoPreview').innerHTML=`<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`;
-  };
-  reader.readAsDataURL(file);
-  // Wechsle zu Schritt 2 (Laden)
+  const tourNr=document.getElementById('muellTourNr').value.trim();
+  if(tourNr) localStorage.setItem('af_muell_tournr', tourNr);
+  muellHausNrUsed = tourNr;
+
+  // Vorschau
+  const previewB64 = await new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(file);});
+  document.getElementById('muellPhotoPreview').innerHTML=`<img src="${previewB64}" style="width:100%;height:100%;object-fit:cover">`;
+
   document.getElementById('muellStep1').style.display='none';
   document.getElementById('muellStep2').style.display='block';
-  // OCR
-  const b64=await compressImage(file,1600,0.88);
-  const fd=new FormData();
-  fd.append('base64Image',b64);
-  fd.append('language','ger');
-  fd.append('apikey','helloworld');
-  fd.append('OCREngine','2');
-  fd.append('isOverlayRequired','false');
+
+  const apiKey=localStorage.getItem('af_gemini_key');
+  if(!apiKey) {
+    toast('Bitte zuerst Gemini API-Key einrichten');
+    document.getElementById('muellStep2').style.display='none';
+    document.getElementById('muellStep1').style.display='block';
+    muellSetupApi();
+    return;
+  }
+
+  // Bild komprimieren und als base64 vorbereiten
+  const b64full = await compressImage(file, 1600, 0.88);
+  const b64data = b64full.split(',')[1]; // nur der data-Teil ohne "data:image/jpeg;base64,"
+
+  const tourInfo = tourNr ? `Die Tourennummer/Bezirksnummer des Nutzers ist: "${tourNr}". Filtere nur die Termine die zu dieser Nummer gehören.` : 'Gib alle erkannten Termine zurück.';
+
+  const prompt = `Du analysierst ein Foto eines deutschen Müllkalenders (Abfallkalender).
+${tourInfo}
+
+Erkenne alle Abfallarten und deren Abholdaten. Gib das Ergebnis NUR als gültiges JSON zurück, ohne Erklärungen, ohne Markdown, ohne Codeblock. Exakt dieses Format:
+{"typen":[{"typ":"rest","name":"Restmüll","termine":["05.01.2025","19.01.2025"]},{"typ":"gelb","name":"Gelbe Tonne","termine":["12.01.2025"]},{"typ":"bio","name":"Biotonne","termine":[]},{"typ":"papier","name":"Papiertonne","termine":[]},{"typ":"glas","name":"Altglas","termine":[]},{"typ":"sperr","name":"Sperrmüll","termine":[]},{"typ":"elek","name":"Elektroschrott","termine":[]},{"typ":"gruen","name":"Grünschnitt","termine":[]}]}
+
+Wichtig:
+- Nur die 8 Typen: rest, gelb, bio, papier, glas, sperr, elek, gruen
+- Datumsformat: DD.MM.YYYY
+- Leere Arrays für nicht erkannte Typen
+- Kein Text außer dem JSON`;
+
   try {
-    const r=await fetch('https://api.ocr.space/parse/image',{method:'POST',body:fd});
-    const d=await r.json();
-    const txt=d.ParsedResults?.[0]?.ParsedText||'';
-    muellScheduleData=muellParsiere(txt, hausNr);
-    if(!muellScheduleData.length) toast('Keine Termine erkannt – bitte manuell hinzufügen');
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        contents:[{parts:[
+          {text: prompt},
+          {inlineData:{mimeType:'image/jpeg', data: b64data}}
+        ]}],
+        generationConfig:{temperature:0.1, maxOutputTokens:2048}
+      })
+    });
+    const d = await resp.json();
+    if(d.error) throw new Error(d.error.message);
+    const raw = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // JSON extrahieren (Gemini gibt manchmal trotzdem Markdown zurück)
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('Kein JSON in Antwort');
+    const parsed = JSON.parse(jsonMatch[0]);
+    muellScheduleData = muellGeminiToSchedule(parsed);
+    if(!muellScheduleData.some(x=>x.dates.length>0)) toast('Keine Termine erkannt – bitte manuell prüfen');
   } catch(e) {
-    muellScheduleData=[];
-    toast('⚠️ Erkennung fehlgeschlagen – Termine manuell eintragen');
+    console.error('Gemini Fehler:', e);
+    muellScheduleData = [];
+    toast('⚠️ KI-Erkennung fehlgeschlagen – bitte manuell eingeben');
   }
   muellZeigeEdit();
+}
+
+function muellGeminiToSchedule(parsed) {
+  const year=new Date().getFullYear();
+  return (parsed.typen||[]).map(item=>{
+    const type=MUELL_TYPES.find(t=>t.k===item.typ)||{k:item.typ,l:item.name,e:'🗑️'};
+    const dates=(item.termine||[]).map(ds=>{
+      const parts=ds.split('.').map(Number);
+      if(parts.length<2) return null;
+      const [d,m,y]=parts;
+      const dateYear=y||year;
+      return new Date(dateYear,m-1,d);
+    }).filter(Boolean).sort((a,b)=>a-b);
+    return {...type, dates};
+  }).filter(item=>MUELL_TYPES.find(t=>t.k===item.k));
 }
 
 let muellHausNrUsed = '';
@@ -1841,30 +1922,104 @@ function muellManualErstellen() {
   muellErstellen();
 }
 
+async function muellScanPhotoExtra(input) {
+  const file=input.files[0]; if(!file) return;
+  input.value='';
+  const tourNr=localStorage.getItem('af_muell_tournr')||'';
+  const apiKey=localStorage.getItem('af_gemini_key');
+  if(!apiKey){toast('Kein API-Key – Einrichten erforderlich');return;}
+
+  // Lade-Anzeige in Step3
+  const forms=document.getElementById('muellEditForms');
+  const oldHtml=forms.innerHTML;
+  forms.innerHTML=`<div style="text-align:center;padding:1.5rem 0"><div style="font-size:2rem;margin-bottom:0.5rem">⏳</div><div style="font-size:0.8rem;color:var(--dim)">Weiteres Foto wird erkannt…</div></div>`;
+
+  const b64full=await compressImage(file,1600,0.88);
+  const b64data=b64full.split(',')[1];
+  const tourInfo=tourNr?`Die Tourennummer ist: "${tourNr}". Filtere nur diese.`:'Gib alle Termine zurück.';
+  const prompt=`Du analysierst ein weiteres Foto desselben deutschen Müllkalenders. ${tourInfo}\nGib NUR gültiges JSON zurück (kein Markdown): {"typen":[{"typ":"rest","name":"Restmüll","termine":["DD.MM.YYYY"]},{"typ":"gelb","name":"Gelbe Tonne","termine":[]},{"typ":"bio","name":"Biotonne","termine":[]},{"typ":"papier","name":"Papiertonne","termine":[]},{"typ":"glas","name":"Altglas","termine":[]},{"typ":"sperr","name":"Sperrmüll","termine":[]},{"typ":"elek","name":"Elektroschrott","termine":[]},{"typ":"gruen","name":"Grünschnitt","termine":[]}]}`;
+
+  try {
+    const resp=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:'image/jpeg',data:b64data}}]}],generationConfig:{temperature:0.1,maxOutputTokens:2048}})
+    });
+    const d=await resp.json();
+    if(d.error) throw new Error(d.error.message);
+    const raw=d.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    const jsonMatch=raw.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('kein JSON');
+    const parsed=JSON.parse(jsonMatch[0]);
+    const newData=muellGeminiToSchedule(parsed);
+    // Merge: bestehende + neue Termine zusammenführen
+    newData.forEach(newItem=>{
+      const existing=muellScheduleData.find(x=>x.k===newItem.k);
+      if(existing){
+        newItem.dates.forEach(d=>{
+          if(!existing.dates.find(x=>x.toDateString()===d.toDateString())) existing.dates.push(d);
+        });
+        existing.dates.sort((a,b)=>a-b);
+      } else if(newItem.dates.length>0) {
+        muellScheduleData.push(newItem);
+      }
+    });
+    const total=muellScheduleData.reduce((s,x)=>s+x.dates.length,0);
+    toast(`✓ Foto hinzugefügt – ${total} Termine gesamt`);
+    muellZeigeEdit();
+  } catch(e) {
+    forms.innerHTML=oldHtml;
+    toast('⚠️ Erkennung fehlgeschlagen');
+  }
+}
+
+function muellPruefeVerschiebung(date, bl) {
+  const feiertage=getFeiertage(date.getFullYear(),bl);
+  const isFeiertag=feiertage.some(f=>!f.info&&f.d.toDateString()===date.toDateString());
+  if(!isFeiertag) return {date, verschoben:false};
+  // In Deutschland: Verschiebung meist auf nächsten Werktag
+  const next=new Date(date);
+  let tries=0;
+  do {
+    next.setDate(next.getDate()+1);
+    tries++;
+    const isWeekend=next.getDay()===0||next.getDay()===6;
+    const isHoliday=feiertage.some(f=>!f.info&&f.d.toDateString()===next.toDateString());
+    if(!isWeekend&&!isHoliday) break;
+  } while(tries<7);
+  return {date:next, verschoben:true, original:date};
+}
+
 function muellErstellen() {
-  const tasks=g('af_tasks').filter(t=>!t.muell); // alte löschen
+  const tasks=g('af_tasks').filter(t=>!t.muell);
   let total=0;
-  // Nur angehakte Typen nehmen
+  const bl=localStorage.getItem('af_bundesland')||'BY';
+  const pruefeFeiert=document.getElementById('muellFeiertage')?.checked;
   const checked=MUELL_TYPES.map(t=>t.k).filter(k=>{
     const cb=document.getElementById('muell-cb-'+k); return cb&&cb.checked;
   });
   muellScheduleData.filter(item=>checked.includes(item.k)&&item.dates.length>0).forEach(item=>{
     item.dates.forEach(d=>{
+      const {date:finalDate, verschoben, original}=pruefeFeiert ? muellPruefeVerschiebung(d,bl) : {date:d,verschoben:false};
+      const titleBase=`${item.e} ${item.l} rausstellen`;
+      const title=verschoben ? `${titleBase} ⚠️ verschoben (Feiertag!)` : titleBase;
+      const note=verschoben ? `Normaltermin wäre ${original.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit'})} gewesen – wegen Feiertag auf ${finalDate.toLocaleDateString('de-DE',{weekday:'long'})} verschoben.` : '';
       tasks.push({
         id:Date.now()+Math.random(),
-        title:`${item.e} ${item.l} rausstellen`,
-        prio:'mittel',assign:'Alle',bereich:'alle',
+        title,
+        prio: verschoben ? 'hoch' : 'mittel',
+        assign:'Alle',bereich:'alle',
         done:false,by:currentUser,
-        date:d.toLocaleDateString('de-DE'),
-        dueDate:d.toISOString().split('T')[0],
-        dueLabel:d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}),
-        muell:true
+        date:finalDate.toLocaleDateString('de-DE'),
+        dueDate:finalDate.toISOString().split('T')[0],
+        dueLabel:finalDate.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}),
+        note, muell:true
       });
       total++;
     });
   });
   s('af_tasks',tasks);
-  toast(`✓ ${total} Müll-Aufgaben erstellt`);
+  const verschobenCount=tasks.filter(t=>t.muell&&t.note).length;
+  toast(`✓ ${total} Aufgaben erstellt${verschobenCount>0?` · ${verschobenCount}× Feiertag-Verschiebung`:''}`);
   closeM('muell'); render();
 }
 
