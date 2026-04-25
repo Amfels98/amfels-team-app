@@ -506,32 +506,41 @@
 <!-- MODAL: MÜLLKALENDER -->
 <div class="overlay" id="modal-muell" onclick="closeOut(event,'muell')">
   <div class="modal">
-    <div class="mhdr">🗑️ Müllkalender einrichten <button class="mx" onclick="closeM('muell')">✕</button></div>
+    <div class="mhdr">📷 Müllkalender scannen <button class="mx" onclick="closeM('muell')">✕</button></div>
+    <input type="file" id="muellPhotoInput" accept="image/*" style="display:none" onchange="muellScanPhoto(this)">
 
-    <!-- Schritt 1: Adresse + Auswahl -->
+    <!-- Schritt 1: Foto -->
     <div id="muellStep1">
-      <div class="fg">
-        <label class="fl">Straße &amp; Hausnummer</label>
-        <input class="fi" id="muellStrasse" placeholder="z.B. Hauptstraße 12" />
+      <div id="muellPhotoPreview" style="width:100%;aspect-ratio:4/3;background:var(--bg3);border:2px dashed rgba(255,255,255,0.1);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;margin-bottom:1rem;overflow:hidden" onclick="document.getElementById('muellPhotoInput').click()">
+        <span style="font-size:2.5rem;margin-bottom:0.5rem">📷</span>
+        <span style="font-size:0.78rem;color:var(--dim)">Tippen zum Fotografieren</span>
       </div>
-      <label class="fl" style="margin-bottom:0.55rem">Welche Müllsorten werden abgeholt?</label>
-      <div id="muellTypeList" style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:1rem"></div>
-      <button class="sbtn" onclick="muellWeiter()">Weiter →</button>
+      <button class="sbtn" onclick="document.getElementById('muellPhotoInput').click()">📷 Kalender fotografieren / auswählen</button>
+      <div style="border-top:1px solid var(--border);margin:0.85rem 0 0.6rem"></div>
+      <button onclick="muellZeigeManuell()" style="width:100%;background:none;border:1px solid var(--border);border-radius:12px;padding:0.7rem;font-family:Inter,sans-serif;font-size:0.8rem;color:var(--dim);cursor:pointer">✏️ Manuell eingeben</button>
     </div>
 
-    <!-- Schritt 2: Termine pro Müllsorte -->
-    <div id="muellStep2" style="display:none">
-      <p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.85rem;line-height:1.6">Trage für jede Müllsorte den nächsten Abholtermin und den Abstand ein. Die App erstellt dann automatisch alle Termine.</p>
-      <div id="muellDateForms"></div>
-      <button class="sbtn" onclick="muellVorschau()">Vorschau anzeigen</button>
-      <button onclick="document.getElementById('muellStep1').style.display='block';document.getElementById('muellStep2').style.display='none'" style="width:100%;margin-top:0.5rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif">← Zurück</button>
+    <!-- Schritt 2: Wird erkannt -->
+    <div id="muellStep2" style="display:none;text-align:center;padding:2rem 0">
+      <div style="font-size:2.5rem;margin-bottom:0.75rem">⏳</div>
+      <div style="font-size:0.85rem;color:var(--dim)">Kalender wird erkannt…<br><span style="font-size:0.72rem">Das dauert ca. 15 Sekunden</span></div>
     </div>
 
-    <!-- Schritt 3: Vorschau + Erstellen -->
+    <!-- Schritt 3: Erkannte Termine bestätigen / bearbeiten -->
     <div id="muellStep3" style="display:none">
-      <div id="muellPreview"></div>
-      <button class="sbtn" onclick="muellErstellen()">✓ Aufgaben erstellen</button>
-      <button onclick="document.getElementById('muellStep2').style.display='block';document.getElementById('muellStep3').style.display='none'" style="width:100%;margin-top:0.5rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif">← Zurück</button>
+      <p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.75rem">Erkannte Termine – überprüfe und korrigiere falls nötig:</p>
+      <div id="muellEditForms"></div>
+      <button class="sbtn" onclick="muellErstellen()">✓ Aufgaben für alle erstellen</button>
+      <button onclick="document.getElementById('muellStep1').style.display='block';document.getElementById('muellStep3').style.display='none'" style="width:100%;margin-top:0.5rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif">← Neu fotografieren</button>
+    </div>
+
+    <!-- Manuell -->
+    <div id="muellStepManuell" style="display:none">
+      <p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.75rem;line-height:1.6">Müllsorte wählen, ersten Termin eintragen, Häufigkeit – die App generiert alle Termine für 1 Jahr.</p>
+      <div id="muellManualRows"></div>
+      <button onclick="muellAddRow()" style="width:100%;background:none;border:1.5px dashed var(--border);border-radius:12px;padding:0.65rem;font-size:0.78rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif;margin-bottom:0.75rem">+ Müllsorte hinzufügen</button>
+      <button class="sbtn" onclick="muellManualErstellen()">✓ Aufgaben erstellen</button>
+      <button onclick="document.getElementById('muellStep1').style.display='block';document.getElementById('muellStepManuell').style.display='none'" style="width:100%;margin-top:0.5rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif">← Zurück</button>
     </div>
   </div>
 </div>
@@ -1242,127 +1251,226 @@ function deleteAnleitung(id){s('af_anleitungen',g('af_anleitungen').filter(a=>a.
 
 // ── MÜLLKALENDER ──
 const MUELL_TYPES = [
-  {k:'rest',   l:'Restmüll',        e:'🗑️'},
-  {k:'gelb',   l:'Gelbe Tonne / Plastik', e:'♻️'},
-  {k:'bio',    l:'Biotonne',         e:'🌿'},
-  {k:'papier', l:'Papiertonne',      e:'📰'},
-  {k:'glas',   l:'Altglas',          e:'🫙'},
+  {k:'rest',    l:'Restmüll',              e:'🗑️', terms:['restmüll','restabfall','schwarze','rest-müll','rest müll']},
+  {k:'gelb',    l:'Gelbe Tonne / Plastik', e:'♻️', terms:['gelbe','gelber','plastik','leichtverp','lvp','wertstoff','gelb']},
+  {k:'bio',     l:'Biotonne',              e:'🌿', terms:['bio','kompost','bioabfall','biotonne','braune']},
+  {k:'papier',  l:'Papiertonne',           e:'📰', terms:['papier','karton','altpapier','blaue tonne']},
+  {k:'glas',    l:'Altglas',              e:'🫙', terms:['glas','altglas','glascontainer']},
+  {k:'sperr',   l:'Sperrmüll',            e:'🛋️', terms:['sperrmüll','sperr','großmüll','groß müll']},
+  {k:'elek',    l:'Elektroschrott',       e:'💻', terms:['elektro','elek','elektronik','ewaste']},
+  {k:'gruen',   l:'Grünschnitt',          e:'🌿', terms:['grünschnitt','grün','gartenabfall','hecke']},
 ];
-let muellSelected = {}; // {k: true/false}
+let muellSelected = {};
 let muellScheduleData = [];
 
 function openMuellScanner() {
-  muellSelected = {};
   muellScheduleData = [];
-  ['muellStep1','muellStep2','muellStep3'].forEach((id,i) => {
-    document.getElementById(id).style.display = i===0 ? 'block' : 'none';
+  ['muellStep1','muellStep2','muellStep3','muellStepManuell'].forEach(id => {
+    const el=document.getElementById(id); if(el) el.style.display='none';
   });
-  // Build type checkboxes
-  const list = document.getElementById('muellTypeList');
-  list.innerHTML = MUELL_TYPES.map(t => `
-    <label style="display:flex;align-items:center;gap:0.75rem;background:var(--bg3);border:1.5px solid var(--border);border-radius:12px;padding:0.75rem 0.9rem;cursor:pointer;transition:all 0.18s" id="muell-lbl-${t.k}">
-      <input type="checkbox" id="muell-cb-${t.k}" style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer" onchange="muellToggle('${t.k}',this.checked)">
-      <span style="font-size:1.1rem">${t.e}</span>
-      <span style="font-size:0.88rem;font-weight:500">${t.l}</span>
-    </label>
-  `).join('');
+  document.getElementById('muellStep1').style.display='block';
+  document.getElementById('muellPhotoPreview').innerHTML='<span style="font-size:2.5rem;margin-bottom:0.5rem">📷</span><span style="font-size:0.78rem;color:var(--dim)">Tippen zum Fotografieren</span>';
   document.getElementById('modal-muell').classList.add('on');
   document.body.style.overflow='hidden';
 }
 
-function muellToggle(k, checked) {
-  muellSelected[k] = checked;
-  const lbl = document.getElementById('muell-lbl-'+k);
-  lbl.style.borderColor = checked ? 'var(--gold)' : 'var(--border)';
-  lbl.style.background = checked ? 'rgba(184,146,74,0.08)' : 'var(--bg3)';
-}
-
-function muellWeiter() {
-  const active = MUELL_TYPES.filter(t => muellSelected[t.k]);
-  if (!active.length) { toast('Bitte mindestens eine Müllsorte auswählen'); return; }
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('muellDateForms').innerHTML = active.map(t => `
-    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:0.85rem;margin-bottom:0.7rem">
-      <div style="font-size:0.9rem;font-weight:600;margin-bottom:0.7rem">${t.e} ${t.l}</div>
-      <div class="fg">
-        <label class="fl">Erster / nächster Abholtermin</label>
-        <input type="date" class="fi" id="muell-date-${t.k}" value="${today}">
-      </div>
-      <div class="fg">
-        <label class="fl">Wie oft wird abgeholt?</label>
-        <select class="fsel" id="muell-freq-${t.k}">
-          <option value="7">Jede Woche</option>
-          <option value="14" selected>Alle 2 Wochen</option>
-          <option value="28">Alle 4 Wochen (monatlich)</option>
-          <option value="0">Nur dieser eine Termin</option>
-        </select>
-      </div>
-    </div>
-  `).join('');
+async function muellScanPhoto(input) {
+  const file=input.files[0]; if(!file) return;
+  // Zeige Foto-Vorschau
+  const reader=new FileReader();
+  reader.onload=e=>{
+    document.getElementById('muellPhotoPreview').innerHTML=`<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`;
+  };
+  reader.readAsDataURL(file);
+  // Wechsle zu Schritt 2 (Laden)
   document.getElementById('muellStep1').style.display='none';
   document.getElementById('muellStep2').style.display='block';
+  // OCR
+  const b64=await compressImage(file,1600,0.88);
+  const fd=new FormData();
+  fd.append('base64Image',b64);
+  fd.append('language','ger');
+  fd.append('apikey','helloworld');
+  fd.append('OCREngine','2');
+  fd.append('isOverlayRequired','false');
+  try {
+    const r=await fetch('https://api.ocr.space/parse/image',{method:'POST',body:fd});
+    const d=await r.json();
+    const txt=d.ParsedResults?.[0]?.ParsedText||'';
+    muellScheduleData=muellParsiere(txt);
+    muellZeigeEdit();
+  } catch(e) {
+    document.getElementById('muellStep2').style.display='none';
+    document.getElementById('muellStep1').style.display='block';
+    toast('⚠️ Erkennung fehlgeschlagen – bitte manuell eingeben');
+  }
 }
 
-function muellVorschau() {
-  const active = MUELL_TYPES.filter(t => muellSelected[t.k]);
-  const strasse = document.getElementById('muellStrasse').value.trim();
-  muellScheduleData = [];
-  for (const t of active) {
-    const startVal = document.getElementById('muell-date-'+t.k)?.value; if(!startVal) continue;
-    const interval = parseInt(document.getElementById('muell-freq-'+t.k)?.value||'14');
-    const start = new Date(startVal);
-    const dates = [];
-    if (interval===0) {
-      dates.push(new Date(start));
-    } else {
-      let d = new Date(start);
-      const end = new Date(); end.setFullYear(end.getFullYear()+1);
-      while (d <= end) { dates.push(new Date(d)); d.setDate(d.getDate()+interval); }
+function muellParsiere(text) {
+  const year=new Date().getFullYear();
+  const MONATE={januar:1,februar:2,'märz':3,april:4,mai:5,juni:6,juli:7,august:8,september:9,oktober:10,november:11,dezember:12};
+  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const groups={};
+  let curType=null;
+  for(const line of lines){
+    const ll=line.toLowerCase();
+    for(const t of MUELL_TYPES){
+      if(t.terms.some(kw=>ll.includes(kw))){curType=t.k;break;}
     }
-    muellScheduleData.push({...t, dates, interval});
+    if(!curType) continue;
+    // Datum-Muster: 5.1. / 05.01. / 5.Januar / 5. Jan
+    const reNum=/(\d{1,2})[.\s]+(\d{1,2})\.?/g;
+    let m;
+    while((m=reNum.exec(line))!==null){
+      const day=parseInt(m[1]),mon=parseInt(m[2]);
+      if(day>=1&&day<=31&&mon>=1&&mon<=12){
+        if(!groups[curType]) groups[curType]={...MUELL_TYPES.find(t=>t.k===curType),dates:[]};
+        let d=new Date(year,mon-1,day);
+        if(d<new Date(Date.now()-7*86400000)) d=new Date(year+1,mon-1,day);
+        if(!groups[curType].dates.find(x=>x.toDateString()===d.toDateString()))
+          groups[curType].dates.push(d);
+      }
+    }
+    // Monatsname: 5. Januar
+    const reMon=new RegExp(`(\\d{1,2})\\.?\\s*(${Object.keys(MONATE).join('|')})`,'gi');
+    while((m=reMon.exec(ll))!==null){
+      const day=parseInt(m[1]),mon=MONATE[m[2].toLowerCase()];
+      if(day>=1&&day<=31){
+        if(!groups[curType]) groups[curType]={...MUELL_TYPES.find(t=>t.k===curType),dates:[]};
+        let d=new Date(year,mon-1,day);
+        if(d<new Date(Date.now()-7*86400000)) d=new Date(year+1,mon-1,day);
+        if(!groups[curType].dates.find(x=>x.toDateString()===d.toDateString()))
+          groups[curType].dates.push(d);
+      }
+    }
   }
-  const total = muellScheduleData.reduce((s,i)=>s+i.dates.length,0);
-  document.getElementById('muellPreview').innerHTML = `
-    ${strasse?`<div style="font-size:0.72rem;color:var(--dim);margin-bottom:0.75rem">📍 ${strasse}</div>`:''}
-    <div style="background:rgba(76,175,125,0.07);border:1px solid rgba(76,175,125,0.2);border-radius:12px;padding:0.85rem;margin-bottom:0.85rem">
-      <div style="font-size:0.72rem;font-weight:600;color:var(--green);margin-bottom:0.65rem">✓ ${total} Termine für 1 Jahr</div>
-      ${muellScheduleData.map(item=>`
-        <div style="padding:0.45rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-          <div style="font-size:0.85rem;font-weight:500">${item.e} ${item.l} · <span style="color:var(--dim);font-weight:400">${item.dates.length} Termine</span></div>
-          <div style="font-size:0.65rem;color:var(--dim);margin-top:0.2rem">
-            ${item.dates.slice(0,4).map(d=>d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'})).join(' · ')}${item.dates.length>4?' …':''}
-          </div>
-        </div>`).join('')}
-    </div>
-  `;
+  return Object.values(groups).map(g=>({...g,dates:[...g.dates].sort((a,b)=>a-b)}));
+}
+
+function muellZeigeEdit() {
   document.getElementById('muellStep2').style.display='none';
   document.getElementById('muellStep3').style.display='block';
+  const forms=document.getElementById('muellEditForms');
+  if(!muellScheduleData.length){
+    forms.innerHTML=`<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:12px;padding:0.85rem;margin-bottom:0.85rem;font-size:0.8rem;color:var(--red)">⚠️ Keine Termine erkannt. Bitte Foto besser beleuchten oder manuell eingeben.</div>`;
+    muellScheduleData=[];
+    MUELL_TYPES.forEach(t=>muellScheduleData.push({...t,dates:[]}));
+  }
+  // Füge fehlende Typen als leere Einträge hinzu
+  MUELL_TYPES.forEach(t=>{
+    if(!muellScheduleData.find(s=>s.k===t.k)) muellScheduleData.push({...t,dates:[]});
+  });
+  // Nur Typen mit erkannten Terminen zeigen, plus leere für manuelle Ergänzung
+  const withDates = muellScheduleData.filter(i=>i.dates.length>0);
+  const without   = MUELL_TYPES.filter(t=>!withDates.find(s=>s.k===t.k));
+  forms.innerHTML = `
+    ${withDates.length ? `<p style="font-size:0.68rem;font-weight:600;color:var(--green);margin-bottom:0.5rem">✓ Erkannt – Haken setzen was erstellt werden soll:</p>` : ''}
+    ${withDates.map(item=>`
+    <label style="display:flex;align-items:flex-start;gap:0.75rem;background:var(--bg3);border:1.5px solid var(--border);border-radius:14px;padding:0.85rem;margin-bottom:0.5rem;cursor:pointer;transition:border-color 0.18s" id="muell-lbl-${item.k}">
+      <input type="checkbox" id="muell-cb-${item.k}" checked style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;margin-top:2px;flex-shrink:0" onchange="muellCheckToggle('${item.k}',this.checked)">
+      <div style="flex:1">
+        <div style="font-size:0.88rem;font-weight:600;margin-bottom:0.3rem">${item.e} ${item.l} <span style="font-size:0.62rem;background:rgba(76,175,125,0.12);color:var(--green);padding:0.1rem 0.4rem;border-radius:4px;font-weight:400">${item.dates.length} Termine</span></div>
+        <div style="font-size:0.63rem;color:var(--dim);line-height:1.8">${item.dates.slice(0,5).map(d=>d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'})).join(' · ')}${item.dates.length>5?` … +${item.dates.length-5}`:''}</div>
+        <div style="display:flex;gap:0.35rem;margin-top:0.5rem">
+          <input type="date" class="fi" id="muell-extra-${item.k}" style="flex:1;font-size:0.72rem;padding:0.4rem 0.6rem">
+          <button onclick="event.preventDefault();muellAddDate('${item.k}')" style="background:var(--bg4);color:var(--dim);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.6rem;font-size:0.72rem;cursor:pointer;font-family:Inter,sans-serif;white-space:nowrap">+ Datum</button>
+        </div>
+      </div>
+    </label>`).join('')}
+    ${without.length?`<p style="font-size:0.68rem;color:var(--dim);margin:0.6rem 0 0.4rem">Nicht erkannt – manuell hinzufügen:</p>`:''}
+    ${without.map(item=>`
+    <label style="display:flex;align-items:center;gap:0.75rem;background:var(--bg3);border:1.5px solid var(--border);border-radius:14px;padding:0.75rem 0.9rem;margin-bottom:0.4rem;cursor:pointer;opacity:0.65" id="muell-lbl-${item.k}">
+      <input type="checkbox" id="muell-cb-${item.k}" style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer" onchange="muellCheckToggle('${item.k}',this.checked)">
+      <span style="font-size:1rem">${item.e}</span>
+      <span style="font-size:0.85rem;font-weight:500">${item.l}</span>
+      <span style="font-size:0.62rem;color:var(--dim);margin-left:auto">0 Termine</span>
+    </label>`).join('')}
+  `;
+}
+
+function muellCheckToggle(k, checked) {
+  const lbl=document.getElementById('muell-lbl-'+k);
+  if(lbl){ lbl.style.borderColor=checked?'var(--gold)':'var(--border)'; lbl.style.opacity=checked?'1':'0.5'; }
+}
+
+function muellAddDate(k) {
+  const inp=document.getElementById('muell-extra-'+k); if(!inp||!inp.value) return;
+  const item=muellScheduleData.find(s=>s.k===k); if(!item) return;
+  const d=new Date(inp.value);
+  if(!item.dates.find(x=>x.toDateString()===d.toDateString())) item.dates.push(d);
+  item.dates.sort((a,b)=>a-b);
+  inp.value='';
+  muellZeigeEdit();
+}
+
+function muellZeigeManuell() {
+  document.getElementById('muellStep1').style.display='none';
+  document.getElementById('muellStepManuell').style.display='block';
+  document.getElementById('muellManualRows').innerHTML='';
+  muellAddRow();
+}
+
+function muellAddRow() {
+  const rows=document.getElementById('muellManualRows');
+  const today=new Date().toISOString().split('T')[0];
+  const div=document.createElement('div');
+  div.style.cssText='background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:0.85rem;margin-bottom:0.6rem';
+  div.innerHTML=`
+    <div class="fg"><label class="fl">Müllsorte</label>
+      <select class="fsel">${MUELL_TYPES.map(t=>`<option value="${t.k}">${t.e} ${t.l}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">Erster Termin</label><input type="date" class="fi" value="${today}"></div>
+    <div class="fg"><label class="fl">Wie oft?</label>
+      <select class="fsel"><option value="7">Jede Woche</option><option value="14" selected>Alle 2 Wochen</option><option value="28">Alle 4 Wochen</option></select></div>
+    <button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--red);font-size:0.72rem;cursor:pointer;font-family:Inter,sans-serif">Entfernen</button>
+  `;
+  rows.appendChild(div);
+}
+
+function muellManuelDates(start,interval) {
+  const dates=[]; let d=new Date(start);
+  const end=new Date(); end.setFullYear(end.getFullYear()+1);
+  while(d<=end){dates.push(new Date(d));d.setDate(d.getDate()+interval);}
+  return dates;
+}
+
+function muellManualErstellen() {
+  muellScheduleData=[];
+  document.querySelectorAll('#muellManualRows > div').forEach(row=>{
+    const sels=row.querySelectorAll('select');
+    const inp=row.querySelector('input[type=date]');
+    if(!sels.length||!inp?.value) return;
+    const t=MUELL_TYPES.find(x=>x.k===sels[0].value);
+    const interval=parseInt(sels[1]?.value||'14');
+    if(t) muellScheduleData.push({...t,dates:muellManuelDates(inp.value,interval)});
+  });
+  muellErstellen();
 }
 
 function muellErstellen() {
-  const tasks = g('af_tasks');
-  // Alte Müll-Aufgaben löschen (Neustart)
-  const cleaned = tasks.filter(t=>!t.muell);
-  let total = 0;
-  muellScheduleData.forEach(item => {
-    item.dates.forEach(d => {
-      cleaned.push({
-        id: Date.now() + Math.random(),
-        title: `${item.e} ${item.l} rausstellen`,
-        prio: 'mittel', assign:'Alle', bereich:'alle',
-        done:false, by:currentUser,
-        date: d.toLocaleDateString('de-DE'),
-        dueDate: d.toISOString().split('T')[0],
-        dueLabel: d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}),
-        muell: true
+  const tasks=g('af_tasks').filter(t=>!t.muell); // alte löschen
+  let total=0;
+  // Nur angehakte Typen nehmen
+  const checked=MUELL_TYPES.map(t=>t.k).filter(k=>{
+    const cb=document.getElementById('muell-cb-'+k); return cb&&cb.checked;
+  });
+  muellScheduleData.filter(item=>checked.includes(item.k)&&item.dates.length>0).forEach(item=>{
+    item.dates.forEach(d=>{
+      tasks.push({
+        id:Date.now()+Math.random(),
+        title:`${item.e} ${item.l} rausstellen`,
+        prio:'mittel',assign:'Alle',bereich:'alle',
+        done:false,by:currentUser,
+        date:d.toLocaleDateString('de-DE'),
+        dueDate:d.toISOString().split('T')[0],
+        dueLabel:d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}),
+        muell:true
       });
       total++;
     });
   });
-  s('af_tasks', cleaned);
+  s('af_tasks',tasks);
   toast(`✓ ${total} Müll-Aufgaben erstellt`);
-  closeM('muell');
-  render();
+  closeM('muell'); render();
 }
 
 // ── ADMIN PANEL ──
