@@ -1687,7 +1687,13 @@ async function muellScanPhoto(input) {
   document.getElementById('muellStep1').style.display='none';
   document.getElementById('muellStep2').style.display='block';
 
-  const apiKey=localStorage.getItem('af_gemini_key');
+  // Key direkt aus Firebase holen (aktuellste Version)
+  let apiKey = localStorage.getItem('af_gemini_key');
+  try {
+    const kr = await fetch(`${DB_URL}/config/gemini_key.json`, {cache:'no-store'});
+    const fbKey = await kr.json();
+    if(fbKey && typeof fbKey==='string') { apiKey=fbKey; localStorage.setItem('af_gemini_key',fbKey); }
+  } catch{}
   if(!apiKey) {
     toast('Bitte zuerst Gemini API-Key einrichten');
     document.getElementById('muellStep2').style.display='none';
