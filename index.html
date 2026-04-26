@@ -249,6 +249,7 @@
     .photo-circle img { width:100%; height:100%; object-fit:cover; }
     .uavatar { width:22px; height:22px; border-radius:50%; object-fit:cover; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
 
@@ -572,9 +573,6 @@
 
     <!-- Schritt 1: Nummer + Foto -->
     <div id="muellStep1">
-      <div id="muellApiHint" style="display:none;background:rgba(91,141,238,0.08);border:1px solid rgba(91,141,238,0.25);border-radius:12px;padding:0.75rem;margin-bottom:0.75rem;font-size:0.72rem;color:var(--blue)">
-        🔑 Kein Gemini API-Key gesetzt. <button onclick="muellSetupApi()" style="background:none;border:none;color:var(--blue);text-decoration:underline;cursor:pointer;font-family:Inter,sans-serif;font-size:0.72rem;padding:0">Jetzt einrichten →</button>
-      </div>
       <div class="fg" style="margin-bottom:0.8rem">
         <label class="fl">Eure Nummer im Kalender <span style="color:var(--dim);font-weight:400">(optional)</span></label>
         <input class="fi" id="muellTourNr" placeholder="z.B. 3 oder Tour B" style="font-size:1rem;font-weight:600;text-align:center" />
@@ -1687,96 +1685,34 @@ async function muellScanPhoto(input) {
   document.getElementById('muellStep1').style.display='none';
   document.getElementById('muellStep2').style.display='block';
 
-  // Key direkt aus Firebase holen (aktuellste Version)
-  let apiKey = localStorage.getItem('af_gemini_key');
+  // Browser-OCR mit Tesseract.js (kein API-Key nötig)
+  document.getElementById('muellStep2').innerHTML=`<div style="text-align:center;padding:2rem 0">
+    <div style="font-size:2.5rem;margin-bottom:0.75rem">🔍</div>
+    <div style="font-size:0.85rem;color:var(--dim)">Kalender wird gelesen…<br><span style="font-size:0.72rem">Das dauert ca. 20–30 Sekunden</span></div>
+    <div style="margin-top:1rem;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden"><div id="ocrProgress" style="height:100%;background:var(--gold);width:0%;transition:width 0.5s"></div></div>
+  </div>`;
+
   try {
-    const kr = await fetch(`${DB_URL}/config/gemini_key.json`, {cache:'no-store'});
-    const fbKey = await kr.json();
-    if(fbKey && typeof fbKey==='string') { apiKey=fbKey; localStorage.setItem('af_gemini_key',fbKey); }
-  } catch{}
-  if(!apiKey) {
-    toast('Bitte zuerst Gemini API-Key einrichten');
-    document.getElementById('muellStep2').style.display='none';
-    document.getElementById('muellStep1').style.display='block';
-    muellSetupApi();
-    return;
-  }
-
-  // Auf 2000px komprimieren – optimal für Gemini Vision (lesbar aber nicht zu groß)
-  const b64full = await compressImage(file, 2000, 0.92);
-  const mimeType = 'image/jpeg';
-  const b64data = b64full.split(',')[1];
-
-  const tourInfo = tourNr
-    ? `WICHTIG: Der Nutzer hat die Tourennummer/Bezirksnummer "${tourNr}". Suche im Kalender nach dieser Nummer und gib NUR die Termine für diese Tour zurück.`
-    : 'Gib alle erkannten Termine zurück.';
-
-  const prompt = `Du bist ein Experte für deutsche Müllkalender. Analysiere dieses Bild eines Müllabfuhrkalenders sehr sorgfältig.
-${tourInfo}
-
-Extrahiere alle Abholtermine für jede Müllart. Achte auf Tabellen, Spalten, Zeilen und Jahreszahlen.
-
-Antworte AUSSCHLIESSLICH mit diesem JSON (kein Markdown, kein Text davor oder danach):
-{"typen":[{"typ":"rest","name":"Restmüll","termine":[]},{"typ":"gelb","name":"Gelbe Tonne / Plastik","termine":[]},{"typ":"bio","name":"Biotonne","termine":[]},{"typ":"papier","name":"Papiertonne","termine":[]},{"typ":"glas","name":"Altglas","termine":[]},{"typ":"sperr","name":"Sperrmüll","termine":[]},{"typ":"elek","name":"Elektroschrott","termine":[]},{"typ":"gruen","name":"Grünschnitt","termine":[]}]}
-
-Regeln:
-- Datumsformat immer DD.MM.YYYY (z.B. 05.01.2025)
-- Leere Arrays [] wenn nicht vorhanden
-- Nur diese 8 Typen verwenden`;
-
-  // Lade-Text mit mehr Info
-  document.getElementById('muellStep2').innerHTML=`<div style="text-align:center;padding:2rem 0"><div style="font-size:2.5rem;margin-bottom:0.75rem">🤖</div><div style="font-size:0.85rem;color:var(--dim)">KI liest den Kalender…<br><span style="font-size:0.72rem">Gemini analysiert das Bild</span></div></div>`;
-
-  // Modelle der Reihe nach versuchen
-  const models = ['gemini-2.0-flash','gemini-1.5-flash','gemini-1.5-pro'];
-  let lastError = '';
-
-  for (const model of models) {
-    try {
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          contents:[{parts:[
-            {text: prompt},
-            {inlineData:{mimeType, data: b64data}}
-          ]}],
-          generationConfig:{temperature:0, maxOutputTokens:4096}
-        })
-      });
-      const d = await resp.json();
-      if(d.error) { lastError = `API-Fehler (${model}): ${d.error.message}`; continue; }
-      const raw = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      if(!raw) { lastError = `Leere Antwort von ${model}`; continue; }
-      // JSON extrahieren
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if(!jsonMatch) {
-        // Gemini hat geantwortet aber kein JSON – zeige die Antwort
-        lastError = `Gemini sagt: "${raw.slice(0,200)}"`;
-        continue;
+    const result = await Tesseract.recognize(file, 'deu', {
+      logger: m => {
+        if(m.status==='recognizing text') {
+          const p = document.getElementById('ocrProgress');
+          if(p) p.style.width = Math.round(m.progress*100)+'%';
+        }
       }
-      const parsed = JSON.parse(jsonMatch[0]);
-      muellScheduleData = muellGeminiToSchedule(parsed);
-      if(muellScheduleData.some(x=>x.dates.length>0)) {
-        const total=muellScheduleData.reduce((s,x)=>s+x.dates.length,0);
-        toast(`✓ ${total} Termine erkannt`);
-        muellZeigeEdit();
-        return;
-      }
-      lastError = `Bild gelesen aber keine Termine gefunden (${model})`;
-    } catch(e) { lastError = e.message; }
+    });
+    const txt = result.data.text;
+    muellScheduleData = muellParsiere(txt, tourNr);
+    if(muellScheduleData.some(x=>x.dates.length>0)) {
+      const total = muellScheduleData.reduce((s,x)=>s+x.dates.length,0);
+      toast(`✓ ${total} Termine erkannt`);
+    } else {
+      toast('Wenige Termine erkannt – bitte manuell ergänzen');
+    }
+  } catch(e) {
+    muellScheduleData = [];
+    toast('⚠️ Erkennung fehlgeschlagen – manuell eingeben');
   }
-
-  // Alle Modelle fehlgeschlagen – trotzdem zu Step3, Fehler sichtbar anzeigen
-  muellScheduleData = [];
-  document.getElementById('muellStep2').innerHTML=`<div style="text-align:center;padding:2rem 0"><div style="font-size:2.5rem;margin-bottom:0.75rem">⏳</div><div style="font-size:0.85rem;color:var(--dim)">Kalender wird erkannt…</div></div>`;
-  const errMsg = lastError.includes('API_KEY') || lastError.includes('invalid') ? '⚠️ API-Key ungültig – tippe auf "Einrichten" und prüfe den Key'
-    : lastError.includes('quota') || lastError.includes('limit') ? '⚠️ Tageslimit erreicht – morgen erneut versuchen'
-    : `⚠️ Fehler: ${lastError}`;
-  muellZeigeEdit();
-  // Fehler in Step3 sichtbar einblenden
-  const info = document.getElementById('muellHausNrInfo');
-  if(info) info.innerHTML = `<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.25);border-radius:10px;padding:0.6rem 0.75rem;font-size:0.72rem;color:var(--red);margin-bottom:0.5rem">${errMsg}<br><span style="opacity:0.7">Termine unten manuell eintragen oder <button onclick="muellSetupApi()" style="background:none;border:none;color:var(--red);text-decoration:underline;cursor:pointer;font-family:Inter,sans-serif;font-size:0.72rem;padding:0">API-Key prüfen</button></span></div>`;
 }
 
 function muellGeminiToSchedule(parsed) {
