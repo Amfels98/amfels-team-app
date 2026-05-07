@@ -2344,6 +2344,14 @@ async function openAdmin() {
       ${inviteHtml}
       <button onclick="showCreateInvite()" style="width:100%;background:rgba(184,146,74,0.08);border:1.5px dashed rgba(184,146,74,0.4);border-radius:12px;padding:0.72rem;font-family:Inter,sans-serif;font-size:0.82rem;color:var(--gold);cursor:pointer;margin-top:0.2rem">+ Neuen Mitarbeiter einladen</button>
     </div>
+    <div style="margin-top:1rem">
+      <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--dim);margin-bottom:0.6rem">Direkt hinzufügen</div>
+      <div id="directAddForm" style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.75rem;display:flex;flex-direction:column;gap:0.5rem">
+        <input id="directAddName" placeholder="Name (z.B. Sasho)" style="background:var(--bg4);border:1px solid var(--border);border-radius:8px;padding:0.6rem 0.75rem;font-family:Inter,sans-serif;font-size:0.85rem;color:var(--text);width:100%;outline:none" />
+        <input id="directAddPin" placeholder="PIN (4 Ziffern)" type="number" maxlength="4" style="background:var(--bg4);border:1px solid var(--border);border-radius:8px;padding:0.6rem 0.75rem;font-family:Inter,sans-serif;font-size:0.85rem;color:var(--text);width:100%;outline:none" />
+        <button onclick="doDirectAdd()" style="background:var(--gold);color:#000;border:none;border-radius:8px;padding:0.65rem;font-family:Inter,sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer">Mitarbeiter anlegen</button>
+      </div>
+    </div>
   `;
 }
 
@@ -2354,6 +2362,30 @@ async function resetPin(name) {
     toast(`✓ PIN von ${name} zurückgesetzt`);
     openAdmin();
   } catch { toast('Fehler beim Zurücksetzen'); }
+}
+
+async function doDirectAdd() {
+  const nameEl = document.getElementById('directAddName');
+  const pinEl  = document.getElementById('directAddPin');
+  const name = (nameEl.value || '').trim();
+  const pin  = (pinEl.value  || '').trim();
+  if (!name) { toast('Bitte Name eingeben'); return; }
+  if (!/^\d{4}$/.test(pin)) { toast('PIN muss genau 4 Ziffern sein'); return; }
+  if (TEAM.includes(name)) { toast(`${name} ist bereits registriert`); return; }
+  try {
+    await Promise.all([
+      fetch(`${DB_URL}/pins/${encodeURIComponent(name)}.json`, {
+        method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(pin)
+      }),
+      fetch(`${DB_URL}/profiles/${encodeURIComponent(name)}.json`, {
+        method:'PATCH', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({bereich:null, photo:null, createdAt:new Date().toISOString(), addedByAdmin:true})
+      })
+    ]);
+    toast(`✓ ${name} angelegt`);
+    nameEl.value = ''; pinEl.value = '';
+    openAdmin();
+  } catch { toast('Fehler beim Anlegen'); }
 }
 
 // ── FIREBASE SETUP ──
