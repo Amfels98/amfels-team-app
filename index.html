@@ -264,6 +264,38 @@
     <p class="llab">Wer bist du?</p>
     <div class="ngrid" id="nameGrid"></div>
     <button class="lbtn" id="loginBtn" disabled onclick="goToPin()">Weiter →</button>
+    <button onclick="showStep('stepInvite')" style="margin-top:0.65rem;width:100%;max-width:320px;background:none;border:1px solid var(--border);border-radius:12px;padding:0.65rem;font-family:Inter,sans-serif;font-size:0.78rem;color:var(--dim);cursor:pointer;">Neu hier? Einladungscode eingeben →</button>
+  </div>
+
+  <!-- Schritt: Einladungscode -->
+  <div id="stepInvite" style="width:100%;max-width:320px;display:none;flex-direction:column;align-items:center;">
+    <p class="llab">Einladung</p>
+    <h2 style="font-size:1.9rem;font-weight:200;letter-spacing:-0.02em;margin-bottom:0.2rem">Code eingeben</h2>
+    <p class="ls">Vom Chef erhalten</p>
+    <p class="llab" style="margin-top:0.5rem">6-stelliger Einladungscode</p>
+    <input class="fi" id="inviteCodeInput" type="text" maxlength="6"
+      placeholder="A B 3 X 7 K"
+      style="max-width:320px;font-size:1.5rem;letter-spacing:0.45rem;text-align:center;margin-bottom:0.55rem;text-transform:uppercase;font-weight:700"
+      oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"
+      onkeydown="if(event.key==='Enter')checkInviteCode()" />
+    <p id="inviteError" style="color:var(--red);font-size:0.78rem;margin-bottom:0.65rem;min-height:1.1rem;text-align:center"></p>
+    <button class="lbtn" onclick="checkInviteCode()">Code prüfen →</button>
+    <button onclick="showStep('stepName')" style="margin-top:0.75rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif;">← Zurück</button>
+  </div>
+
+  <!-- Schritt: Name (Neuregistrierung) -->
+  <div id="stepNewName" style="width:100%;max-width:320px;display:none;flex-direction:column;align-items:center;">
+    <p class="llab">Registrierung</p>
+    <h2 style="font-size:1.9rem;font-weight:200;letter-spacing:-0.02em;margin-bottom:0.2rem">Dein Name</h2>
+    <p class="ls">Wie sollen dich Kollegen nennen?</p>
+    <p class="llab" style="margin-top:0.5rem">Vor- und Nachname</p>
+    <input class="fi" id="newUserName" type="text" maxlength="30"
+      placeholder="z.B. Max Müller"
+      style="max-width:320px;margin-bottom:0.55rem"
+      onkeydown="if(event.key==='Enter')proceedNewUser()" />
+    <p id="newNameError" style="color:var(--red);font-size:0.78rem;margin-bottom:0.65rem;min-height:1.1rem;text-align:center"></p>
+    <button class="lbtn" onclick="proceedNewUser()">Weiter →</button>
+    <button onclick="showStep('stepInvite')" style="margin-top:0.75rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif;">← Zurück</button>
   </div>
 
   <!-- Schritt 2: PIN -->
@@ -661,8 +693,7 @@ let DB_URL = localStorage.getItem('af_db_url') || 'https://apfels-team-default-r
 // ─────────────────────────────────────────────────────────────────────────
 const ADMIN = 'Leon'; // Nur dieser Nutzer kann löschen & verwalten
 
-const TEAM = ['Leon','Sasho','Patrik','Tea','Daniel'];
-const TEAM_ALL = ['Alle',...TEAM];
+let TEAM = []; // Dynamisch aus Firebase geladen
 const BEREICHE = [{k:'alle',l:'🍽️ Alle'},{k:'kueche',l:'🍳 Küche'},{k:'service',l:'🤵 Service'},{k:'theke',l:'🍺 Theke'}];
 
 function getCookie(name){return decodeURIComponent((document.cookie.match('(?:^|; )'+name+'=([^;]*)')||[])[1]||'');}
@@ -754,12 +785,31 @@ async function loadProfiles() {
     const res = await fetch(`${DB_URL}/profiles.json`, {cache:'no-store'});
     profiles = await res.json() || {};
   } catch {}
+  // TEAM dynamisch aus profiles aufbauen
+  const allNames = Object.keys(profiles).filter(n => !profiles[n]?.disabled);
+  // Admin immer vorne
+  TEAM = [ADMIN, ...allNames.filter(n => n !== ADMIN)];
+  if (!profiles[ADMIN]) TEAM = allNames; // Falls Admin noch nicht registriert
   renderNameGrid();
+  if (typeof buildAllChips === 'function' && currentUser) buildAllChips();
 }
 
 function renderNameGrid() {
   const grid = document.getElementById('nameGrid');
   grid.innerHTML = '';
+  if (!TEAM.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:1rem 0;color:var(--dim);font-size:0.75rem;line-height:1.6">Noch keine Mitarbeiter.<br>Als Erstes registrieren:</div>`;
+    // Ersten Admin-Setup ermöglichen
+    const firstBtn = document.createElement('button');
+    firstBtn.className = 'nbtn';
+    firstBtn.style.gridColumn = '1/-1';
+    firstBtn.innerHTML = `<span class="av">👑</span><span>Als Chef registrieren</span>`;
+    firstBtn.onclick = () => { currentUser = ADMIN; startFirstAdminSetup(); };
+    grid.appendChild(firstBtn);
+    document.getElementById('loginBtn').disabled = true;
+    return;
+  }
+  const EMOJI_LIST = ['👨‍🍳','🧑‍🍳','🍺','👩‍🍳','👨‍🍳','🧑‍🍳','👩‍🍳','👨‍🍳'];
   TEAM.forEach((name, i) => {
     const p = profiles[name] || {};
     const bc = BCOLORS[p.bereich] || BCOLORS.alle;
@@ -769,7 +819,7 @@ function renderNameGrid() {
     btn.innerHTML = `
       ${p.photo
         ? `<img class="nbtn-img" src="${p.photo}" style="border:2.5px solid ${bc}">`
-        : `<span class="av" style="border:2px solid ${bc}">${EMOJIS[i]}</span>`}
+        : `<span class="av" style="border:2px solid ${bc}">${EMOJI_LIST[i % EMOJI_LIST.length]}</span>`}
       <span>${name}</span>
       ${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}
     `;
@@ -847,8 +897,7 @@ function showProfileSetup() {
     };
     chips.appendChild(chip);
   });
-  document.getElementById('stepPin').style.display = 'none';
-  document.getElementById('stepProfile').style.display = 'flex';
+  showStep('stepProfile');
 }
 
 async function saveProfile() {
@@ -911,14 +960,168 @@ async function goToPin() {
     document.getElementById('pinLabel').textContent = `Neuen PIN erstellen für ${currentUser}`;
     document.getElementById('pinConfirm').style.display = 'block';
   }
-  document.getElementById('stepName').style.display = 'none';
-  document.getElementById('stepPin').style.display = 'flex';
+  showStep('stepPin');
   setTimeout(() => document.getElementById('pinInput').focus(), 200);
 }
 
-function backToName() {
-  document.getElementById('stepPin').style.display = 'none';
-  document.getElementById('stepName').style.display = 'flex';
+function showStep(id) {
+  ['stepName','stepPin','stepProfile','stepInvite','stepNewName'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.style.display = 'none';
+  });
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'flex';
+}
+
+function backToName() { showStep('stepName'); }
+
+// ── EINLADUNGSSYSTEM ──
+let currentInviteCode = null;
+let isNewUserReg = false;
+
+function inviteCodeGen() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:6}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+
+async function adminCreateInvite(prefilledName='') {
+  const code = inviteCodeGen();
+  const expires = Date.now() + 30*24*60*60*1000;
+  await fetch(`${DB_URL}/invites/${code}.json`, {
+    method:'PUT',
+    body:JSON.stringify({by:currentUser, at:new Date().toISOString(), name:prefilledName, expires, used:false}),
+    headers:{'Content-Type':'application/json'}
+  });
+  return code;
+}
+
+async function checkInviteCode() {
+  const raw = document.getElementById('inviteCodeInput').value.trim();
+  const code = raw.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const errEl = document.getElementById('inviteError');
+  if (code.length < 4) { errEl.textContent='Bitte Code eingeben'; return; }
+  errEl.textContent='⏳ Prüfe Code…';
+  try {
+    const res = await fetch(`${DB_URL}/invites/${code}.json`);
+    const invite = await res.json();
+    if (!invite) { errEl.textContent='❌ Ungültiger Code'; return; }
+    if (invite.used) { errEl.textContent='❌ Dieser Code wurde bereits verwendet'; return; }
+    if (invite.expires && invite.expires < Date.now()) { errEl.textContent='❌ Code abgelaufen'; return; }
+    currentInviteCode = code;
+    errEl.textContent='';
+    const nameInput = document.getElementById('newUserName');
+    if (invite.name) {
+      nameInput.value = invite.name;
+      nameInput.readOnly = true;
+      nameInput.style.opacity = '0.7';
+    } else {
+      nameInput.value = '';
+      nameInput.readOnly = false;
+      nameInput.style.opacity = '1';
+    }
+    document.getElementById('newNameError').textContent='';
+    showStep('stepNewName');
+    setTimeout(()=>{ if(!invite.name) nameInput.focus(); }, 200);
+  } catch {
+    errEl.textContent='❌ Verbindungsfehler – bitte erneut versuchen';
+  }
+}
+
+async function proceedNewUser() {
+  const name = document.getElementById('newUserName').value.trim();
+  const errEl = document.getElementById('newNameError');
+  if (!name || name.length < 2) { errEl.textContent='Bitte Namen eingeben (mind. 2 Zeichen)'; return; }
+  if (TEAM.includes(name)) { errEl.textContent='Dieser Name ist bereits vergeben'; return; }
+  currentUser = name;
+  isNewUserReg = true;
+  errEl.textContent='';
+  // PIN-Erstellung starten
+  pinMode = 'create';
+  document.getElementById('pinLabel').textContent = `PIN erstellen für ${name}`;
+  document.getElementById('pinConfirm').style.display = 'block';
+  document.getElementById('pinInput').value='';
+  document.getElementById('pinConfirm').value='';
+  document.getElementById('pinError').textContent='';
+  showStep('stepPin');
+  setTimeout(()=>document.getElementById('pinInput').focus(), 200);
+}
+
+function startFirstAdminSetup() {
+  // Erster Start ohne Einladung – Admin-Registrierung
+  isNewUserReg = true;
+  currentInviteCode = null;
+  pinMode = 'create';
+  document.getElementById('pinLabel').textContent = `PIN erstellen für ${ADMIN} (Chef)`;
+  document.getElementById('pinConfirm').style.display = 'block';
+  document.getElementById('pinInput').value='';
+  document.getElementById('pinConfirm').value='';
+  document.getElementById('pinError').textContent='';
+  showStep('stepPin');
+  setTimeout(()=>document.getElementById('pinInput').focus(), 200);
+}
+
+function copyInviteLink(code) {
+  const url = `${location.origin}${location.pathname}?invite=${code}`;
+  navigator.clipboard.writeText(url).then(()=>toast('✓ Link kopiert')).catch(()=>toast(url));
+}
+
+async function revokeInvite(code) {
+  await fetch(`${DB_URL}/invites/${code}.json`, {method:'DELETE'});
+  toast('Einladung widerrufen');
+  openAdmin();
+}
+
+function showCreateInvite() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.82);backdrop-filter:blur(8px);z-index:3000;display:flex;align-items:center;justify-content:center;padding:1.5rem';
+  overlay.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:22px;padding:1.4rem;width:100%;max-width:340px">
+    <div style="font-size:0.96rem;font-weight:600;margin-bottom:0.35rem">Mitarbeiter einladen</div>
+    <p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.85rem;line-height:1.55">Optional: Name vorausfüllen (Mitarbeiter kann ihn dann nicht mehr ändern). Oder leer lassen für freie Wahl.</p>
+    <div class="fg">
+      <label class="fl">Name (optional)</label>
+      <input class="fi" id="inviteNameInput" placeholder="z.B. Max Müller" onkeydown="if(event.key==='Enter')doCreateInvite(document.querySelector('#inviteNameInput').nextElementSibling)" />
+    </div>
+    <button class="sbtn" onclick="doCreateInvite(this)" style="margin-top:0.3rem">Einladung erstellen</button>
+    <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;margin-top:0.5rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif">Abbrechen</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  setTimeout(()=>document.getElementById('inviteNameInput')?.focus(), 200);
+}
+
+async function doCreateInvite(btn) {
+  const nameInput = document.getElementById('inviteNameInput');
+  const name = nameInput?.value.trim()||'';
+  btn.disabled=true; btn.textContent='Erstelle…';
+  const code = await adminCreateInvite(name);
+  const appUrl = `${location.origin}${location.pathname}`;
+  const link = `${appUrl}?invite=${code}`;
+  const waText = encodeURIComponent(`Hallo${name?' '+name:''}! 👋\n\nHier ist dein Zugang zur Am Fels Team-App:\n\n📱 Link: ${link}\n🔑 Code: ${code}\n\nLink öffnen → Code eingeben → Name & PIN festlegen – fertig!`);
+  btn.closest('[style*=fixed]').innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:22px;padding:1.4rem;width:100%;max-width:340px">
+    <div style="font-size:0.96rem;font-weight:600;margin-bottom:0.2rem">✓ Einladung erstellt</div>
+    ${name?`<p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.85rem">Für: <strong style="color:var(--text)">${name}</strong></p>`:`<p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.85rem">Gültig 30 Tage · Einmalig verwendbar</p>`}
+    <div style="background:rgba(76,175,125,0.08);border:2px solid rgba(76,175,125,0.3);border-radius:16px;padding:1.2rem;text-align:center;margin-bottom:0.9rem">
+      <div style="font-size:0.62rem;color:var(--dim);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.5rem">Einladungscode</div>
+      <div style="font-size:2.2rem;font-weight:800;letter-spacing:0.6rem;color:var(--green);font-variant-numeric:tabular-nums">${code}</div>
+      <div style="font-size:0.62rem;color:var(--dim);margin-top:0.4rem">Gültig 30 Tage · Einmalig verwendbar</div>
+    </div>
+    <button onclick="navigator.clipboard.writeText('${link}').then(()=>toast('✓ Link kopiert'))" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.72rem;font-family:Inter,sans-serif;font-size:0.82rem;color:var(--text);cursor:pointer;margin-bottom:0.45rem">🔗 Link kopieren</button>
+    <a href="https://wa.me/?text=${waText}" target="_blank" style="display:block;width:100%;background:rgba(37,211,102,0.1);border:1.5px solid rgba(37,211,102,0.35);border-radius:12px;padding:0.72rem;font-family:Inter,sans-serif;font-size:0.82rem;font-weight:600;color:#25d366;cursor:pointer;margin-bottom:0.45rem;text-decoration:none;text-align:center">💬 Via WhatsApp senden</a>
+    <button onclick="this.closest('[style*=fixed]').remove();openAdmin()" style="width:100%;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif;padding-top:0.3rem">Schließen</button>
+  </div>`;
+}
+
+async function removeMember(name) {
+  if (!confirm(`${name} wirklich entfernen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
+  try {
+    const p = profiles[name] || {};
+    p.disabled = true;
+    await fetch(`${DB_URL}/profiles/${name}.json`, {method:'PUT', body:JSON.stringify(p), headers:{'Content-Type':'application/json'}});
+    await fetch(`${DB_URL}/pins/${name}.json`, {method:'DELETE'});
+    toast(`${name} entfernt`);
+    await loadProfiles();
+    openAdmin();
+  } catch { toast('Fehler beim Entfernen'); }
 }
 
 async function submitPin() {
@@ -932,6 +1135,18 @@ async function submitPin() {
         method:'PUT', body:JSON.stringify(pin), headers:{'Content-Type':'application/json'}
       });
     } catch {}
+    // Einladungscode als verwendet markieren
+    if (isNewUserReg && currentInviteCode) {
+      try {
+        await fetch(`${DB_URL}/invites/${currentInviteCode}.json`, {
+          method:'PATCH',
+          body:JSON.stringify({used:true, usedBy:currentUser, usedAt:new Date().toISOString()}),
+          headers:{'Content-Type':'application/json'}
+        });
+      } catch {}
+      currentInviteCode = null;
+      isNewUserReg = false;
+    }
     showProfileSetup();
   } else {
     let stored = null;
@@ -980,8 +1195,7 @@ function logout() {
   if (notifTimer) clearInterval(notifTimer);
   if (sseSrc) { sseSrc.close(); sseSrc = null; }
   document.getElementById('loginScreen').classList.remove('hidden');
-  document.getElementById('stepPin').style.display = 'none';
-  document.getElementById('stepName').style.display = 'flex';
+  showStep('stepName');
   document.getElementById('app').classList.add('hidden');
   document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('sel'));
   document.getElementById('loginBtn').disabled = true;
@@ -996,6 +1210,7 @@ function startClock() {
 
 // ── CHIPS ──
 function buildAllChips() {
+  const TEAM_ALL = ['Alle', ...TEAM];
   buildChips('tBereichChips', BEREICHE.map(b=>({k:b.k,l:b.l})), v=>{tBereich=v;}, 'alle', 'bereich');
   buildChips('tAssignChips', TEAM_ALL.map(n=>({k:n,l:n})), v=>{tAssign=v;}, 'Alle', 'assign');
   buildChips('rBereichChips', BEREICHE.map(b=>({k:b.k,l:b.l})), v=>{rBereich=v;}, 'alle', 'bereich');
@@ -2033,46 +2248,80 @@ async function openAdmin() {
   list.innerHTML = '<p style="font-size:0.75rem;color:var(--dim)">Lade...</p>';
   document.getElementById('modal-admin').classList.add('on');
   document.body.style.overflow='hidden';
-  let pins = {}, posReqs = {};
+  let pins = {}, posReqs = {}, invites = {};
   try {
-    const [pinsRes, reqsRes] = await Promise.all([
+    const [pinsRes, reqsRes, invRes] = await Promise.all([
       fetch(`${DB_URL}/pins.json`, {cache:'no-store'}),
-      fetch(`${DB_URL}/positionRequests.json`, {cache:'no-store'})
+      fetch(`${DB_URL}/positionRequests.json`, {cache:'no-store'}),
+      fetch(`${DB_URL}/invites.json`, {cache:'no-store'})
     ]);
     pins = await pinsRes.json() || {};
     posReqs = await reqsRes.json() || {};
+    invites = await invRes.json() || {};
   } catch {}
-  // Reload profiles too
   await loadProfiles();
-  list.innerHTML = TEAM.map(name => {
+
+  // ── Mitarbeiterliste ──
+  const memberHtml = TEAM.map(name => {
     const p = profiles[name] || {};
     const req = posReqs[name];
     return `
     <div style="padding:0.65rem 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${req?'0.45rem':'0'}">
-        <div>
-          <div style="display:flex;align-items:center;gap:0.5rem">
-            ${p.photo?`<img src="${p.photo}" style="width:26px;height:26px;border-radius:50%;object-fit:cover">`:''}
-            <span style="font-size:0.88rem;font-weight:500">${name}</span>
-            ${name===ADMIN?'<span style="font-size:0.58rem;color:var(--gold)">ADMIN</span>':''}
-          </div>
-          <div style="font-size:0.63rem;color:var(--dim);margin-top:0.15rem">
-            ${p.bereich?`Position: ${BLABELS[p.bereich]||p.bereich} ✓`:'Keine Position'}
-            · ${pins[name]?'PIN gesetzt':'Kein PIN'}
+        <div style="display:flex;align-items:center;gap:0.6rem;flex:1;min-width:0">
+          ${p.photo?`<img src="${p.photo}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0">`:'<div style="width:30px;height:30px;border-radius:50%;background:var(--bg4);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:var(--dim)">${(name[0]||'?').toUpperCase()}</div>'}
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:0.45rem">
+              <span style="font-size:0.88rem;font-weight:500">${name}</span>
+              ${name===ADMIN?'<span style="font-size:0.55rem;background:rgba(184,146,74,0.15);color:var(--gold);padding:0.05rem 0.4rem;border-radius:4px;font-weight:600">ADMIN</span>':''}
+            </div>
+            <div style="font-size:0.63rem;color:var(--dim);margin-top:0.1rem">
+              ${p.bereich?`${BLABELS[p.bereich]||p.bereich} ✓`:'Keine Position'}
+              &nbsp;·&nbsp;${pins[name]?'PIN ✓':'Kein PIN'}
+            </div>
           </div>
         </div>
-        ${name!==ADMIN?`<button onclick="resetPin('${name}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.6rem;font-size:0.65rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif;">PIN reset</button>`:''}
+        <div style="display:flex;gap:0.35rem;flex-shrink:0">
+          ${name!==ADMIN?`<button onclick="resetPin('${name}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.55rem;font-size:0.62rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif;">PIN</button>`:''}
+          ${name!==ADMIN?`<button onclick="removeMember('${name}')" style="background:none;border:1px solid rgba(224,82,82,0.3);border-radius:8px;padding:0.28rem 0.55rem;font-size:0.62rem;color:var(--red);cursor:pointer;font-family:Inter,sans-serif;">✕</button>`:''}
+        </div>
       </div>
       ${req ? `
         <div style="background:rgba(232,146,74,0.08);border:1px solid rgba(232,146,74,0.3);border-radius:10px;padding:0.5rem 0.7rem;display:flex;align-items:center;justify-content:space-between">
-          <div style="font-size:0.72rem;color:var(--orange)">⏳ Anfrage: <strong>${BLABELS[req.position]||req.position}</strong></div>
+          <div style="font-size:0.72rem;color:var(--orange)">⏳ Positions-Anfrage: <strong>${BLABELS[req.position]||req.position}</strong></div>
           <div style="display:flex;gap:0.35rem">
-            <button onclick="approvePosition('${name}','${req.position}')" style="background:var(--green);color:#fff;border:none;border-radius:7px;padding:0.28rem 0.65rem;font-size:0.68rem;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">✓ Bestätigen</button>
+            <button onclick="approvePosition('${name}','${req.position}')" style="background:var(--green);color:#fff;border:none;border-radius:7px;padding:0.28rem 0.65rem;font-size:0.68rem;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">✓</button>
             <button onclick="denyPosition('${name}')" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.28rem 0.55rem;font-size:0.68rem;color:var(--red);cursor:pointer;font-family:Inter,sans-serif">✕</button>
           </div>
         </div>` : ''}
     </div>`;
-  }).join('');
+  }).join('') || '<p style="font-size:0.75rem;color:var(--dim);padding:0.5rem 0">Keine Mitarbeiter vorhanden.</p>';
+
+  // ── Aktive Einladungen ──
+  const now = Date.now();
+  const activeInvites = Object.entries(invites).filter(([,v])=>!v.used && v.expires > now);
+  const inviteHtml = activeInvites.length
+    ? activeInvites.map(([code, inv])=>`
+        <div style="background:rgba(76,175,125,0.07);border:1px solid rgba(76,175,125,0.2);border-radius:12px;padding:0.6rem 0.75rem;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.55rem">
+          <span style="font-size:1rem;font-weight:800;letter-spacing:0.2rem;color:var(--green);font-variant-numeric:tabular-nums;flex-shrink:0">${code}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:0.72rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${inv.name||'Offene Einladung'}</div>
+            <div style="font-size:0.6rem;color:var(--dim)">Läuft ab ${new Date(inv.expires).toLocaleDateString('de-DE')}</div>
+          </div>
+          <button onclick="copyInviteLink('${code}')" style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:0.25rem 0.5rem;font-size:0.6rem;color:var(--dim);cursor:pointer;font-family:Inter,sans-serif;white-space:nowrap">🔗</button>
+          <button onclick="revokeInvite('${code}')" style="background:none;border:1px solid rgba(224,82,82,0.25);border-radius:7px;padding:0.25rem 0.5rem;font-size:0.6rem;color:var(--red);cursor:pointer;font-family:Inter,sans-serif">✕</button>
+        </div>`)
+      .join('')
+    : '<p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.6rem">Keine aktiven Einladungen.</p>';
+
+  list.innerHTML = `
+    ${memberHtml}
+    <div style="margin-top:1.1rem">
+      <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--dim);margin-bottom:0.6rem">Einladungen</div>
+      ${inviteHtml}
+      <button onclick="showCreateInvite()" style="width:100%;background:rgba(184,146,74,0.08);border:1.5px dashed rgba(184,146,74,0.4);border-radius:12px;padding:0.72rem;font-family:Inter,sans-serif;font-size:0.82rem;color:var(--gold);cursor:pointer;margin-top:0.2rem">+ Neuen Mitarbeiter einladen</button>
+    </div>
+  `;
 }
 
 async function resetPin(name) {
@@ -2328,6 +2577,19 @@ if(currentUser){
   const fn={tTitle:addTask,rTitle:addRec,oItem:addOrder,rzName:addRezept,alTitel:addAnleitung};
   el.addEventListener('keydown',e=>{if(e.key==='Enter')fn[id]();});
 });
+
+// ?invite= URL-Parameter automatisch erkennen
+(function(){
+  const params = new URLSearchParams(location.search);
+  const urlInvite = params.get('invite');
+  if (urlInvite && !currentUser) {
+    const inp = document.getElementById('inviteCodeInput');
+    if (inp) inp.value = urlInvite.toUpperCase().replace(/[^A-Z0-9]/g,'');
+    showStep('stepInvite');
+    // URL säubern ohne Reload
+    history.replaceState({}, '', location.pathname);
+  }
+})();
 </script>
 </body>
 </html>
