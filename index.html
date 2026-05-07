@@ -22,18 +22,43 @@
     html, body { height:100%; font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); overflow:hidden; -webkit-font-smoothing:antialiased; }
 
     /* ── LOGIN ── */
-    #loginScreen { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:2.5rem 2rem 2rem; z-index:1000; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    #loginScreen { position:fixed; inset:0; background:var(--bg); z-index:1000; display:flex; flex-direction:column; overflow:hidden; }
     #loginScreen.hidden { display:none; }
-    .ll { font-size:0.62rem; letter-spacing:0.35em; color:var(--gold); text-transform:uppercase; margin-bottom:0.3rem; }
-    .lt { font-size:1.9rem; font-weight:200; letter-spacing:-0.02em; margin-bottom:0.15rem; }
-    .ls { font-size:0.72rem; color:var(--dim); margin-bottom:1.4rem; }
-    .llab { font-size:0.62rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:0.75rem; align-self:flex-start; width:100%; max-width:320px; }
-    .ngrid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; width:100%; max-width:320px; margin-bottom:1rem; }
-    .nbtn { background:var(--bg3); border:1px solid var(--border); color:var(--dim); padding:0.7rem 0.6rem; border-radius:14px; font-family:'Inter',sans-serif; font-size:0.85rem; font-weight:500; cursor:pointer; transition:all 0.18s; text-align:center; display:flex; flex-direction:column; align-items:center; gap:0.28rem; }
-    .nbtn .av { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1rem; background:var(--bg4); }
-    .nbtn.sel { border-color:var(--gold); background:rgba(184,146,74,0.1); color:var(--gold); }
-    .lbtn { width:100%; max-width:320px; background:var(--gold); color:#000; border:none; padding:0.9rem; border-radius:14px; font-family:'Inter',sans-serif; font-size:0.88rem; font-weight:700; cursor:pointer; }
+    .ls-inner { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column; align-items:center; padding:env(safe-area-inset-top,2rem) 1.5rem 2rem; padding-top:max(2.5rem,env(safe-area-inset-top)); }
+    /* Header */
+    .ll { font-size:0.6rem; letter-spacing:0.35em; color:var(--gold); text-transform:uppercase; margin-bottom:0.25rem; }
+    .lt { font-size:2rem; font-weight:200; letter-spacing:-0.02em; margin-bottom:0.1rem; }
+    .ls { font-size:0.7rem; color:var(--dim); margin-bottom:2rem; }
+    /* Steps */
+    .ls-step { width:100%; max-width:340px; display:none; flex-direction:column; align-items:center; }
+    .ls-step.active { display:flex; }
+    .ls-label { font-size:0.6rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:0.7rem; align-self:flex-start; }
+    /* Name grid */
+    .ngrid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; width:100%; margin-bottom:1.2rem; }
+    .nbtn { background:var(--bg3); border:1.5px solid var(--border); color:var(--text); padding:0.9rem 0.6rem; border-radius:16px; font-family:'Inter',sans-serif; font-size:0.88rem; font-weight:500; cursor:pointer; -webkit-tap-highlight-color:transparent; display:flex; flex-direction:column; align-items:center; gap:0.35rem; transition:border-color 0.15s,background 0.15s; active:none; }
+    .nbtn:active { background:rgba(184,146,74,0.15); border-color:var(--gold); }
+    .nbtn .av { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.15rem; background:var(--bg4); border:2px solid var(--border); }
+    .nbtn .nm { font-size:0.85rem; font-weight:600; color:var(--text); }
+    .nbtn-img { width:40px; height:40px; border-radius:50%; object-fit:cover; }
+    .nbtn-badge { font-size:0.52rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; padding:0.06rem 0.35rem; border-radius:4px; }
+    .ls-invite-btn { background:none; border:1px solid var(--border); border-radius:12px; padding:0.7rem; width:100%; font-family:'Inter',sans-serif; font-size:0.78rem; color:var(--dim); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    /* PIN screen */
+    .ls-back { background:none; border:none; color:var(--dim); font-family:'Inter',sans-serif; font-size:0.82rem; cursor:pointer; align-self:flex-start; padding:0; margin-bottom:1.5rem; -webkit-tap-highlight-color:transparent; }
+    .ls-pin-user { font-size:1.3rem; font-weight:600; margin-bottom:0.3rem; }
+    .ls-pin-sub { font-size:0.72rem; color:var(--dim); margin-bottom:1.8rem; }
+    .pin-dots { display:flex; gap:0.75rem; margin-bottom:1.5rem; }
+    .pin-dot { width:16px; height:16px; border-radius:50%; background:var(--bg4); border:2px solid rgba(255,255,255,0.15); transition:all 0.15s; }
+    .pin-dot.filled { background:var(--gold); border-color:var(--gold); transform:scale(1.1); }
+    #pinInput { position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; }
+    .pin-keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:0.5rem; width:100%; max-width:260px; }
+    .pk { background:var(--bg3); border:1px solid var(--border); border-radius:14px; padding:1rem; font-family:'Inter',sans-serif; font-size:1.3rem; font-weight:500; color:var(--text); cursor:pointer; text-align:center; -webkit-tap-highlight-color:transparent; transition:background 0.1s; user-select:none; }
+    .pk:active { background:var(--bg4); }
+    .pk.del { font-size:1.1rem; color:var(--dim); }
+    #pinError { color:var(--red); font-size:0.8rem; min-height:1.2rem; margin-top:0.75rem; text-align:center; }
+    /* Invite */
+    .lbtn { width:100%; max-width:340px; background:var(--gold); color:#000; border:none; padding:0.9rem; border-radius:14px; font-family:'Inter',sans-serif; font-size:0.88rem; font-weight:700; cursor:pointer; }
     .lbtn:disabled { opacity:0.3; cursor:not-allowed; }
+    .llab { font-size:0.62rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:0.75rem; align-self:flex-start; width:100%; max-width:340px; }
 
     /* ── APP ── */
     #app { display:flex; flex-direction:column; height:100%; height:100dvh; }
@@ -243,8 +268,6 @@
     .bbtn.on-theke { background:rgba(155,107,204,0.12); border-color:var(--theke); color:var(--theke); }
 
     /* Profile */
-    .nbtn-img { width:52px; height:52px; border-radius:50%; object-fit:cover; }
-    .nbtn-badge { font-size:0.56rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:0.08rem 0.38rem; border-radius:4px; }
     .photo-circle { width:88px; height:88px; border-radius:50%; background:var(--bg3); border:2px dashed rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; font-size:2.2rem; cursor:pointer; overflow:hidden; flex-shrink:0; }
     .photo-circle img { width:100%; height:100%; object-fit:cover; }
     .uavatar { width:22px; height:22px; border-radius:50%; object-fit:cover; }
@@ -254,74 +277,85 @@
 
 <!-- LOGIN -->
 <div id="loginScreen">
+ <div class="ls-inner">
   <p class="ll">Restaurant</p>
   <h1 class="lt">Am Fels</h1>
   <p class="ls">Team · App</p>
 
   <!-- Schritt 1: Name -->
-  <div id="stepName" style="width:100%;max-width:320px;display:flex;flex-direction:column;align-items:center;">
-    <p class="llab">Wer bist du?</p>
+  <div id="stepName" class="ls-step active">
+    <p class="ls-label">Wer bist du?</p>
     <div class="ngrid" id="nameGrid"></div>
-    <button class="lbtn" id="loginBtn" disabled onclick="goToPin()">Weiter →</button>
-    <button onclick="showStep('stepInvite')" style="margin-top:0.65rem;width:100%;max-width:320px;background:none;border:1px solid var(--border);border-radius:12px;padding:0.65rem;font-family:Inter,sans-serif;font-size:0.78rem;color:var(--dim);cursor:pointer;">Neu hier? Einladungscode eingeben →</button>
+    <button class="ls-invite-btn" onclick="showStep('stepInvite')">Neu hier? Einladungscode eingeben →</button>
+  </div>
+
+  <!-- Schritt 2: PIN (Keypad) -->
+  <div id="stepPin" class="ls-step">
+    <button class="ls-back" onclick="backToName()">← Zurück</button>
+    <div id="pinUserLabel" class="ls-pin-user"></div>
+    <p class="ls-pin-sub" id="pinLabel">PIN eingeben</p>
+    <div class="pin-dots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <p id="pinError"></p>
+    <input id="pinInput" type="password" inputmode="numeric" maxlength="4" autocomplete="off" style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px" />
+    <div class="pin-keypad" id="pinKeypad">
+      <button class="pk" onclick="pkPress('1')">1</button>
+      <button class="pk" onclick="pkPress('2')">2</button>
+      <button class="pk" onclick="pkPress('3')">3</button>
+      <button class="pk" onclick="pkPress('4')">4</button>
+      <button class="pk" onclick="pkPress('5')">5</button>
+      <button class="pk" onclick="pkPress('6')">6</button>
+      <button class="pk" onclick="pkPress('7')">7</button>
+      <button class="pk" onclick="pkPress('8')">8</button>
+      <button class="pk" onclick="pkPress('9')">9</button>
+      <button class="pk" onclick="pkPress('')" style="opacity:0;pointer-events:none"></button>
+      <button class="pk" onclick="pkPress('0')">0</button>
+      <button class="pk del" onclick="pkDel()">⌫</button>
+    </div>
   </div>
 
   <!-- Schritt: Einladungscode -->
-  <div id="stepInvite" style="width:100%;max-width:320px;display:none;flex-direction:column;align-items:center;">
-    <p class="llab">Einladung</p>
-    <h2 style="font-size:1.9rem;font-weight:200;letter-spacing:-0.02em;margin-bottom:0.2rem">Code eingeben</h2>
-    <p class="ls">Vom Chef erhalten</p>
-    <p class="llab" style="margin-top:0.5rem">6-stelliger Einladungscode</p>
+  <div id="stepInvite" class="ls-step">
+    <button class="ls-back" onclick="showStep('stepName')">← Zurück</button>
+    <p class="ls-label">Einladungscode</p>
     <input class="fi" id="inviteCodeInput" type="text" maxlength="6"
-      placeholder="A B 3 X 7 K"
-      style="max-width:320px;font-size:1.5rem;letter-spacing:0.45rem;text-align:center;margin-bottom:0.55rem;text-transform:uppercase;font-weight:700"
+      placeholder="ABC123"
+      style="width:100%;font-size:1.5rem;letter-spacing:0.45rem;text-align:center;margin-bottom:0.55rem;text-transform:uppercase;font-weight:700"
       oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"
       onkeydown="if(event.key==='Enter')checkInviteCode()" />
     <p id="inviteError" style="color:var(--red);font-size:0.78rem;margin-bottom:0.65rem;min-height:1.1rem;text-align:center"></p>
     <button class="lbtn" onclick="checkInviteCode()">Code prüfen →</button>
-    <button onclick="showStep('stepName')" style="margin-top:0.75rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif;">← Zurück</button>
   </div>
 
   <!-- Schritt: Name (Neuregistrierung) -->
-  <div id="stepNewName" style="width:100%;max-width:320px;display:none;flex-direction:column;align-items:center;">
-    <p class="llab">Registrierung</p>
-    <h2 style="font-size:1.9rem;font-weight:200;letter-spacing:-0.02em;margin-bottom:0.2rem">Dein Name</h2>
-    <p class="ls">Wie sollen dich Kollegen nennen?</p>
-    <p class="llab" style="margin-top:0.5rem">Vor- und Nachname</p>
+  <div id="stepNewName" class="ls-step">
+    <button class="ls-back" onclick="showStep('stepInvite')">← Zurück</button>
+    <p class="ls-label">Dein Name</p>
     <input class="fi" id="newUserName" type="text" maxlength="30"
-      placeholder="z.B. Max Müller"
-      style="max-width:320px;margin-bottom:0.55rem"
+      placeholder="Vorname"
+      style="width:100%;margin-bottom:0.55rem"
       onkeydown="if(event.key==='Enter')proceedNewUser()" />
     <p id="newNameError" style="color:var(--red);font-size:0.78rem;margin-bottom:0.65rem;min-height:1.1rem;text-align:center"></p>
     <button class="lbtn" onclick="proceedNewUser()">Weiter →</button>
-    <button onclick="showStep('stepInvite')" style="margin-top:0.75rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif;">← Zurück</button>
-  </div>
-
-  <!-- Schritt 2: PIN -->
-  <div id="stepPin" style="width:100%;max-width:320px;display:none;flex-direction:column;align-items:center;">
-    <p class="llab" id="pinLabel">PIN eingeben</p>
-    <input id="pinInput" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]*"
-      class="fi" style="max-width:320px;font-size:1.6rem;letter-spacing:0.5rem;text-align:center;margin-bottom:0.8rem"
-      placeholder="••••" oninput="this.value=this.value.replace(/\D/g,'')" onkeydown="if(event.key==='Enter')submitPin()" />
-    <input id="pinConfirm" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]*"
-      class="fi" style="max-width:320px;font-size:1.6rem;letter-spacing:0.5rem;text-align:center;margin-bottom:0.8rem;display:none"
-      placeholder="••••  bestätigen" oninput="this.value=this.value.replace(/\D/g,'')" />
-    <p id="pinError" style="color:var(--red);font-size:0.78rem;margin-bottom:0.65rem;min-height:1rem"></p>
-    <button class="lbtn" onclick="submitPin()">Einloggen</button>
-    <button onclick="backToName()" style="margin-top:0.75rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif;">← Zurück</button>
   </div>
 
   <!-- Schritt 3: Profil -->
-  <div id="stepProfile" style="width:100%;max-width:320px;display:none;flex-direction:column;align-items:center;">
-    <p class="llab">Dein Profil</p>
+  <div id="stepProfile" class="ls-step">
+    <button class="ls-back" onclick="backToName()">← Zurück</button>
+    <p class="ls-label">Dein Profil</p>
     <div class="photo-circle" id="photoPreview" onclick="document.getElementById('photoInput').click()">📷</div>
     <p style="font-size:0.68rem;color:var(--dim);margin:0.6rem 0 1.2rem;text-align:center">Tippe auf das Bild für ein Foto</p>
     <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhoto(this)" />
-    <p class="llab" style="align-self:flex-start">Dein Bereich</p>
+    <p class="llab">Dein Bereich</p>
     <div class="chips" id="profileBereichChips" style="width:100%;margin-bottom:1.5rem"></div>
     <button class="lbtn" onclick="saveProfile()">Fertig &amp; Einloggen</button>
     <button onclick="skipProfile()" style="margin-top:0.75rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif;">Überspringen</button>
   </div>
+ </div>
 </div>
 
 <!-- APP -->
@@ -818,40 +852,36 @@ async function loadProfiles() {
 
 function renderNameGrid() {
   const grid = document.getElementById('nameGrid');
+  if (!grid) return;
   grid.innerHTML = '';
   if (!TEAM.length) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:1rem 0;color:var(--dim);font-size:0.75rem;line-height:1.6">Noch keine Mitarbeiter registriert.</div>`;
     const firstBtn = document.createElement('button');
     firstBtn.className = 'nbtn';
-    firstBtn.style.cssText = 'grid-column:1/-1;width:100%;justify-content:center;';
-    firstBtn.innerHTML = `<span class="av">👑</span><span>Als Chef einrichten</span>`;
+    firstBtn.style.cssText = 'grid-column:1/-1;';
+    firstBtn.innerHTML = `<span class="av">👑</span><span class="nm">Als Chef einrichten</span>`;
     firstBtn.onclick = () => { currentUser = ADMIN; startFirstAdminSetup(); };
     grid.appendChild(firstBtn);
-    document.getElementById('loginBtn').disabled = true;
     return;
   }
-  const EMOJI_LIST = ['👨‍🍳','🧑‍🍳','🍺','👩‍🍳','👨‍🍳','🧑‍🍳','👩‍🍳','👨‍🍳'];
+  const EMOJI = ['👨‍🍳','🧑‍🍳','🍺','👩‍🍳','🍳','🧆','🥗','🥩'];
   TEAM.forEach((name, i) => {
     const p = profiles[name] || {};
     const bc = BCOLORS[p.bereich] || BCOLORS.alle;
     const bl = BLABELS[p.bereich] || '';
     const btn = document.createElement('button');
     btn.className = 'nbtn';
-    btn.innerHTML = `
-      ${p.photo
-        ? `<img class="nbtn-img" src="${p.photo}" style="border:2.5px solid ${bc}">`
-        : `<span class="av" style="border:2px solid ${bc}">${EMOJI_LIST[i % EMOJI_LIST.length]}</span>`}
-      <span>${name}</span>
-      ${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}
-    `;
-    btn.onclick = () => {
-      document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('sel'));
-      btn.classList.add('sel');
+    btn.innerHTML = p.photo
+      ? `<img class="nbtn-img" src="${p.photo}" style="border:2.5px solid ${bc}">${name}${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}`
+      : `<span class="av" style="border:2px solid ${bc}">${EMOJI[i % EMOJI.length]}</span><span class="nm">${name}</span>${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}`;
+    btn.addEventListener('touchstart', function(e) {
+      e.preventDefault();
       currentUser = name;
-      document.getElementById('loginBtn').disabled = false;
-      // Direkt zum PIN — kein extra Weiter-Klick nötig
-      setTimeout(() => goToPin(), 120);
-    };
+      goToPin();
+    }, {passive:false});
+    btn.addEventListener('click', function() {
+      currentUser = name;
+      goToPin();
+    });
     grid.appendChild(btn);
   });
 }
@@ -976,27 +1006,53 @@ let pinMode = 'enter'; // 'enter' | 'create'
 
 function goToPin() {
   if (!currentUser) return;
-  document.getElementById('pinInput').value = '';
-  document.getElementById('pinConfirm').value = '';
-  document.getElementById('pinError').textContent = '';
-  // Sofort PIN-Screen zeigen (Modus wird beim Absenden geprüft)
+  pinBuffer = '';
+  updatePinDots();
   pinMode = 'enter';
-  document.getElementById('pinLabel').textContent = `PIN für ${currentUser}`;
-  document.getElementById('pinConfirm').style.display = 'none';
+  document.getElementById('pinUserLabel').textContent = currentUser;
+  document.getElementById('pinLabel').textContent = 'PIN eingeben';
+  document.getElementById('pinError').textContent = '';
   showStep('stepPin');
-  setTimeout(() => document.getElementById('pinInput').focus(), 100);
 }
 
 function showStep(id) {
-  ['stepName','stepPin','stepProfile','stepInvite','stepNewName'].forEach(s => {
-    const el = document.getElementById(s);
-    if (el) el.style.display = 'none';
-  });
+  document.querySelectorAll('.ls-step').forEach(el => el.classList.remove('active'));
   const el = document.getElementById(id);
-  if (el) el.style.display = 'flex';
+  if (el) el.classList.add('active');
 }
 
-function backToName() { showStep('stepName'); }
+function backToName() {
+  currentUser = null;
+  pinBuffer = '';
+  updatePinDots();
+  document.getElementById('pinError').textContent = '';
+  showStep('stepName');
+}
+
+// ── PIN KEYPAD ──
+let pinBuffer = '';
+let pinConfirmBuffer = '';
+let pinMode = 'enter';
+
+function pkPress(digit) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += digit;
+  updatePinDots();
+  if (pinBuffer.length === 4) setTimeout(submitPin, 180);
+}
+
+function pkDel() {
+  pinBuffer = pinBuffer.slice(0, -1);
+  updatePinDots();
+  document.getElementById('pinError').textContent = '';
+}
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById('pd' + i);
+    if (dot) dot.classList.toggle('filled', i < pinBuffer.length);
+  }
+}
 
 // ── EINLADUNGSSYSTEM ──
 let currentInviteCode = null;
@@ -1058,29 +1114,27 @@ async function proceedNewUser() {
   currentUser = name;
   isNewUserReg = true;
   errEl.textContent='';
-  // PIN-Erstellung starten
   pinMode = 'create';
-  document.getElementById('pinLabel').textContent = `PIN erstellen für ${name}`;
-  document.getElementById('pinConfirm').style.display = 'block';
-  document.getElementById('pinInput').value='';
-  document.getElementById('pinConfirm').value='';
-  document.getElementById('pinError').textContent='';
+  pinBuffer = '';
+  pinConfirmBuffer = '';
+  updatePinDots();
+  document.getElementById('pinUserLabel').textContent = name;
+  document.getElementById('pinLabel').textContent = 'Neuen PIN erstellen';
+  document.getElementById('pinError').textContent = '';
   showStep('stepPin');
-  setTimeout(()=>document.getElementById('pinInput').focus(), 200);
 }
 
 function startFirstAdminSetup() {
-  // Erster Start ohne Einladung – Admin-Registrierung
   isNewUserReg = true;
   currentInviteCode = null;
   pinMode = 'create';
-  document.getElementById('pinLabel').textContent = `PIN erstellen für ${ADMIN} (Chef)`;
-  document.getElementById('pinConfirm').style.display = 'block';
-  document.getElementById('pinInput').value='';
-  document.getElementById('pinConfirm').value='';
-  document.getElementById('pinError').textContent='';
+  pinBuffer = '';
+  pinConfirmBuffer = '';
+  updatePinDots();
+  document.getElementById('pinUserLabel').textContent = ADMIN;
+  document.getElementById('pinLabel').textContent = 'Neuen PIN erstellen';
+  document.getElementById('pinError').textContent = '';
   showStep('stepPin');
-  setTimeout(()=>document.getElementById('pinInput').focus(), 200);
 }
 
 function copyInviteLink(code) {
@@ -1148,11 +1202,27 @@ async function removeMember(name) {
 }
 
 async function submitPin() {
-  const pin = document.getElementById('pinInput').value;
+  const pin = pinBuffer;
   if (pin.length !== 4) { document.getElementById('pinError').textContent = 'PIN muss 4 Ziffern haben'; return; }
   if (pinMode === 'create') {
-    const confirm = document.getElementById('pinConfirm').value;
-    if (pin !== confirm) { document.getElementById('pinError').textContent = 'PINs stimmen nicht überein'; return; }
+    if (!pinConfirmBuffer) {
+      // Erste Eingabe merken, zweite abfragen
+      pinConfirmBuffer = pin;
+      pinBuffer = '';
+      updatePinDots();
+      document.getElementById('pinLabel').textContent = 'PIN bestätigen';
+      document.getElementById('pinError').textContent = '';
+      return;
+    }
+    const confirm = pinConfirmBuffer;
+    pinConfirmBuffer = '';
+    if (pin !== confirm) {
+      pinBuffer = ''; pinConfirmBuffer = '';
+      updatePinDots();
+      document.getElementById('pinLabel').textContent = 'Nochmal – PINs stimmten nicht überein';
+      document.getElementById('pinError').textContent = '';
+      return;
+    }
     try {
       await fetch(`${DB_URL}/pins/${currentUser}.json`, {
         method:'PUT', body:JSON.stringify(pin), headers:{'Content-Type':'application/json'}
@@ -1178,20 +1248,19 @@ async function submitPin() {
       stored = await res.json();
     } catch {}
     if (stored === null) {
-      // Noch kein PIN → in Erstellen-Modus wechseln
       pinMode = 'create';
-      document.getElementById('pinLabel').textContent = `Neuen PIN erstellen für ${currentUser}`;
-      document.getElementById('pinConfirm').style.display = 'block';
-      document.getElementById('pinInput').value = '';
-      document.getElementById('pinError').textContent = 'Noch kein PIN – bitte neuen PIN erstellen';
+      pinBuffer = '';
+      updatePinDots();
+      document.getElementById('pinLabel').textContent = 'Neuen PIN erstellen';
+      document.getElementById('pinError').textContent = '';
       return;
     }
     if (String(stored) === pin) {
       showProfileSetup();
     } else {
+      pinBuffer = '';
+      updatePinDots();
       document.getElementById('pinError').textContent = '❌ Falscher PIN';
-      document.getElementById('pinInput').value = '';
-      document.getElementById('pinInput').focus();
     }
   }
 }
@@ -1227,13 +1296,13 @@ function logout() {
   currentUser = null;
   isNewUserReg = false;
   currentInviteCode = null;
+  pinBuffer = '';
+  pinConfirmBuffer = '';
   if (notifTimer) clearInterval(notifTimer);
   if (sseSrc) { sseSrc.close(); sseSrc = null; }
   document.getElementById('loginScreen').classList.remove('hidden');
   showStep('stepName');
   document.getElementById('app').classList.add('hidden');
-  document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('sel'));
-  document.getElementById('loginBtn').disabled = true;
 }
 
 // ── CLOCK ──
