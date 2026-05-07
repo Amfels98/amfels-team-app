@@ -933,7 +933,19 @@ async function saveProfile() {
   doLogin();
 }
 
-function skipProfile() { doLogin(); }
+async function skipProfile() {
+  // Minimales Profil speichern damit der Nutzer im Team erscheint
+  if (!profiles[currentUser]) {
+    const profile = { bereich: null, photo: null };
+    profiles[currentUser] = profile;
+    try {
+      await fetch(`${DB_URL}/profiles/${currentUser}.json`, {
+        method:'PUT', body:JSON.stringify(profile), headers:{'Content-Type':'application/json'}
+      });
+    } catch {}
+  }
+  doLogin();
+}
 
 // ── LOGIN ──
 
@@ -1079,9 +1091,9 @@ function showCreateInvite() {
     <p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.85rem;line-height:1.55">Optional: Name vorausfüllen (Mitarbeiter kann ihn dann nicht mehr ändern). Oder leer lassen für freie Wahl.</p>
     <div class="fg">
       <label class="fl">Name (optional)</label>
-      <input class="fi" id="inviteNameInput" placeholder="z.B. Max Müller" onkeydown="if(event.key==='Enter')doCreateInvite(document.querySelector('#inviteNameInput').nextElementSibling)" />
+      <input class="fi" id="inviteNameInput" placeholder="z.B. Max Müller" onkeydown="if(event.key==='Enter')document.getElementById('inviteSubmitBtn').click()" />
     </div>
-    <button class="sbtn" onclick="doCreateInvite(this)" style="margin-top:0.3rem">Einladung erstellen</button>
+    <button id="inviteSubmitBtn" class="sbtn" onclick="doCreateInvite(this)" style="margin-top:0.3rem">Einladung erstellen</button>
     <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;margin-top:0.5rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif">Abbrechen</button>
   </div>`;
   document.body.appendChild(overlay);
@@ -1185,6 +1197,7 @@ function doLogin() {
   startNotif();
   checkNotifPerm();
   loadData();
+  loadProfiles(); // Team nach Login aktuell halten (wichtig bei Neuregistrierung)
   startSync();
 }
 
@@ -1192,6 +1205,8 @@ function logout() {
   localStorage.removeItem('af_user');
   setCookie('af_user','',0);
   currentUser = null;
+  isNewUserReg = false;
+  currentInviteCode = null;
   if (notifTimer) clearInterval(notifTimer);
   if (sseSrc) { sseSrc.close(); sseSrc = null; }
   document.getElementById('loginScreen').classList.remove('hidden');
@@ -2145,31 +2160,26 @@ async function muellScanPhotoExtra(input) {
   const file=input.files[0]; if(!file) return;
   input.value='';
   const tourNr=localStorage.getItem('af_muell_tournr')||'';
-  const apiKey=localStorage.getItem('af_gemini_key');
-  if(!apiKey){toast('Kein API-Key – Einrichten erforderlich');return;}
 
-  // Lade-Anzeige in Step3
   const forms=document.getElementById('muellEditForms');
   const oldHtml=forms.innerHTML;
-  forms.innerHTML=`<div style="text-align:center;padding:1.5rem 0"><div style="font-size:2rem;margin-bottom:0.5rem">⏳</div><div style="font-size:0.8rem;color:var(--dim)">Weiteres Foto wird erkannt…</div></div>`;
-
-  const b64full=await compressImage(file,1600,0.88);
-  const b64data=b64full.split(',')[1];
-  const tourInfo=tourNr?`Die Tourennummer ist: "${tourNr}". Filtere nur diese.`:'Gib alle Termine zurück.';
-  const prompt=`Du analysierst ein weiteres Foto desselben deutschen Müllkalenders. ${tourInfo}\nGib NUR gültiges JSON zurück (kein Markdown): {"typen":[{"typ":"rest","name":"Restmüll","termine":["DD.MM.YYYY"]},{"typ":"gelb","name":"Gelbe Tonne","termine":[]},{"typ":"bio","name":"Biotonne","termine":[]},{"typ":"papier","name":"Papiertonne","termine":[]},{"typ":"glas","name":"Altglas","termine":[]},{"typ":"sperr","name":"Sperrmüll","termine":[]},{"typ":"elek","name":"Elektroschrott","termine":[]},{"typ":"gruen","name":"Grünschnitt","termine":[]}]}`;
+  forms.innerHTML=`<div style="text-align:center;padding:1.5rem 0">
+    <div style="font-size:2rem;margin-bottom:0.5rem">🔍</div>
+    <div style="font-size:0.8rem;color:var(--dim)">Weiteres Foto wird erkannt…<br><span style="font-size:0.7rem">Ca. 20–30 Sekunden</span></div>
+    <div style="margin-top:1rem;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden"><div id="ocrProgress2" style="height:100%;background:var(--gold);width:0%;transition:width 0.5s"></div></div>
+  </div>`;
 
   try {
-    const resp=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:'image/jpeg',data:b64data}}]}],generationConfig:{temperature:0.1,maxOutputTokens:2048}})
+    const result = await Tesseract.recognize(file, 'deu', {
+      logger: m => {
+        if(m.status==='recognizing text') {
+          const p=document.getElementById('ocrProgress2');
+          if(p) p.style.width=Math.round(m.progress*100)+'%';
+        }
+      }
     });
-    const d=await resp.json();
-    if(d.error) throw new Error(d.error.message);
-    const raw=d.candidates?.[0]?.content?.parts?.[0]?.text||'';
-    const jsonMatch=raw.match(/\{[\s\S]*\}/);
-    if(!jsonMatch) throw new Error('kein JSON');
-    const parsed=JSON.parse(jsonMatch[0]);
-    const newData=muellGeminiToSchedule(parsed);
+    const txt=result.data.text;
+    const newData=muellParsiere(txt, tourNr);
     // Merge: bestehende + neue Termine zusammenführen
     newData.forEach(newItem=>{
       const existing=muellScheduleData.find(x=>x.k===newItem.k);
@@ -2187,7 +2197,7 @@ async function muellScanPhotoExtra(input) {
     muellZeigeEdit();
   } catch(e) {
     forms.innerHTML=oldHtml;
-    toast('⚠️ Erkennung fehlgeschlagen');
+    toast('⚠️ Erkennung fehlgeschlagen – bitte manuell ergänzen');
   }
 }
 
@@ -2211,7 +2221,7 @@ function muellPruefeVerschiebung(date, bl) {
 function muellErstellen() {
   const tasks=g('af_tasks').filter(t=>!t.muell);
   let total=0;
-  const bl=localStorage.getItem('af_bundesland')||'BY';
+  const bl=localStorage.getItem('af_bundesland')||'NW';
   const pruefeFeiert=document.getElementById('muellFeiertage')?.checked;
   const checked=MUELL_TYPES.map(t=>t.k).filter(k=>{
     const cb=document.getElementById('muell-cb-'+k); return cb&&cb.checked;
@@ -2421,7 +2431,7 @@ function getFeiertage(year, bl) {
 
 function renderFeiertage() {
   const el=document.getElementById('dFeiertage'); if(!el) return;
-  const bl=localStorage.getItem('af_bundesland')||'BY';
+  const bl=localStorage.getItem('af_bundesland')||'NW';
   const now=new Date(); now.setHours(0,0,0,0);
   const in30=new Date(now); in30.setDate(in30.getDate()+30);
   const year=now.getFullYear();
@@ -2452,7 +2462,7 @@ function renderFeiertage() {
 }
 
 function chooseBundesland(){
-  const cur=localStorage.getItem('af_bundesland')||'BY';
+  const cur=localStorage.getItem('af_bundesland')||'NW';
   const opts=Object.entries(BUNDESLAENDER).map(([k,v])=>`<option value="${k}" ${k===cur?'selected':''}>${v}</option>`).join('');
   const sel=`<select id="blSel" class="fsel" style="margin:0.5rem 0">${opts}</select>`;
   const overlay=document.createElement('div');
