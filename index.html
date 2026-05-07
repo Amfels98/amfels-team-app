@@ -850,6 +850,8 @@ function renderNameGrid() {
       btn.classList.add('sel');
       currentUser = name;
       document.getElementById('loginBtn').disabled = false;
+      // Direkt zum PIN — kein extra Weiter-Klick nötig
+      setTimeout(() => goToPin(), 120);
     };
     grid.appendChild(btn);
   });
