@@ -781,28 +781,38 @@ const BCOLORS = {chef:'#b8924a',schichtleiter:'#dfc089',koch:'#e8924a',kuechenhi
 const BLABELS = {chef:'Chef',schichtleiter:'Schichtleiter',koch:'Koch',kuechenhilfe:'Küchenhilfe',service:'Service',theke:'Theke',alle:''};
 
 async function loadProfiles() {
+  let fetchOk = false;
   try {
     const [profRes, pinsRes] = await Promise.all([
       fetch(`${DB_URL}/profiles.json`, {cache:'no-store'}),
       fetch(`${DB_URL}/pins.json`, {cache:'no-store'})
     ]);
-    profiles = await profRes.json() || {};
-    const pins = await pinsRes.json() || {};
-    // Nutzer mit PIN aber ohne Profil trotzdem anzeigen
+    const profData = await profRes.json();
+    const pinsData = await pinsRes.json();
+    profiles = profData || {};
+    const pins = pinsData || {};
     Object.keys(pins).forEach(name => {
       if (!profiles[name]) profiles[name] = {};
     });
+    fetchOk = true;
   } catch {
     try {
       const res = await fetch(`${DB_URL}/profiles.json`, {cache:'no-store'});
-      profiles = await res.json() || {};
+      const d = await res.json();
+      profiles = d || {};
+      fetchOk = true;
     } catch {}
   }
-  // TEAM dynamisch aufbauen – deaktivierte Nutzer ausfiltern
   const allNames = Object.keys(profiles).filter(n => !profiles[n]?.disabled);
   TEAM = allNames.includes(ADMIN)
     ? [ADMIN, ...allNames.filter(n => n !== ADMIN)]
     : allNames;
+  if (!fetchOk && !TEAM.length) {
+    // Netzwerkfehler und keine gecachten Daten → Retry-Button
+    const grid = document.getElementById('nameGrid');
+    if (grid) grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:1rem 0"><div style="color:var(--red);font-size:0.75rem;margin-bottom:0.5rem">Verbindungsfehler</div><button onclick="loadProfiles()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;font-family:Inter,sans-serif;font-size:0.75rem;color:var(--dim);cursor:pointer">↻ Erneut versuchen</button></div>`;
+    return;
+  }
   renderNameGrid();
   if (typeof buildAllChips === 'function' && currentUser) buildAllChips();
 }
@@ -811,12 +821,11 @@ function renderNameGrid() {
   const grid = document.getElementById('nameGrid');
   grid.innerHTML = '';
   if (!TEAM.length) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:1rem 0;color:var(--dim);font-size:0.75rem;line-height:1.6">Noch keine Mitarbeiter.<br>Als Erstes registrieren:</div>`;
-    // Ersten Admin-Setup ermöglichen
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:1rem 0;color:var(--dim);font-size:0.75rem;line-height:1.6">Noch keine Mitarbeiter registriert.</div>`;
     const firstBtn = document.createElement('button');
     firstBtn.className = 'nbtn';
-    firstBtn.style.gridColumn = '1/-1';
-    firstBtn.innerHTML = `<span class="av">👑</span><span>Als Chef registrieren</span>`;
+    firstBtn.style.cssText = 'grid-column:1/-1;width:100%;justify-content:center;';
+    firstBtn.innerHTML = `<span class="av">👑</span><span>Als Chef einrichten</span>`;
     firstBtn.onclick = () => { currentUser = ADMIN; startFirstAdminSetup(); };
     grid.appendChild(firstBtn);
     document.getElementById('loginBtn').disabled = true;
@@ -2605,8 +2614,13 @@ function renderDash(){
 function render(){renderDash();renderTasks();renderRec();renderOrders();renderLieferanten();renderPdfs();renderWiki();}
 
 // ── INIT ──
-renderNameGrid(); // Sofort mit Emoji rendern, dann mit Fotos überschreiben
-loadProfiles();   // Lädt Fotos für Name-Grid aus Firebase
+// Ladeindikator sofort zeigen, dann Firebase laden
+(function initGrid() {
+  const grid = document.getElementById('nameGrid');
+  if (grid) grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:1.5rem 0;color:var(--dim);font-size:0.78rem">Lade Team...</div>`;
+  document.getElementById('loginBtn').disabled = true;
+})();
+loadProfiles();   // Lädt Namen + Fotos aus Firebase
 if(currentUser){
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
