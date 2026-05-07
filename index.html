@@ -693,7 +693,7 @@ let DB_URL = localStorage.getItem('af_db_url') || 'https://apfels-team-default-r
 // ─────────────────────────────────────────────────────────────────────────
 const ADMIN = 'Leon'; // Nur dieser Nutzer kann löschen & verwalten
 
-let TEAM = []; // Dynamisch aus Firebase geladen
+let TEAM = ['Leon','Sasho','Patrik','Tea','Daniel']; // Sofort anzeigen, Firebase aktualisiert async
 const BEREICHE = [{k:'alle',l:'🍽️ Alle'},{k:'kueche',l:'🍳 Küche'},{k:'service',l:'🤵 Service'},{k:'theke',l:'🍺 Theke'}];
 
 function getCookie(name){return decodeURIComponent((document.cookie.match('(?:^|; )'+name+'=([^;]*)')||[])[1]||'');}
@@ -2616,13 +2616,8 @@ function renderDash(){
 function render(){renderDash();renderTasks();renderRec();renderOrders();renderLieferanten();renderPdfs();renderWiki();}
 
 // ── INIT ──
-// Ladeindikator sofort zeigen, dann Firebase laden
-(function initGrid() {
-  const grid = document.getElementById('nameGrid');
-  if (grid) grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:1.5rem 0;color:var(--dim);font-size:0.78rem">Lade Team...</div>`;
-  document.getElementById('loginBtn').disabled = true;
-})();
-loadProfiles();   // Lädt Namen + Fotos aus Firebase
+renderNameGrid();  // Sofort mit bekannten Namen rendern
+loadProfiles();    // Fotos + neue Mitglieder aus Firebase nachladen
 if(currentUser){
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
