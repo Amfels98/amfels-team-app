@@ -975,29 +975,17 @@ async function skipProfile() {
 
 let pinMode = 'enter'; // 'enter' | 'create'
 
-async function goToPin() {
+function goToPin() {
   if (!currentUser) return;
   document.getElementById('pinInput').value = '';
   document.getElementById('pinConfirm').value = '';
   document.getElementById('pinError').textContent = '';
-  // Prüfe ob PIN in Firebase existiert
-  let hasPin = false;
-  try {
-    const res = await fetch(`${DB_URL}/pins/${currentUser}.json`, {cache:'no-store'});
-    const val = await res.json();
-    hasPin = val !== null;
-  } catch {}
-  if (hasPin) {
-    pinMode = 'enter';
-    document.getElementById('pinLabel').textContent = `PIN für ${currentUser}`;
-    document.getElementById('pinConfirm').style.display = 'none';
-  } else {
-    pinMode = 'create';
-    document.getElementById('pinLabel').textContent = `Neuen PIN erstellen für ${currentUser}`;
-    document.getElementById('pinConfirm').style.display = 'block';
-  }
+  // Sofort PIN-Screen zeigen (Modus wird beim Absenden geprüft)
+  pinMode = 'enter';
+  document.getElementById('pinLabel').textContent = `PIN für ${currentUser}`;
+  document.getElementById('pinConfirm').style.display = 'none';
   showStep('stepPin');
-  setTimeout(() => document.getElementById('pinInput').focus(), 200);
+  setTimeout(() => document.getElementById('pinInput').focus(), 100);
 }
 
 function showStep(id) {
@@ -1190,6 +1178,15 @@ async function submitPin() {
       const res = await fetch(`${DB_URL}/pins/${currentUser}.json`, {cache:'no-store'});
       stored = await res.json();
     } catch {}
+    if (stored === null) {
+      // Noch kein PIN → in Erstellen-Modus wechseln
+      pinMode = 'create';
+      document.getElementById('pinLabel').textContent = `Neuen PIN erstellen für ${currentUser}`;
+      document.getElementById('pinConfirm').style.display = 'block';
+      document.getElementById('pinInput').value = '';
+      document.getElementById('pinError').textContent = 'Noch kein PIN – bitte neuen PIN erstellen';
+      return;
+    }
     if (String(stored) === pin) {
       showProfileSetup();
     } else {
