@@ -782,14 +782,27 @@ const BLABELS = {chef:'Chef',schichtleiter:'Schichtleiter',koch:'Koch',kuechenhi
 
 async function loadProfiles() {
   try {
-    const res = await fetch(`${DB_URL}/profiles.json`, {cache:'no-store'});
-    profiles = await res.json() || {};
-  } catch {}
-  // TEAM dynamisch aus profiles aufbauen
+    const [profRes, pinsRes] = await Promise.all([
+      fetch(`${DB_URL}/profiles.json`, {cache:'no-store'}),
+      fetch(`${DB_URL}/pins.json`, {cache:'no-store'})
+    ]);
+    profiles = await profRes.json() || {};
+    const pins = await pinsRes.json() || {};
+    // Nutzer mit PIN aber ohne Profil trotzdem anzeigen
+    Object.keys(pins).forEach(name => {
+      if (!profiles[name]) profiles[name] = {};
+    });
+  } catch {
+    try {
+      const res = await fetch(`${DB_URL}/profiles.json`, {cache:'no-store'});
+      profiles = await res.json() || {};
+    } catch {}
+  }
+  // TEAM dynamisch aufbauen – deaktivierte Nutzer ausfiltern
   const allNames = Object.keys(profiles).filter(n => !profiles[n]?.disabled);
-  // Admin immer vorne
-  TEAM = [ADMIN, ...allNames.filter(n => n !== ADMIN)];
-  if (!profiles[ADMIN]) TEAM = allNames; // Falls Admin noch nicht registriert
+  TEAM = allNames.includes(ADMIN)
+    ? [ADMIN, ...allNames.filter(n => n !== ADMIN)]
+    : allNames;
   renderNameGrid();
   if (typeof buildAllChips === 'function' && currentUser) buildAllChips();
 }
