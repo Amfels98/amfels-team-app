@@ -22,14 +22,14 @@
     html, body { height:100%; font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); overflow:hidden; -webkit-font-smoothing:antialiased; }
 
     /* ── LOGIN ── */
-    #loginScreen { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem; z-index:1000; }
+    #loginScreen { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:2.5rem 2rem 2rem; z-index:1000; overflow-y:auto; -webkit-overflow-scrolling:touch; }
     #loginScreen.hidden { display:none; }
-    .ll { font-size:0.62rem; letter-spacing:0.35em; color:var(--gold); text-transform:uppercase; margin-bottom:0.4rem; }
-    .lt { font-size:2.3rem; font-weight:200; letter-spacing:-0.02em; margin-bottom:0.2rem; }
-    .ls { font-size:0.72rem; color:var(--dim); margin-bottom:2.5rem; }
+    .ll { font-size:0.62rem; letter-spacing:0.35em; color:var(--gold); text-transform:uppercase; margin-bottom:0.3rem; }
+    .lt { font-size:1.9rem; font-weight:200; letter-spacing:-0.02em; margin-bottom:0.15rem; }
+    .ls { font-size:0.72rem; color:var(--dim); margin-bottom:1.4rem; }
     .llab { font-size:0.62rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:0.75rem; align-self:flex-start; width:100%; max-width:320px; }
-    .ngrid { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; width:100%; max-width:320px; margin-bottom:1.5rem; }
-    .nbtn { background:var(--bg3); border:1px solid var(--border); color:var(--dim); padding:0.85rem 0.75rem; border-radius:14px; font-family:'Inter',sans-serif; font-size:0.85rem; font-weight:500; cursor:pointer; transition:all 0.18s; text-align:center; display:flex; flex-direction:column; align-items:center; gap:0.35rem; }
+    .ngrid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; width:100%; max-width:320px; margin-bottom:1rem; }
+    .nbtn { background:var(--bg3); border:1px solid var(--border); color:var(--dim); padding:0.7rem 0.6rem; border-radius:14px; font-family:'Inter',sans-serif; font-size:0.85rem; font-weight:500; cursor:pointer; transition:all 0.18s; text-align:center; display:flex; flex-direction:column; align-items:center; gap:0.28rem; }
     .nbtn .av { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1rem; background:var(--bg4); }
     .nbtn.sel { border-color:var(--gold); background:rgba(184,146,74,0.1); color:var(--gold); }
     .lbtn { width:100%; max-width:320px; background:var(--gold); color:#000; border:none; padding:0.9rem; border-radius:14px; font-family:'Inter',sans-serif; font-size:0.88rem; font-weight:700; cursor:pointer; }
