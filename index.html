@@ -3968,6 +3968,35 @@ async function pinChat(id) {
 
 function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+async function reactChat(id, emoji) {
+  const msg = chatMessages.find(m => m.id === id);
+  if (!msg) return;
+  if (!msg.reactions) msg.reactions = {};
+  if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+  const who = msg.reactions[emoji];
+  const idx = who.indexOf(currentUser);
+  if (idx > -1) who.splice(idx, 1); else who.push(currentUser);
+  if (!who.length) delete msg.reactions[emoji];
+  renderChat();
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/chat/${id}/reactions.json`, {method:'PUT', body:JSON.stringify(msg.reactions||{}), headers:{'Content-Type':'application/json'}}).catch(()=>{});
+}
+
+function showReactPicker(id, el) {
+  document.querySelectorAll('.react-picker').forEach(p=>p.remove());
+  const REACT_EMOJIS = ['👍','❤️','😂','😮','👏','🔥','😢','🎉'];
+  const picker = document.createElement('div');
+  picker.className = 'react-picker';
+  picker.style.cssText = 'position:absolute;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:0.5rem;display:flex;gap:0.35rem;z-index:500;box-shadow:0 4px 20px rgba(0,0,0,0.4)';
+  picker.innerHTML = REACT_EMOJIS.map(e=>`<button ontouchstart="reactChat(${id},'${e}');this.closest('.react-picker').remove();event.preventDefault()" onclick="reactChat(${id},'${e}');this.closest('.react-picker').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;padding:0.15rem;touch-action:manipulation">${e}</button>`).join('');
+  const rect = el.getBoundingClientRect();
+  picker.style.position = 'fixed';
+  picker.style.top = (rect.top - 52) + 'px';
+  picker.style.left = Math.min(rect.left, window.innerWidth - 300) + 'px';
+  document.body.appendChild(picker);
+  setTimeout(()=>document.addEventListener('click',()=>picker.remove(),{once:true}),50);
+}
+
 function renderChat() {
   const c = document.getElementById('chatMessages');
   if (!c) return;
@@ -3978,11 +4007,22 @@ function renderChat() {
   c.innerHTML = all.map(msg => {
     const mine = msg.by === currentUser;
     const isAdmin = currentUser === ADMIN;
+    const reactions = msg.reactions || {};
+    const REACT_EMOJIS = ['👍','❤️','😂','😮','👏'];
+    const reactHtml = REACT_EMOJIS.map(e=>{
+      const who=reactions[e]||[];
+      const me=who.includes(currentUser);
+      return who.length?`<button ontouchstart="reactChat(${msg.id},'${e}');event.preventDefault()" onclick="reactChat(${msg.id},'${e}')" style="background:${me?'rgba(184,146,74,0.15)':'var(--bg3)'};border:1px solid ${me?'rgba(184,146,74,0.35)':'var(--border)'};border-radius:20px;padding:0.1rem 0.45rem;font-size:0.75rem;cursor:pointer;touch-action:manipulation;font-family:Inter,sans-serif">${e} ${who.length}</button>`:''
+    }).join('');
+    const addReactHtml=`<button ontouchstart="showReactPicker(${msg.id},this);event.preventDefault()" onclick="showReactPicker(${msg.id},this)" style="background:none;border:1px solid var(--border);border-radius:20px;padding:0.1rem 0.4rem;font-size:0.7rem;color:var(--dim);cursor:pointer;touch-action:manipulation">＋😀</button>`;
     return `<div class="chat-msg${mine?' chat-msg-mine':''}" style="${mine?'text-align:right':''}">
       ${!mine?`<div style="font-size:0.62rem;color:var(--gold);margin-bottom:0.18rem;font-weight:600">${escapeHtml(msg.by)}</div>`:''}
       ${msg.pinned?'<div class="chat-pin-badge">📌 Angepinnt</div>':''}
       <div class="chat-bubble${msg.pinned?' chat-pinned-bubble':''}" style="${mine?'display:inline-block':''}">${msg.pinned?`<div style="font-size:0.58rem;color:var(--gold);margin-bottom:0.15rem">📌 Angepinnt</div>`:''}
         <div class="chat-bubble-text">${escapeHtml(msg.text)}</div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.25rem;margin:0.2rem 0 0;${mine?'justify-content:flex-end':''}">
+        ${reactHtml}${addReactHtml}
       </div>
       <div class="chat-meta" style="${mine?'text-align:right':''}">
         ${escapeHtml(msg.at||'')}
