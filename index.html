@@ -2165,14 +2165,19 @@ function showMuellkalender() {
       document.head.appendChild(s);
     }
     function fetchAndParsePDF(url, addr, sel) {
-      setStep(3, '📄 PDF laden…');
-      resultEl.innerHTML = '<div style="text-align:center;padding:1.2rem;color:var(--dim);font-size:0.82rem">📄 PDF wird geladen…</div>';
+      setStep(3, '📄 PDF…');
+      resultEl.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center"><div style="font-size:0.82rem;color:var(--dim);margin-bottom:0.3rem">📄 PDF wird geladen…</div><div style="font-size:0.68rem;opacity:.6;color:var(--dim)">kann 5–10 Sek. dauern</div></div>';
+      var giveUp = setTimeout(function() { showPDFInstructions(url); }, 12000);
       loadPDFJS(function(err) {
-        if (err) { showPDFInstructions(url); return; }
-        setStep(3, '📄 PDF lesen…');
-        resultEl.innerHTML = '<div style="text-align:center;padding:1.2rem;color:var(--dim);font-size:0.82rem">📄 PDF wird gelesen…</div>';
-        var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-        window.pdfjsLib.getDocument(proxyUrl).promise
+        if (err) { clearTimeout(giveUp); showPDFInstructions(url); return; }
+        fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url))
+          .then(function(r) { return r.arrayBuffer(); })
+          .then(function(buf) {
+            var magic = new Uint8Array(buf.slice(0, 5));
+            if (String.fromCharCode(magic[0],magic[1],magic[2],magic[3]) !== '%PDF') throw new Error('not a pdf');
+            resultEl.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center"><div style="font-size:0.82rem;color:var(--dim)">📄 PDF wird gelesen…</div></div>';
+            return window.pdfjsLib.getDocument({data: buf}).promise;
+          })
           .then(function(pdf) {
             var ps = [];
             for (var i = 1; i <= pdf.numPages; i++) {
@@ -2187,10 +2192,11 @@ function showMuellkalender() {
             return Promise.all(ps).then(function(pages) { return pages.join('\n'); });
           })
           .then(function(text) {
-            if (!text || text.trim().length < 50) { showPDFInstructions(url); return; }
+            clearTimeout(giveUp);
+            if (!text || text.trim().length < 100) { showPDFInstructions(url); return; }
             extractWithKI(text, addr, sel);
           })
-          .catch(function() { showPDFInstructions(url); });
+          .catch(function() { clearTimeout(giveUp); showPDFInstructions(url); });
       });
     }
 
