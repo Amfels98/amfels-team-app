@@ -304,6 +304,7 @@
         <div class="stat"><div class="stat-n" id="statOpen">–</div><div class="stat-l">Aufgaben offen</div></div>
         <div class="stat"><div class="stat-n" id="statOrders">–</div><div class="stat-l">Bestellungen</div></div>
       </div>
+      <div id="dashCal"></div>
       <div id="dashMsg"></div>
     </div>
 
@@ -413,7 +414,9 @@ var orders     = [];
 var chat       = [];
 var inventar   = [];
 var trinkgeld  = [];
-var mullData   = {};
+var mullData     = {};
+var dashCalYear  = new Date().getFullYear();
+var dashCalMonth = new Date().getMonth();
 var shiftOff   = 0;
 var shiftDb    = {};
 var taskFilter = 'alle';
@@ -739,9 +742,7 @@ function loadDashExtras() {
   function renderExtras() {
     msg.innerHTML = '';
     /* Mini Calendar */
-    var calCard = document.createElement('div'); calCard.className = 'card';
-    buildDashCalendar(calCard);
-    msg.appendChild(calCard);
+    renderDashCal();
     /* Müll Reminders */
     var reminders = getMullReminders();
     reminders.forEach(function(r) {
@@ -830,7 +831,7 @@ function loadTasks() {
       Object.keys(data).forEach(function(k) { var t = data[k]; t.id = k; tasks.push(t); });
       tasks.sort(function(a,b) { return (b.ts||0)-(a.ts||0); });
     }
-    renderTasks(); updateDash();
+    renderTasks(); updateDash(); renderDashCal();
   });
 }
 function renderTasks() {
@@ -1021,25 +1022,38 @@ function getMullReminders() {
   (tm[tmk] || []).forEach(function(t) { reminders.push({when:'tomorrow',type:t}); });
   return reminders;
 }
-function buildDashCalendar(container) {
-  var now = new Date();
-  var year = now.getFullYear(), month = now.getMonth();
+function renderDashCal() {
+  var container = el('dashCal');
+  if (!container) return;
+  container.innerHTML = '';
+  var year = dashCalYear, month = dashCalMonth;
   var todayStr = todayKey();
   var mull = buildMullDays(mullData, year, month);
+  var taskDays = {};
+  tasks.forEach(function(t) { if (t.due) { if (!taskDays[t.due]) taskDays[t.due] = []; taskDays[t.due].push(t); } });
   var mNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-  var wrap = document.createElement('div'); wrap.className = 'dcal';
-  /* header */
-  var hdr = document.createElement('div'); hdr.className = 'dcal-hdr';
-  var titleEl = document.createElement('span'); titleEl.className = 'dcal-title'; titleEl.textContent = mNames[month] + ' ' + year;
-  var legEl = document.createElement('div'); legEl.style.cssText = 'display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center';
-  legEl.innerHTML =
-    '<span class="dcal-leg-item"><span class="dcal-dot" style="background:var(--gold);outline:1.5px solid var(--gold)"></span>Heute</span>' +
-    '<span class="dcal-leg-item"><span style="width:5px;height:5px;border-radius:50%;background:var(--red);display:inline-block"></span>Feiertag</span>';
-  MULL_TYPES.forEach(function(mt) {
-    legEl.innerHTML += '<span class="dcal-leg-item"><span class="dcal-dot" style="background:' + mt.color + '"></span>' + mt.icon + '</span>';
-  });
-  hdr.appendChild(titleEl); hdr.appendChild(legEl); wrap.appendChild(hdr);
-  /* table */
+  var nowObj = new Date();
+  var isCurrentMonth = (year === nowObj.getFullYear() && month === nowObj.getMonth());
+  var card = document.createElement('div'); card.className = 'card';
+  /* Navigation */
+  var nav = document.createElement('div');
+  nav.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:0.45rem';
+  var prevBtn = document.createElement('button'); prevBtn.className = 'btn-d'; prevBtn.style.cssText = 'padding:0.2rem 0.55rem;font-size:0.9rem;line-height:1'; prevBtn.textContent = '‹';
+  var nextBtn = document.createElement('button'); nextBtn.className = 'btn-d'; nextBtn.style.cssText = 'padding:0.2rem 0.55rem;font-size:0.9rem;line-height:1'; nextBtn.textContent = '›';
+  var midEl = document.createElement('div'); midEl.style.cssText = 'display:flex;align-items:center;gap:0.4rem';
+  var titleEl = document.createElement('span'); titleEl.style.cssText = 'font-size:0.82rem;font-weight:600'; titleEl.textContent = mNames[month] + ' ' + year;
+  midEl.appendChild(titleEl);
+  if (!isCurrentMonth) {
+    var backBtn = document.createElement('button'); backBtn.className = 'btn-d';
+    backBtn.style.cssText = 'padding:0.1rem 0.45rem;font-size:0.62rem;color:var(--gold);border-color:rgba(184,146,74,0.4)'; backBtn.textContent = 'Heute';
+    backBtn.addEventListener('click', function() { dashCalYear = nowObj.getFullYear(); dashCalMonth = nowObj.getMonth(); renderDashCal(); });
+    midEl.appendChild(backBtn);
+  }
+  prevBtn.addEventListener('click', function() { dashCalMonth--; if (dashCalMonth < 0) { dashCalMonth = 11; dashCalYear--; } renderDashCal(); });
+  nextBtn.addEventListener('click', function() { dashCalMonth++; if (dashCalMonth > 11) { dashCalMonth = 0; dashCalYear++; } renderDashCal(); });
+  nav.appendChild(prevBtn); nav.appendChild(midEl); nav.appendChild(nextBtn);
+  card.appendChild(nav);
+  /* Table */
   var table = document.createElement('table'); table.className = 'dcal-table';
   table.innerHTML = '<thead><tr><th>Mo</th><th>Di</th><th>Mi</th><th>Do</th><th>Fr</th><th>Sa</th><th>So</th></tr></thead>';
   var tbody = document.createElement('tbody');
@@ -1055,23 +1069,25 @@ function buildDashCalendar(container) {
     var holiday = isHoliday(d);
     var isToday = dk === todayStr;
     var dayMull = mull[dk] || [];
-    var cellEl = document.createElement('div'); cellEl.className = 'dcal-cell';
+    var dayTaskArr = taskDays[dk] || [];
+    var hasOpenTask = dayTaskArr.some(function(t) { return !t.done; });
+    var cellEl = document.createElement('div'); cellEl.className = 'dcal-cell'; cellEl.style.cursor = 'pointer';
     var numEl = document.createElement('div');
     numEl.className = 'dcal-num' + (isToday ? ' today' : '') + (holiday ? ' holiday' : '');
     if (holiday) numEl.title = holiday;
     numEl.textContent = day;
     cellEl.appendChild(numEl);
-    if (dayMull.length) {
+    if (dayMull.length || dayTaskArr.length) {
       var dotsEl = document.createElement('div'); dotsEl.className = 'dcal-dots';
-      dayMull.slice(0, 3).forEach(function(t) {
-        var dot = document.createElement('span'); dot.className = 'dcal-dot'; dot.style.background = mullColor(t); dotsEl.appendChild(dot);
-      });
+      dayMull.slice(0, 2).forEach(function(t) { var dot = document.createElement('span'); dot.className = 'dcal-dot'; dot.style.background = mullColor(t); dotsEl.appendChild(dot); });
+      if (dayTaskArr.length) { var tdot = document.createElement('span'); tdot.className = 'dcal-dot'; tdot.style.background = hasOpenTask ? 'var(--blue)' : 'var(--dim)'; dotsEl.appendChild(tdot); }
       cellEl.appendChild(dotsEl);
     }
+    cellEl.addEventListener('click', (function(dk_) { return function() { showDayDetail(dk_); }; })(dk));
     td.appendChild(cellEl); tr.appendChild(td); day++;
   }
-  table.appendChild(tbody); wrap.appendChild(table);
-  /* holiday list for this month */
+  table.appendChild(tbody); card.appendChild(table);
+  /* Holiday list */
   var movable = getMovableHolidays(year);
   var mh = [];
   for (var hk in AT_HOLIDAYS) { if (parseInt(hk.split('-')[0]) - 1 === month) mh.push({name:AT_HOLIDAYS[hk],key:hk}); }
@@ -1079,14 +1095,80 @@ function buildDashCalendar(container) {
   if (mh.length) {
     mh.sort(function(a,b) { return parseInt(a.key.split('-')[1]) - parseInt(b.key.split('-')[1]); });
     var legDiv = document.createElement('div'); legDiv.className = 'dcal-leg';
-    mh.forEach(function(h) {
-      var p = document.createElement('span'); p.className = 'dcal-leg-item'; p.style.color = 'var(--red)';
-      var pts = h.key.split('-'); p.textContent = pts[1] + '.' + pts[0] + '. – ' + h.name;
-      legDiv.appendChild(p);
-    });
-    wrap.appendChild(legDiv);
+    mh.forEach(function(h) { var p = document.createElement('span'); p.className = 'dcal-leg-item'; p.style.color = 'var(--red)'; var pts = h.key.split('-'); p.textContent = pts[1] + '.' + pts[0] + '. – ' + h.name; legDiv.appendChild(p); });
+    card.appendChild(legDiv);
   }
-  container.appendChild(wrap);
+  container.appendChild(card);
+}
+
+function showDayDetail(dateStr) {
+  var d = keyToDate(dateStr);
+  var holiday = isHoliday(d);
+  var dayMull = (buildMullDays(mullData, d.getFullYear(), d.getMonth()))[dateStr] || [];
+  var dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+  var pts = dateStr.split('-');
+  var dateLabel = dayNames[d.getDay()] + ', ' + pts[2] + '.' + pts[1] + '.' + pts[0];
+  var ob = makeOv(dateLabel);
+  if (holiday) {
+    var hDiv = document.createElement('div');
+    hDiv.style.cssText = 'background:rgba(224,82,82,0.1);border:1px solid rgba(224,82,82,0.25);border-radius:10px;padding:0.55rem 0.85rem;margin-bottom:0.75rem;font-size:0.82rem;color:var(--red)';
+    hDiv.textContent = '🎉 Feiertag: ' + holiday;
+    ob.appendChild(hDiv);
+  }
+  if (dayMull.length) {
+    var mHdr = document.createElement('p'); mHdr.style.cssText = 'font-size:0.6rem;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:0.4rem'; mHdr.textContent = 'Müllabholung';
+    ob.appendChild(mHdr);
+    dayMull.forEach(function(t) {
+      var row = document.createElement('div'); row.className = 'card'; row.style.cssText = 'border-left:3px solid ' + mullColor(t) + ';display:flex;align-items:center;gap:0.4rem';
+      row.innerHTML = '<span>' + mullIcon(t) + '</span><span style="font-size:0.88rem">' + esc(t) + '</span>';
+      ob.appendChild(row);
+    });
+  }
+  var tHdr = document.createElement('p'); tHdr.style.cssText = 'font-size:0.6rem;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin:0.75rem 0 0.4rem'; tHdr.textContent = 'Aufgaben';
+  ob.appendChild(tHdr);
+  var tList = document.createElement('div'); ob.appendChild(tList);
+  function renderDayTasks() {
+    tList.innerHTML = '';
+    var dt = tasks.filter(function(t) { return t.due === dateStr; });
+    if (!dt.length) {
+      var ep = document.createElement('p'); ep.style.cssText = 'font-size:0.82rem;color:var(--dim);padding:0.15rem 0 0.5rem'; ep.textContent = 'Keine Aufgaben'; tList.appendChild(ep);
+    } else {
+      dt.forEach(function(t) {
+        var row = document.createElement('div'); row.className = 'task' + (t.done ? ' done' : ''); row.style.marginBottom = '0.4rem';
+        row.innerHTML = '<div class="t-check">' + (t.done ? '✓' : '') + '</div><div class="t-body"><div class="t-title">' + esc(t.title) + '</div><div class="t-meta">' + esc(t.assign||'Alle') + (t.priority === 'dringend' ? ' · <span class="prio-badge prio-dringend">Dringend</span>' : '') + '</div></div>';
+        row.querySelector('.t-check').addEventListener('click', function() { toggleTask(t.id); renderDayTasks(); renderDashCal(); });
+        tList.appendChild(row);
+      });
+    }
+  }
+  renderDayTasks();
+  var addBtn = document.createElement('button'); addBtn.className = 'btn-g'; addBtn.style.cssText = 'width:100%;margin-top:0.5rem'; addBtn.textContent = '+ Aufgabe hinzufügen';
+  ob.appendChild(addBtn);
+  var qForm = document.createElement('div'); qForm.style.cssText = 'display:none;margin-top:0.75rem';
+  qForm.innerHTML =
+    '<div class="fg"><label class="fl">Titel</label><input class="inp" id="qdTitle" placeholder="Was muss erledigt werden?"></div>' +
+    '<div class="fg"><label class="fl">Für</label><select class="inp" id="qdAssign"><option value="Alle">Alle</option>' +
+      TEAM.map(function(n) { return '<option value="' + esc(n) + '"' + (n===me?' selected':'') + '>' + esc(n) + '</option>'; }).join('') +
+    '</select></div>' +
+    '<div class="fg"><label class="fl">Priorität</label><select class="inp" id="qdPrio"><option value="normal">Normal</option><option value="dringend">Dringend</option></select></div>' +
+    '<div class="row2"><button class="btn-g" id="qdSave">Speichern</button><button class="btn-d" id="qdCancel">Abbrechen</button></div>';
+  ob.appendChild(qForm);
+  addBtn.addEventListener('click', function() { addBtn.style.display = 'none'; qForm.style.display = ''; qForm.querySelector('#qdTitle').focus(); });
+  qForm.querySelector('#qdCancel').addEventListener('click', function() { qForm.style.display = 'none'; addBtn.style.display = ''; });
+  qForm.querySelector('#qdSave').addEventListener('click', function() {
+    var title = qForm.querySelector('#qdTitle').value.trim();
+    if (!title) { toast('Bitte Titel eingeben'); return; }
+    var assign = qForm.querySelector('#qdAssign').value;
+    var prio   = qForm.querySelector('#qdPrio').value;
+    var task = {title:title, assign:assign, done:false, by:me, ts:Date.now(), due:dateStr, priority:prio};
+    dbPost('/tasks', task, function(err, key) {
+      if (key) { task.id = key; tasks.unshift(task); }
+      qForm.querySelector('#qdTitle').value = '';
+      qForm.style.display = 'none'; addBtn.style.display = '';
+      renderDayTasks(); renderTasks(); updateDash(); renderDashCal();
+      toast('✓ Aufgabe gespeichert');
+    });
+  });
 }
 
 /* ── SCHICHTPLAN ── */
