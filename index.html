@@ -1933,70 +1933,80 @@ function showMuellkalender() {
     body.appendChild(backBtn);
 
     var title = document.createElement('p');
-    title.style.cssText = 'font-size:0.82rem;font-weight:600;margin-bottom:0.4rem';
-    title.textContent = '🤖 Müllkalender automatisch erkennen';
+    title.style.cssText = 'font-size:0.82rem;font-weight:600;margin-bottom:0.15rem';
+    title.textContent = '🤖 Abfallkalender automatisch einlesen';
     body.appendChild(title);
 
-    /* Tabs */
-    var tabsEl = document.createElement('div'); tabsEl.className = 'chips'; tabsEl.style.marginBottom = '0.6rem';
-    var tabText = document.createElement('button'); tabText.className = 'chip on'; tabText.textContent = '📋 Text einfügen';
-    var tabAddr = document.createElement('button'); tabAddr.className = 'chip';    tabAddr.textContent = '📍 Adresse';
-    tabsEl.appendChild(tabText); tabsEl.appendChild(tabAddr); body.appendChild(tabsEl);
+    var hint = document.createElement('p');
+    hint.style.cssText = 'font-size:0.74rem;color:var(--dim);margin:0 0 0.65rem;line-height:1.5';
+    hint.textContent = 'Kompletten Kalender von der Gemeinde-Website kopieren und einfügen. Deine Straße + Hausnummer eingeben — die KI filtert automatisch nur deine Termine raus.';
+    body.appendChild(hint);
 
-    var panelText = document.createElement('div');
-    panelText.innerHTML =
-      '<p style="font-size:0.74rem;color:var(--dim);margin:0 0 0.4rem;line-height:1.5">Text aus dem Abfallkalender deiner Gemeinde-Website oder PDF einfügen:</p>' +
-      '<textarea class="inp" id="mkiText" style="height:110px;resize:vertical" placeholder="z.B. Restmüll: 05.01, 19.01, 02.02 ...\nBiomüll: jede Woche Dienstag ..."></textarea>';
-    body.appendChild(panelText);
+    var savedAddr = localStorage.getItem('af_mull_addr') || '';
 
-    var panelAddr = document.createElement('div'); panelAddr.style.display = 'none';
-    panelAddr.innerHTML =
-      '<p style="font-size:0.74rem;color:var(--dim);margin:0 0 0.4rem;line-height:1.5">Straße, Hausnummer und Ort eingeben — die KI versucht den Abfallkalender zu finden:</p>' +
-      '<input class="inp" id="mkiAddr" placeholder="z.B. Hauptstraße 5, 1010 Wien">';
-    body.appendChild(panelAddr);
+    var addrDiv = document.createElement('div'); addrDiv.className = 'fg';
+    addrDiv.innerHTML = '<label class="fl">Deine Straße + Hausnummer</label><input class="inp" id="mkiAddr" placeholder="z.B. Hauptstraße 5" autocomplete="off" value="' + esc(savedAddr) + '">';
+    body.appendChild(addrDiv);
 
-    tabText.addEventListener('click', function() {
-      tabText.className = 'chip on'; tabAddr.className = 'chip';
-      panelText.style.display = ''; panelAddr.style.display = 'none';
+    var typesDiv = document.createElement('div'); typesDiv.className = 'fg';
+    var typesLabel = document.createElement('label'); typesLabel.className = 'fl'; typesLabel.textContent = 'Welche Müllarten hast du?';
+    typesDiv.appendChild(typesLabel);
+    var savedTypes = JSON.parse(localStorage.getItem('af_mull_types') || '["Restmüll","Biomüll","Gelber Sack","Papier","Glas"]');
+    var typesRow = document.createElement('div'); typesRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.35rem;margin-top:0.3rem';
+    MULL_TYPES.forEach(function(t) {
+      var chip = document.createElement('button');
+      var active = savedTypes.indexOf(t.key) >= 0;
+      chip.className = 'chip' + (active ? ' on' : '');
+      chip.setAttribute('data-mtype', t.key);
+      chip.textContent = t.icon + ' ' + t.key;
+      chip.addEventListener('click', function() {
+        chip.className = chip.className === 'chip on' ? 'chip' : 'chip on';
+      });
+      typesRow.appendChild(chip);
     });
-    tabAddr.addEventListener('click', function() {
-      tabAddr.className = 'chip on'; tabText.className = 'chip';
-      panelAddr.style.display = ''; panelText.style.display = 'none';
-    });
+    typesDiv.appendChild(typesRow);
+    body.appendChild(typesDiv);
+
+    var textDiv = document.createElement('div'); textDiv.className = 'fg';
+    textDiv.innerHTML = '<label class="fl">Abfallkalender Text (komplett einfügen)</label><textarea class="inp" id="mkiText" style="height:120px;resize:vertical" placeholder="Gesamten Text vom Abfallkalender hier einfügen..."></textarea>';
+    body.appendChild(textDiv);
 
     var runBtn = document.createElement('button');
-    runBtn.className = 'btn-g'; runBtn.style.cssText = 'width:100%;margin-top:0.6rem';
-    runBtn.textContent = '🔍 Termine erkennen';
+    runBtn.className = 'btn-g'; runBtn.style.cssText = 'width:100%;margin-top:0.2rem';
+    runBtn.textContent = '🔍 Meine Termine erkennen';
     body.appendChild(runBtn);
 
-    var resultEl = document.createElement('div'); resultEl.id = 'mkiResult'; resultEl.style.marginTop = '0.6rem';
+    var resultEl = document.createElement('div'); resultEl.style.marginTop = '0.6rem';
     body.appendChild(resultEl);
 
     runBtn.addEventListener('click', function() {
-      var isAddr = panelAddr.style.display !== 'none';
-      var input = isAddr
-        ? (el('mkiAddr') ? el('mkiAddr').value.trim() : '')
-        : (el('mkiText') ? el('mkiText').value.trim() : '');
-      if (!input) { toast(isAddr ? 'Adresse eingeben' : 'Text einfügen'); return; }
+      var addr  = el('mkiAddr') ? el('mkiAddr').value.trim() : '';
+      var input = el('mkiText') ? el('mkiText').value.trim() : '';
+      if (!addr)  { toast('Straße + Hausnummer eingeben'); return; }
+      if (!input) { toast('Kalendertext einfügen'); return; }
+
+      var selectedTypes = [];
+      typesRow.querySelectorAll('.chip.on').forEach(function(c) { selectedTypes.push(c.getAttribute('data-mtype')); });
+      if (!selectedTypes.length) { toast('Mindestens eine Müllart auswählen'); return; }
+      localStorage.setItem('af_mull_addr', addr);
+      localStorage.setItem('af_mull_types', JSON.stringify(selectedTypes));
 
       runBtn.disabled = true; runBtn.textContent = '⏳ KI analysiert…';
       resultEl.innerHTML = '';
 
-      var prompt = isAddr
-        ? 'Suche den Abfallkalender (Müllabfuhrplan) für diese österreichische Adresse: ' + input + '\n' +
-          'Falls du keinen genauen Plan findest, antworte nur mit: NICHT_GEFUNDEN\n' +
-          'Sonst antworte NUR mit einem JSON-Array (kein Text davor/danach):\n' +
-          '[{"type":"Restmüll","date":"2026-01-05","repeat":"biweekly","repeatEnd":"2026-12-31"},...]\n' +
-          'Gültige type-Werte: Restmüll, Biomüll, Gelber Sack, Papier, Glas\n' +
-          'Datum im Format YYYY-MM-DD. repeat: none/weekly/biweekly/fourweekly/monthly'
-        : 'Extrahiere alle Müllabholtermine aus diesem österreichischen Abfallkalender-Text.\n' +
-          'Antworte NUR mit einem JSON-Array (kein Text davor oder danach):\n' +
-          '[{"type":"Restmüll","date":"2026-01-05","repeat":"none"},...]\n' +
-          'Gültige type-Werte: Restmüll, Biomüll, Gelber Sack, Papier, Glas\n' +
-          'Datum im Format YYYY-MM-DD.\n' +
-          'Bei regelmäßigen Terminen: repeat="weekly/biweekly/fourweekly/monthly", nur erster Termin, optional repeatEnd="YYYY-MM-DD".\n' +
-          'Aktuelles Jahr: ' + new Date().getFullYear() + '\n\n' +
-          'Text:\n' + input;
+      var prompt =
+        'Ich habe den kompletten Abfallkalender meiner Gemeinde. Meine Adresse ist: ' + addr + '\n' +
+        'Ich entsorge folgende Müllarten: ' + selectedTypes.join(', ') + '\n' +
+        'Extrahiere NUR die Abholtermine die für MEINE Adresse/Straße UND meine Müllarten gelten.\n' +
+        'Der Kalender enthält viele Straßen — filtere nur meine raus.\n' +
+        'Antworte NUR mit einem JSON-Array (absolut kein Text davor oder danach):\n' +
+        '[{"type":"Restmüll","date":"' + new Date().getFullYear() + '-01-05","repeat":"none"},...]\n' +
+        'Gültige type-Werte (NUR diese): ' + selectedTypes.join(', ') + '\n' +
+        'Datum im Format YYYY-MM-DD. Aktuelles Jahr: ' + new Date().getFullYear() + '\n' +
+        'repeat: none | weekly | biweekly | fourweekly | monthly\n' +
+        'Wenn wiederkehrend: nur ersten Termin + repeat setzen, optional repeatEnd:"YYYY-MM-DD"\n' +
+        'Falls meine Straße nicht im Kalender vorkommt: antworte nur NICHT_GEFUNDEN\n\n' +
+        'Kalendertext:\n' + input;
 
       fetch('https://text.pollinations.ai/', {
         method: 'POST',
@@ -2011,10 +2021,11 @@ function showMuellkalender() {
       })
       .then(function(r) { return r.text(); })
       .then(function(raw) {
-        runBtn.disabled = false; runBtn.textContent = '🔍 Termine erkennen';
+        runBtn.disabled = false; runBtn.textContent = '🔍 Meine Termine erkennen';
+        var addrVal = el('mkiAddr') ? el('mkiAddr').value.trim() : '';
         raw = (raw || '').trim();
         if (raw === 'NICHT_GEFUNDEN' || raw.indexOf('NICHT_GEFUNDEN') >= 0) {
-          resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Adresse nicht gefunden. Bitte Text manuell einfügen.</p>';
+          resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Deine Straße wurde im Kalender nicht gefunden. Prüfe Schreibweise oder versuche nur den Straßennamen ohne Nummer.</p>';
           return;
         }
         var jsonMatch = raw.match(/\[[\s\S]*\]/);
@@ -2060,7 +2071,7 @@ function showMuellkalender() {
         resultEl.innerHTML = ''; resultEl.appendChild(preview);
       })
       .catch(function() {
-        runBtn.disabled = false; runBtn.textContent = '🔍 Termine erkennen';
+        runBtn.disabled = false; runBtn.textContent = '🔍 Meine Termine erkennen';
         resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Verbindungsfehler. Bitte nochmal versuchen.</p>';
       });
     });
