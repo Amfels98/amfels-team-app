@@ -996,16 +996,12 @@ async function loadProfiles() {
       fetchOk = true;
     } catch {}
   }
+  const HARDCODED_TEAM = ['Leon','Sasho','Patrik','Tea','Daniel'];
   const allNames = Object.keys(profiles).filter(n => !profiles[n]?.disabled);
-  TEAM = allNames.includes(ADMIN)
-    ? [ADMIN, ...allNames.filter(n => n !== ADMIN)]
-    : allNames;
-  if (!fetchOk && !TEAM.length) {
-    // Netzwerkfehler und keine gecachten Daten → Retry-Button
-    const grid = document.getElementById('nameGrid');
-    if (grid) grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:1rem 0"><div style="color:var(--red);font-size:0.75rem;margin-bottom:0.5rem">Verbindungsfehler</div><button onclick="loadProfiles()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;font-family:Inter,sans-serif;font-size:0.75rem;color:var(--dim);cursor:pointer">↻ Erneut versuchen</button></div>`;
-    return;
-  }
+  const names = allNames.length > 0 ? allNames : HARDCODED_TEAM;
+  TEAM = names.includes(ADMIN)
+    ? [ADMIN, ...names.filter(n => n !== ADMIN)]
+    : names;
   renderNameGrid();
   if (typeof buildAllChips === 'function' && currentUser) buildAllChips();
 }
@@ -1168,6 +1164,8 @@ async function skipProfile() {
 // ── LOGIN ──
 
 let pinMode = 'enter'; // 'enter' | 'create'
+let pinAttempts = 0;
+let pinLockedUntil = 0;
 
 function selectName(name) {
   currentUser = name;
@@ -1179,6 +1177,7 @@ function goToPin() {
   pinBuffer = '';
   updatePinDots();
   pinMode = 'enter';
+  pinAttempts = 0;
   document.getElementById('pinUserLabel').textContent = currentUser;
   document.getElementById('pinLabel').textContent = 'PIN eingeben';
   document.getElementById('pinError').textContent = '';
@@ -1377,6 +1376,11 @@ async function removeMember(name) {
 }
 
 async function submitPin() {
+  if (pinLockedUntil > Date.now()) {
+    const secs = Math.ceil((pinLockedUntil - Date.now()) / 1000);
+    document.getElementById('pinError').textContent = `🔒 Gesperrt – noch ${secs}s warten`;
+    return;
+  }
   const pin = pinBuffer;
   if (pin.length !== 4) { document.getElementById('pinError').textContent = 'PIN muss 4 Ziffern haben'; return; }
   if (pinMode === 'create') {
@@ -1431,11 +1435,19 @@ async function submitPin() {
       return;
     }
     if (String(stored) === pin) {
-      showProfileSetup();
+      pinAttempts = 0;
+      doLogin();
     } else {
+      pinAttempts++;
       pinBuffer = '';
       updatePinDots();
-      document.getElementById('pinError').textContent = '❌ Falscher PIN';
+      if (pinAttempts >= 5) {
+        pinLockedUntil = Date.now() + 5 * 60 * 1000;
+        pinAttempts = 0;
+        document.getElementById('pinError').textContent = '🔒 Zu viele Versuche – gesperrt für 5 Minuten';
+      } else {
+        document.getElementById('pinError').textContent = `❌ Falscher PIN (${pinAttempts}/5)`;
+      }
     }
   }
 }
@@ -1444,6 +1456,7 @@ function setCookie(name,val,days){const d=new Date();d.setTime(d.getTime()+days*
 
 function doLogin() {
   localStorage.setItem('af_user', currentUser);
+  localStorage.setItem('af_loginTime', Date.now().toString());
   setCookie('af_user', currentUser, 3650); // 10 Jahre
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
@@ -4484,6 +4497,17 @@ async function submitInv() {
 }
 
 // ── INIT ──
+// Session timeout (8h)
+(function(){
+  const loginTime = parseInt(localStorage.getItem('af_loginTime') || '0');
+  if (currentUser && loginTime && Date.now() - loginTime > 8 * 3600 * 1000) {
+    localStorage.removeItem('af_user');
+    localStorage.removeItem('af_loginTime');
+    setCookie('af_user', '', 0);
+    currentUser = null;
+  }
+})();
+
 renderNameGrid();  // Sofort mit bekannten Namen rendern
 loadProfiles();    // Fotos + neue Mitglieder aus Firebase nachladen
 if(currentUser){
@@ -4560,7 +4584,7 @@ if(currentUser){
 // ── SERVICE WORKER ──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
 }
 </script>
