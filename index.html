@@ -2008,10 +2008,14 @@ function showKI() {
     kiMessages.push({role:'user', content:text});
     addMsg('ai', 'Schreibt…', 'kiLoader');
 
-    var sysPrompt = 'Du bist der KI-Assistent für das Restaurant Am Fels in Österreich. Antworte immer auf Deutsch. ' +
-      'Team: Leon (Admin), Sasho, Patrik, Tea, Daniel. Aktuell eingeloggt: ' + (me || 'Unbekannt') + '. ' +
-      'Offene Aufgaben: ' + tasks.filter(function(t) { return !t.done; }).map(function(t) { return t.title; }).slice(0,5).join(', ') + '. ' +
-      'Hilf bei Rezepten, Schichtplanung, Reinigung, Aufgaben, Inventar und allem was das Restaurant betrifft. Kurze, freundliche Antworten.';
+    var openTasks = tasks.filter(function(t) { return !t.done; }).map(function(t) { return t.title; }).slice(0,5).join(', ');
+    var sysPrompt = 'Du bist ein interner Team-Assistent für eine Restaurantküche in Österreich. ' +
+      'Antworte IMMER auf Deutsch. Sei kurz und direkt. ' +
+      'Das Team heißt: Leon (Admin), Sasho, Patrik, Tea, Daniel. Eingeloggt: ' + (me || 'Unbekannt') + '. ' +
+      (openTasks ? 'Offene Aufgaben: ' + openTasks + '. ' : '') +
+      'Beantworte NUR was der Nutzer direkt fragt. ' +
+      'Schlage KEINE Gerichte, Menüs oder Rezepte vor außer der Nutzer fragt explizit danach. ' +
+      'Hilf mit: Aufgaben, Schichtplanung, Reinigungspläne, Inventar, Teamkommunikation, allgemeine Fragen.';
 
     var msgs = [{role:'system', content:sysPrompt}].concat(kiMessages);
 
