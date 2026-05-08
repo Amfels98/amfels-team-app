@@ -26,8 +26,11 @@
     .hdr-l .sub   { font-size: 0.62rem; color: var(--gold); letter-spacing: 0.05em; margin-top: 0.05rem; }
     .hdr-r { display: flex; align-items: center; gap: 0.5rem; }
     .hdr-time { font-size: 0.72rem; color: var(--dim); font-variant-numeric: tabular-nums; }
-    .uchip { background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; padding: 0.3rem 0.75rem; font-size: 0.7rem; color: var(--dim); cursor: pointer; display: flex; align-items: center; gap: 0.3rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
-    .udot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+    .uchip { background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; padding: 0.28rem 0.65rem 0.28rem 0.5rem; font-size: 0.75rem; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 0.35rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
+    .uchip.active { border-color: rgba(184,146,74,0.5); background: rgba(184,146,74,0.08); }
+    .u-emoji { font-size: 1rem; line-height: 1; }
+    .u-name  { font-size: 0.72rem; font-weight: 500; }
+    .u-arrow { font-size: 0.5rem; color: var(--dim); margin-left: 0.1rem; }
 
     /* ── LAYOUT ── */
     .content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.9rem; }
@@ -65,13 +68,20 @@
 
     /* ── TASKS ── */
     .task { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; display: flex; align-items: flex-start; gap: 0.75rem; }
-    .task.done { opacity: 0.4; }
+    .task.done { opacity: 0.38; }
+    .task.dringend { border-left: 3px solid var(--red); }
+    .task.overdue  { border-left: 3px solid var(--orange); }
     .t-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; margin-top: 0.1rem; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     .task.done .t-check { background: var(--green); border-color: var(--green); color: #fff; }
-    .t-body { flex: 1; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .t-body { flex: 1; min-width: 0; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     .t-title { font-size: 0.88rem; }
     .task.done .t-title { text-decoration: line-through; }
-    .t-meta { font-size: 0.65rem; color: var(--dim); margin-top: 0.15rem; }
+    .t-meta { font-size: 0.65rem; color: var(--dim); margin-top: 0.18rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+    .prio-badge { font-size: 0.58rem; font-weight: 600; border-radius: 4px; padding: 0.05rem 0.35rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .prio-dringend { background: rgba(224,82,82,0.15); color: var(--red); }
+    .prio-normal   { background: var(--bg4); color: var(--dim); }
+    .t-due { font-size: 0.62rem; }
+    .t-due.overdue { color: var(--orange); font-weight: 600; }
 
     /* ── CHAT ── */
     #chatMsgs { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.9rem; }
@@ -84,6 +94,7 @@
     .bw.other .bubble { background: var(--bg3); border-radius: 18px 18px 18px 4px; }
     .b-who  { font-size: 0.65rem; color: var(--dim); margin-bottom: 0.2rem; }
     .b-time { font-size: 0.6rem;  color: var(--dim); margin-top: 0.2rem; }
+    .chat-del { background: none; border: none; color: var(--dim); font-size: 0.65rem; cursor: pointer; padding: 0.1rem 0.25rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; align-self: flex-end; opacity: 0.6; }
 
     /* ── ORDERS ── */
     .order { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
@@ -157,13 +168,31 @@
     .tg-amount { font-size: 1rem; font-weight: 600; color: var(--gold); }
 
     /* ── USER PICKER ── */
-    #picker { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 900; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
+    #picker { position: fixed; inset: 0; background: var(--bg); z-index: 900; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
     #picker.hidden { display: none; }
-    .name-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; width: 100%; max-width: 320px; }
-    .nbtn { background: var(--bg3); border: 1.5px solid var(--border); color: var(--text); padding: 0.85rem 0.5rem; border-radius: 14px; font-family: 'Inter', sans-serif; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-    .nbtn:active { background: rgba(184,146,74,0.2); border-color: var(--gold); }
-    .n-av { font-size: 1.5rem; }
-    .n-nm { font-size: 0.82rem; font-weight: 600; }
+    .picker-logo { font-size: 0.55rem; letter-spacing: 0.4em; color: var(--gold); text-transform: uppercase; margin-bottom: 0.6rem; }
+    .picker-title { font-size: 2.2rem; font-weight: 200; letter-spacing: -0.03em; margin-bottom: 0.25rem; }
+    .picker-sub { font-size: 0.78rem; color: var(--dim); margin-bottom: 2rem; }
+    .name-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; width: 100%; max-width: 320px; }
+    .nbtn { background: var(--bg2); border: 1.5px solid var(--border); color: var(--text); padding: 1rem 0.5rem; border-radius: 16px; font-family: 'Inter', sans-serif; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: border-color 0.15s; }
+    .nbtn.current { border-color: var(--gold); background: rgba(184,146,74,0.08); }
+    .nbtn:active { background: rgba(184,146,74,0.15); border-color: var(--gold); }
+    .n-av { font-size: 1.8rem; }
+    .n-nm { font-size: 0.85rem; font-weight: 600; }
+    .n-you { font-size: 0.58rem; color: var(--gold); margin-top: 0.05rem; }
+
+    /* ── USER MENU ── */
+    #userMenu { position: fixed; top: 0; right: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 0 0 0 18px; padding: max(1rem,env(safe-area-inset-top)) 1rem 1rem; z-index: 850; min-width: 200px; box-shadow: -4px 4px 24px rgba(0,0,0,0.5); }
+    #userMenu.hidden { display: none; }
+    .um-user { display: flex; align-items: center; gap: 0.65rem; padding-bottom: 0.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
+    .um-emoji { font-size: 1.8rem; }
+    .um-name  { font-size: 0.95rem; font-weight: 600; }
+    .um-role  { font-size: 0.62rem; color: var(--dim); margin-top: 0.1rem; }
+    .um-btn { width: 100%; text-align: left; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.85rem; font-family: 'Inter', sans-serif; font-size: 0.82rem; color: var(--text); cursor: pointer; margin-bottom: 0.4rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; display: flex; align-items: center; gap: 0.5rem; }
+    .um-btn:active { background: var(--bg4); }
+    .um-btn.danger { color: var(--red); border-color: rgba(224,82,82,0.2); }
+    #umOverlay { position: fixed; inset: 0; z-index: 840; }
+    #umOverlay.hidden { display: none; }
 
     /* ── CALENDAR ── */
     .cal { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
@@ -199,6 +228,9 @@
     .pin-key:active { background: var(--bg4); }
     .pin-key.del { font-size: 1rem; color: var(--dim); }
     .pin-key.empty { background: none; border-color: transparent; pointer-events: none; }
+    .pin-step { display: flex; gap: 0.4rem; margin-bottom: 0.5rem; }
+    .pin-step-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+    .pin-step-dot.on { background: var(--gold); }
     .pin-back { background: none; border: none; color: var(--dim); font-size: 0.82rem; font-family: 'Inter', sans-serif; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; margin-top: 1.5rem; padding: 0.5rem 1rem; }
     @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
     .pin-dots.shake { animation: shake 0.4s ease; }
@@ -218,8 +250,19 @@
     </div>
     <div class="hdr-r">
       <span class="hdr-time" id="hdrTime"></span>
-      <div class="uchip" id="userChip"><div class="udot"></div><span id="uLabel">––</span></div>
+      <div class="uchip" id="userChip"><span class="u-emoji" id="uEmoji">👤</span><span class="u-name" id="uLabel">––</span><span class="u-arrow">▾</span></div>
     </div>
+  </div>
+
+  <!-- User Menu -->
+  <div id="umOverlay" class="hidden"></div>
+  <div id="userMenu" class="hidden">
+    <div class="um-user">
+      <div class="um-emoji" id="umEmoji"></div>
+      <div><div class="um-name" id="umName"></div><div class="um-role" id="umRole"></div></div>
+    </div>
+    <button class="um-btn" id="umSwitch">🔄 Benutzer wechseln</button>
+    <button class="um-btn danger" id="umLogout">← Abmelden</button>
   </div>
 
   <!-- Main content (all tabs except chat) -->
@@ -245,6 +288,10 @@
       <div class="add-form" id="taskForm">
         <div class="fg"><label class="fl">Titel</label><input class="inp" id="taskTitle" placeholder="Was muss erledigt werden?"></div>
         <div class="fg"><label class="fl">Für</label><select class="inp" id="taskAssign"></select></div>
+        <div class="row2">
+          <div class="fg" style="flex:1"><label class="fl">Priorität</label><select class="inp" id="taskPrio"><option value="normal">Normal</option><option value="dringend">Dringend</option></select></div>
+          <div class="fg" style="flex:1"><label class="fl">Fällig (opt.)</label><input class="inp" type="date" id="taskDue"></div>
+        </div>
         <div class="row2"><button class="btn-g" id="saveTaskBtn">Speichern</button><button class="btn-d" id="cancelTaskBtn">Abbrechen</button></div>
       </div>
       <div class="chips" id="taskChips">
@@ -297,8 +344,9 @@
 
 <!-- User Picker -->
 <div id="picker" class="hidden">
-  <p style="font-size:0.55rem;letter-spacing:0.35em;color:var(--gold);text-transform:uppercase;margin-bottom:0.3rem">Restaurant</p>
-  <h2 style="font-size:1.5rem;font-weight:200;margin-bottom:1.2rem">Wer bist du?</h2>
+  <div class="picker-logo">Restaurant Am Fels</div>
+  <div class="picker-title">Willkommen</div>
+  <div class="picker-sub">Wer bist du heute?</div>
   <div class="name-grid" id="nameGrid"></div>
 </div>
 
@@ -308,6 +356,10 @@
     <div class="pin-av" id="pinAv"></div>
     <div class="pin-nm" id="pinNm"></div>
     <div class="pin-hint" id="pinHint">PIN eingeben</div>
+  </div>
+  <div class="pin-step hidden" id="pinStep">
+    <div class="pin-step-dot on" id="ps0"></div>
+    <div class="pin-step-dot" id="ps1"></div>
   </div>
   <div class="pin-dots" id="pinDots">
     <div class="pin-dot" id="pd0"></div>
@@ -413,8 +465,8 @@ function buildPicker() {
   grid.innerHTML = '';
   TEAM.forEach(function(name, i) {
     var btn = document.createElement('button');
-    btn.className = 'nbtn';
-    btn.innerHTML = '<span class="n-av">' + EMOJ[i] + '</span><span class="n-nm">' + esc(name) + '</span>';
+    btn.className = 'nbtn' + (name === me ? ' current' : '');
+    btn.innerHTML = '<span class="n-av">' + EMOJ[i] + '</span><span class="n-nm">' + esc(name) + '</span>' + (name === me ? '<span class="n-you">Du</span>' : '');
     btn.addEventListener('click', (function(n) { return function() {
       if (n === me) { el('picker').classList.add('hidden'); return; }
       showPinScreen(n);
@@ -427,7 +479,10 @@ function loginAs(name) {
   localStorage.setItem('af_user', name);
   el('picker').classList.add('hidden');
   el('pinScreen').classList.add('hidden');
+  var idx = TEAM.indexOf(name);
+  el('uEmoji').textContent = EMOJ[idx] || '👤';
   el('uLabel').textContent = name;
+  el('userChip').classList.add('active');
   updateDash();
   loadDashExtras();
   loadTasks();
@@ -436,8 +491,30 @@ function loginAs(name) {
   toast('Hallo, ' + name + '!');
 }
 function showPicker() {
+  buildPicker();
   el('picker').classList.remove('hidden');
   el('pinScreen').classList.add('hidden');
+  el('userMenu').classList.add('hidden');
+  el('umOverlay').classList.add('hidden');
+}
+function showUserMenu() {
+  if (!me) { showPicker(); return; }
+  var idx = TEAM.indexOf(me);
+  el('umEmoji').textContent = EMOJ[idx] || '👤';
+  el('umName').textContent = me;
+  el('umRole').textContent = me === ADMIN ? 'Administrator' : 'Team';
+  el('userMenu').classList.remove('hidden');
+  el('umOverlay').classList.remove('hidden');
+}
+function logoutUser() {
+  me = '';
+  localStorage.removeItem('af_user');
+  el('userChip').classList.remove('active');
+  el('uEmoji').textContent = '👤';
+  el('uLabel').textContent = '––';
+  el('userMenu').classList.add('hidden');
+  el('umOverlay').classList.add('hidden');
+  showPicker();
 }
 
 /* ── PIN ── */
@@ -471,6 +548,13 @@ function showPinScreen(name) {
   el('pinNm').textContent = name;
   el('pinHint').textContent = pinSetupMode ? 'Neuen PIN festlegen (4 Stellen)' : 'PIN eingeben';
   el('pinHint').className = 'pin-hint';
+  if (pinSetupMode) {
+    el('pinStep').classList.remove('hidden');
+    el('ps0').className = 'pin-step-dot on';
+    el('ps1').className = 'pin-step-dot';
+  } else {
+    el('pinStep').classList.add('hidden');
+  }
   updatePinDots();
   el('picker').classList.add('hidden');
   el('pinScreen').classList.remove('hidden');
@@ -501,6 +585,8 @@ function checkPinInput() {
       pinBuffer = '';
       updatePinDots();
       el('pinHint').textContent = 'PIN bestätigen';
+      el('ps0').className = 'pin-step-dot';
+      el('ps1').className = 'pin-step-dot on';
       return;
     }
     if (pinBuffer === pinSetupFirst) {
@@ -636,7 +722,7 @@ function loadDashExtras() {
         anyShift = true;
         shiftRows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;border-top:1px solid var(--border);font-size:0.82rem">' +
           '<span>' + s.l + ' <span style="font-size:0.6rem;background:var(--bg4);border-radius:4px;padding:0.05rem 0.35rem;color:var(--dim)">' + s.t + '</span></span>' +
-          '<span style="color:var(--dim);font-size:0.78rem">' + members.map(esc).join(', ') + '</span></div>';
+          '<span style="color:var(--dim);font-size:0.78rem">' + members.map(function(n) { return n === me ? '<span style="color:var(--gold);font-weight:500">' + esc(n) + '</span>' : esc(n); }).join(', ') + '</span></div>';
       }
     });
     shiftCard.innerHTML = '<div style="font-size:0.6rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem">Heute · ' + todayDE + '</div>' +
@@ -703,20 +789,37 @@ function loadTasks() {
 }
 function renderTasks() {
   var list = el('taskList');
+  var today = todayKey();
   var shown = tasks.filter(function(t) {
     if (taskFilter === 'offen') return !t.done;
     if (taskFilter === 'meine') return t.assign === me;
     return true;
   });
+  shown.sort(function(a, b) {
+    function rank(t) {
+      if (t.done) return 3;
+      var overdue = t.due && t.due < today;
+      if (overdue && t.priority === 'dringend') return 0;
+      if (overdue || t.priority === 'dringend') return 1;
+      return 2;
+    }
+    var ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    return (b.ts||0) - (a.ts||0);
+  });
   if (!shown.length) { list.innerHTML = '<p class="empty">Keine Aufgaben</p>'; return; }
   list.innerHTML = '';
   shown.forEach(function(t) {
+    var isOverdue = !t.done && t.due && t.due < today;
+    var isDringend = !t.done && t.priority === 'dringend';
     var div = document.createElement('div');
-    div.className = 'task' + (t.done ? ' done' : '');
+    div.className = 'task' + (t.done ? ' done' : '') + (isDringend ? ' dringend' : '') + (isOverdue ? ' overdue' : '');
+    var prioHtml = isDringend ? '<span class="prio-badge prio-dringend">Dringend</span>' : '';
+    var dueHtml = t.due ? '<span class="t-due' + (isOverdue ? ' overdue' : '') + '">Bis ' + esc(t.due) + '</span>' : '';
     div.innerHTML =
       '<div class="t-check">' + (t.done ? '✓' : '') + '</div>' +
       '<div class="t-body"><div class="t-title">' + esc(t.title) + '</div>' +
-        '<div class="t-meta">' + esc(t.assign || 'Alle') + (t.by ? ' · von ' + esc(t.by) : '') + (t.ts ? ' · ' + fmtDate(t.ts) : '') + '</div></div>' +
+        '<div class="t-meta">' + prioHtml + esc(t.assign || 'Alle') + (t.by ? ' · von ' + esc(t.by) : '') + (t.ts ? ' · ' + fmtDate(t.ts) : '') + dueHtml + '</div></div>' +
       '<button class="del">✕</button>';
     div.querySelector('.t-check').addEventListener('click', function() { toggleTask(t.id); });
     div.querySelector('.t-body').addEventListener('click', function() { toggleTask(t.id); });
@@ -740,10 +843,14 @@ function saveTask() {
   var title = el('taskTitle').value.trim();
   if (!title) { toast('Bitte Titel eingeben'); return; }
   var assign = el('taskAssign').value;
-  var task = {title:title, assign:assign, done:false, by:me, ts:Date.now()};
+  var prio = el('taskPrio').value;
+  var due  = el('taskDue').value;
+  var task = {title:title, assign:assign, done:false, by:me, ts:Date.now(), priority:prio};
+  if (due) task.due = due;
   dbPost('/tasks', task, function(err, key) {
     if (key) { task.id = key; tasks.unshift(task); }
-    el('taskTitle').value = ''; el('taskForm').classList.remove('open');
+    el('taskTitle').value = ''; el('taskDue').value = '';
+    el('taskForm').classList.remove('open');
     renderTasks(); updateDash(); toast('✓ Aufgabe gespeichert');
   });
 }
@@ -781,10 +888,23 @@ function renderChat() {
     div.innerHTML =
       (!mine ? '<div class="b-who">' + esc(m.user||'?') + '</div>' : '') +
       '<div class="bubble">' + esc(m.text||'') + '</div>' +
-      '<div class="b-time">' + fmtTime(m.ts||0) + '</div>';
+      '<div style="display:flex;align-items:center;gap:0.3rem">' +
+        '<div class="b-time">' + fmtTime(m.ts||0) + '</div>' +
+        (mine && m.id ? '<button class="chat-del">✕</button>' : '') +
+      '</div>';
+    if (mine && m.id) {
+      div.querySelector('.chat-del').addEventListener('click', (function(id) {
+        return function() { deleteChat(id); };
+      })(m.id));
+    }
     wrap.appendChild(div);
   });
   wrap.scrollTop = wrap.scrollHeight;
+}
+function deleteChat(id) {
+  chat = chat.filter(function(m) { return m.id !== id; });
+  renderChat();
+  dbDel('/chat/' + id);
 }
 function sendChat() {
   var inp = el('chatInp'); var text = inp.value.trim();
@@ -844,7 +964,7 @@ function renderShift() {
     var rows = '';
     SCHICHTEN.forEach(function(s) {
       var members = dd[s.k] || [];
-      var names = members.length ? members.map(esc).join(', ') : '<span style="color:var(--bg4)">–</span>';
+      var names = members.length ? members.map(function(n) { return n === me ? '<span style="color:var(--gold);font-weight:500">' + esc(n) + '</span>' : esc(n); }).join(', ') : '<span style="color:var(--bg4)">–</span>';
       rows += '<div class="sd-row" data-day="' + day + '" data-shift="' + s.k + '">' +
         '<span>' + s.l + ' <span class="sd-badge">' + s.t + '</span></span>' +
         '<span class="sd-names">' + names + '</span></div>';
@@ -1155,9 +1275,28 @@ function showTrinkgeld() {
       entries.sort(function(a,b) { return (b.date||'') > (a.date||'') ? 1 : -1; });
       var total = entries.reduce(function(s,e) { return s + (e.amount||0); }, 0);
       var sum = document.createElement('div');
-      sum.style.cssText = 'background:rgba(184,146,74,0.1);border:1px solid var(--gold);border-radius:12px;padding:0.75rem 1rem;margin-bottom:0.75rem;text-align:center';
+      sum.style.cssText = 'background:rgba(184,146,74,0.1);border:1px solid var(--gold);border-radius:12px;padding:0.75rem 1rem;margin-bottom:0.5rem;text-align:center';
       sum.innerHTML = '<div style="font-size:0.65rem;color:var(--dim);margin-bottom:0.2rem">Gesamt</div><div style="font-size:1.4rem;font-weight:300;color:var(--gold)">' + total.toFixed(2) + ' €</div>';
       list.appendChild(sum);
+      /* Split calculator */
+      var splitPersons = TEAM.length;
+      var splitDiv = document.createElement('div');
+      splitDiv.style.cssText = 'background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.65rem 1rem;margin-bottom:0.75rem';
+      function renderSplit() {
+        splitDiv.innerHTML =
+          '<div style="font-size:0.6rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem">Aufteilen</div>' +
+          '<div style="display:flex;align-items:center;gap:0.5rem">' +
+            '<button class="qty-btn" id="spMinus">−</button>' +
+            '<span style="min-width:18px;text-align:center;font-size:0.88rem">' + splitPersons + '</span>' +
+            '<button class="qty-btn" id="spPlus">+</button>' +
+            '<span style="font-size:0.72rem;color:var(--dim)">Personen</span>' +
+            '<span style="margin-left:auto;font-size:1rem;font-weight:600;color:var(--gold)">' + (splitPersons > 0 ? (total/splitPersons).toFixed(2) : '–') + ' €</span>' +
+          '</div>';
+        splitDiv.querySelector('#spMinus').addEventListener('click', function() { if (splitPersons > 1) { splitPersons--; renderSplit(); } });
+        splitDiv.querySelector('#spPlus').addEventListener('click', function() { splitPersons++; renderSplit(); });
+      }
+      renderSplit();
+      list.appendChild(splitDiv);
       entries.slice(0,20).forEach(function(e) {
         var div = document.createElement('div');
         div.className = 'tg-entry';
@@ -1184,6 +1323,7 @@ function showInventar() {
       '<div class="row2">' +
         '<div class="fg" style="flex:1"><label class="fl">Menge</label><input class="inp" type="number" id="invQty" placeholder="0" min="0"></div>' +
         '<div class="fg" style="flex:1"><label class="fl">Einheit</label><input class="inp" id="invUnit" placeholder="kg / St."></div>' +
+        '<div class="fg" style="flex:1"><label class="fl">Mindest</label><input class="inp" type="number" id="invMin" placeholder="0" min="0" title="Mindestbestand – Warnung wenn Bestand zu niedrig"></div>' +
       '</div>' +
       '<button class="btn-g" style="width:100%" id="invSave">Hinzufügen</button>' +
     '</div>' +
@@ -1197,12 +1337,16 @@ function showInventar() {
       invItems.sort(function(a,b) { return (a.name||'').localeCompare(b.name||'','de'); });
       invItems.forEach(function(item) {
         var k = item.id;
+        var isLow = typeof item.min === 'number' && item.min > 0 && (item.qty||0) <= item.min;
         var div = document.createElement('div');
         div.className = 'inv-item';
+        div.style.borderLeft = isLow ? '3px solid var(--red)' : '';
+        var qtyColor = isLow ? 'var(--red)' : 'var(--gold)';
+        var lowTag = isLow ? ' <span style="font-size:0.6rem;color:var(--red);background:rgba(224,82,82,0.12);border-radius:4px;padding:0.05rem 0.3rem">Niedrig</span>' : '';
         div.innerHTML =
-          '<div class="inv-name">' + esc(item.name||'?') + '<div class="inv-unit">' + esc(item.unit||'') + '</div></div>' +
+          '<div class="inv-name">' + esc(item.name||'?') + lowTag + '<div class="inv-unit">' + esc(item.unit||'') + (item.min ? ' · Min: ' + item.min : '') + '</div></div>' +
           '<button class="qty-btn" data-op="-">−</button>' +
-          '<div class="inv-qty">' + esc(item.qty||0) + '</div>' +
+          '<div class="inv-qty" style="color:' + qtyColor + '">' + esc(item.qty||0) + '</div>' +
           '<button class="qty-btn" data-op="+">+</button>' +
           '<button class="del">✕</button>';
         div.querySelectorAll('.qty-btn').forEach(function(btn) {
@@ -1223,10 +1367,12 @@ function showInventar() {
     if (!name) { toast('Bitte Artikel eingeben'); return; }
     var qty  = parseInt(body.querySelector('#invQty').value) || 0;
     var unit = body.querySelector('#invUnit').value.trim();
-    dbPost('/inventar', {name:name, qty:qty, unit:unit, by:me, ts:Date.now()}, function(err, key) {
+    var min  = parseInt(body.querySelector('#invMin').value) || 0;
+    dbPost('/inventar', {name:name, qty:qty, unit:unit, min:min, by:me, ts:Date.now()}, function(err, key) {
       body.querySelector('#invName').value = '';
       body.querySelector('#invQty').value = '';
       body.querySelector('#invUnit').value = '';
+      body.querySelector('#invMin').value = '';
       loadInv(); toast('✓ Hinzugefügt');
     });
   });
@@ -1576,7 +1722,13 @@ function bind() {
     var btn = el('nav-' + tab);
     if (btn) btn.addEventListener('click', function() { switchTab(tab); });
   });
-  el('userChip').addEventListener('click', showPicker);
+  el('userChip').addEventListener('click', function() { if (me) showUserMenu(); else showPicker(); });
+  el('umSwitch').addEventListener('click', showPicker);
+  el('umLogout').addEventListener('click', logoutUser);
+  el('umOverlay').addEventListener('click', function() {
+    el('userMenu').classList.add('hidden');
+    el('umOverlay').classList.add('hidden');
+  });
   el('pinBack').addEventListener('click', function() {
     el('pinScreen').classList.add('hidden');
     el('picker').classList.remove('hidden');
@@ -1612,7 +1764,12 @@ bind();
 tick();
 setInterval(tick, 30000);
 
-if (me) { el('uLabel').textContent = me; } else { showPicker(); }
+if (me) {
+  var meIdx = TEAM.indexOf(me);
+  el('uEmoji').textContent = EMOJ[meIdx] || '👤';
+  el('uLabel').textContent = me;
+  el('userChip').classList.add('active');
+} else { showPicker(); }
 
 updateDash();
 loadDashExtras();
