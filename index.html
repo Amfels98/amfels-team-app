@@ -374,11 +374,11 @@
   <div id="stepName" class="ls-step active">
     <p class="ls-label">Wer bist du?</p>
     <div class="ngrid" id="nameGrid">
-      <button class="nbtn" data-name="Leon" onclick="selectName('Leon')" ontouchstart="selectName('Leon');event.preventDefault()"><span class="av">👑</span><span class="nm">Leon</span></button>
-      <button class="nbtn" data-name="Sasho" onclick="selectName('Sasho')" ontouchstart="selectName('Sasho');event.preventDefault()"><span class="av">👨‍🍳</span><span class="nm">Sasho</span></button>
-      <button class="nbtn" data-name="Patrik" onclick="selectName('Patrik')" ontouchstart="selectName('Patrik');event.preventDefault()"><span class="av">🍺</span><span class="nm">Patrik</span></button>
-      <button class="nbtn" data-name="Tea" onclick="selectName('Tea')" ontouchstart="selectName('Tea');event.preventDefault()"><span class="av">👩‍🍳</span><span class="nm">Tea</span></button>
-      <button class="nbtn" data-name="Daniel" onclick="selectName('Daniel')" ontouchstart="selectName('Daniel');event.preventDefault()"><span class="av">🍳</span><span class="nm">Daniel</span></button>
+      <button class="nbtn" data-name="Leon"><span class="av">👑</span><span class="nm">Leon</span></button>
+      <button class="nbtn" data-name="Sasho"><span class="av">👨‍🍳</span><span class="nm">Sasho</span></button>
+      <button class="nbtn" data-name="Patrik"><span class="av">🍺</span><span class="nm">Patrik</span></button>
+      <button class="nbtn" data-name="Tea"><span class="av">👩‍🍳</span><span class="nm">Tea</span></button>
+      <button class="nbtn" data-name="Daniel"><span class="av">🍳</span><span class="nm">Daniel</span></button>
     </div>
     <button class="ls-invite-btn" onclick="showStep('stepInvite')" ontouchstart="showStep('stepInvite');event.preventDefault()">Neu hier? Einladungscode eingeben →</button>
   </div>
@@ -1020,7 +1020,6 @@ function renderNameGrid() {
     return;
   }
   const EMOJI = ['👨‍🍳','🧑‍🍳','🍺','👩‍🍳','🍳','🧆','🥗','🥩'];
-  // Update existing buttons in-place (preserves event handlers on hardcoded HTML buttons)
   TEAM.forEach((name, i) => {
     const p = profiles[name] || {};
     const bc = BCOLORS[p.bereich] || BCOLORS.alle;
@@ -1030,10 +1029,11 @@ function renderNameGrid() {
       btn = document.createElement('button');
       btn.className = 'nbtn';
       btn.setAttribute('data-name', name);
-      btn.ontouchstart = function(e) { e.preventDefault(); currentUser = name; goToPin(); };
-      btn.onclick = function() { currentUser = name; goToPin(); };
       grid.appendChild(btn);
     }
+    // Always (re-)assign handlers so both hardcoded HTML buttons and new ones work
+    btn.ontouchstart = function(e) { e.preventDefault(); currentUser = name; goToPin(); };
+    btn.onclick = function() { currentUser = name; goToPin(); };
     btn.innerHTML = p.photo
       ? `<img class="nbtn-img" src="${p.photo}" style="border:2.5px solid ${bc}"><span class="nm">${name}</span>${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}`
       : `<span class="av" style="border:2px solid ${bc}">${EMOJI[i % EMOJI.length]}</span><span class="nm">${name}</span>${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}`;
@@ -4583,6 +4583,11 @@ if(currentUser){
 
 // ── SERVICE WORKER ──
 if ('serviceWorker' in navigator) {
+  // Clear any old cached broken versions, then register fresh
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    const stale = regs.filter(r => !r.active?.scriptURL?.includes('./sw.js') && !r.active?.scriptURL?.endsWith('/sw.js'));
+    stale.forEach(r => r.unregister());
+  }).catch(() => {});
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
