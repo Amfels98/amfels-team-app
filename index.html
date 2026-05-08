@@ -2024,35 +2024,47 @@ function showMuellkalender() {
     });
     typesDiv.appendChild(typesRow); body.appendChild(typesDiv);
 
-    var runBtn = document.createElement('button');
-    runBtn.className = 'btn-g'; runBtn.style.cssText = 'width:100%;margin-top:0.6rem';
-    runBtn.textContent = '🔍 Automatisch suchen & einlesen';
-    body.appendChild(runBtn);
+    /* ── HAUPTBEREICH: Text einfügen ── */
+    var pasteLabel = document.createElement('label');
+    pasteLabel.className = 'fl'; pasteLabel.style.cssText = 'margin-top:0.65rem;display:block';
+    pasteLabel.textContent = 'Kalendertext einfügen';
+    body.appendChild(pasteLabel);
 
-    /* Direct URL input */
+    var pasteHint = document.createElement('div');
+    pasteHint.style.cssText = 'font-size:0.7rem;color:var(--dim);margin-bottom:0.35rem;line-height:1.5';
+    pasteHint.innerHTML = 'PDF öffnen &rarr; alles markieren (Strg+A) &rarr; kopieren (Strg+C) &rarr; hier einfügen';
+    body.appendChild(pasteHint);
+
+    var pasteArea = document.createElement('textarea');
+    pasteArea.className = 'inp'; pasteArea.id = 'mkiPaste';
+    pasteArea.style.cssText = 'height:120px;resize:vertical';
+    pasteArea.placeholder = 'Kalendertext hier einfügen…';
+    body.appendChild(pasteArea);
+
+    var scanBtn = document.createElement('button');
+    scanBtn.className = 'btn-g'; scanBtn.style.cssText = 'width:100%;margin-top:0.5rem';
+    scanBtn.textContent = '🔍 Termine erkennen & automatisch eintragen';
+    body.appendChild(scanBtn);
+
+    /* ── SEKUNDÄR: Direkter Link ── */
     var urlToggle = document.createElement('button');
-    urlToggle.className = 'btn-d'; urlToggle.style.cssText = 'width:100%;margin-top:0.35rem;font-size:0.74rem';
-    urlToggle.textContent = '🔗 Ich habe den direkten Kalender-Link';
+    urlToggle.className = 'btn-d'; urlToggle.style.cssText = 'width:100%;margin-top:0.4rem;font-size:0.74rem';
+    urlToggle.textContent = '🔗 Direkten Kalender-Link laden (ICS / PDF)';
     body.appendChild(urlToggle);
     var urlPanel = document.createElement('div'); urlPanel.style.cssText = 'display:none;margin-top:0.35rem';
-    urlPanel.innerHTML = '<div class="fg"><label class="fl" style="margin-bottom:0.3rem">Kalender-Link (.ics oder Gemeinde-Seite)</label><input class="inp" id="mkiUrl" placeholder="https://gemeinde.at/abfall/kalender.ics" autocomplete="off"></div><button class="btn-g" style="width:100%" id="mkiUrlRun">📥 Kalender laden</button>';
+    urlPanel.innerHTML = '<input class="inp" id="mkiUrl" placeholder="https://gemeinde.de/kalender.ics  oder  .pdf" autocomplete="off" style="margin-bottom:0.35rem"><button class="btn-g" style="width:100%" id="mkiUrlRun">📥 Laden</button>';
     body.appendChild(urlPanel);
     urlToggle.addEventListener('click', function() {
       urlPanel.style.display = urlPanel.style.display==='none' ? '' : 'none';
       if (urlPanel.style.display!=='none') { var inp=urlPanel.querySelector('#mkiUrl'); if(inp)inp.focus(); }
     });
 
-    var fallbackToggle = document.createElement('button');
-    fallbackToggle.className = 'btn-d'; fallbackToggle.style.cssText = 'width:100%;margin-top:0.35rem;font-size:0.74rem';
-    fallbackToggle.textContent = '📋 Kalendertext manuell einfügen';
-    body.appendChild(fallbackToggle);
-    var fallbackPanel = document.createElement('div'); fallbackPanel.style.cssText = 'display:none;margin-top:0.4rem';
-    fallbackPanel.innerHTML = '<textarea class="inp" id="mkiText" style="height:90px;resize:vertical" placeholder="Text vom Abfallkalender hier einfügen…"></textarea><button class="btn-g" style="width:100%;margin-top:0.35rem" id="mkiTextRun">🔍 Aus Text erkennen</button>';
-    body.appendChild(fallbackPanel);
-    fallbackToggle.addEventListener('click', function() { fallbackPanel.style.display = fallbackPanel.style.display === 'none' ? '' : 'none'; });
-
     var resultEl = document.createElement('div'); resultEl.style.marginTop = '0.7rem';
     body.appendChild(resultEl);
+
+    /* Dummy vars so older code paths still compile */
+    var runBtn = document.createElement('button');
+    var fallbackPanel = document.createElement('div');
 
     /* ── HELPERS ── */
     function getSelectedTypes() {
@@ -2320,7 +2332,7 @@ function showMuellkalender() {
         });
     }
 
-    function resetBtn() { runBtn.disabled=false; runBtn.textContent='🔍 Automatisch suchen & einlesen'; }
+    function resetBtn() { /* no-op — scan button never disables */ }
 
     function autoImport(parsed) {
       resetBtn();
@@ -2366,57 +2378,32 @@ function showMuellkalender() {
       urlPanel.style.display='';
     }
 
-    /* ── MANUAL TEXT FALLBACK ── */
-    fallbackPanel.addEventListener('click', function(e) {
-      if (!e.target||e.target.id!=='mkiTextRun') return;
-      var addr=addrInput.value.trim(); var input=el('mkiText')?el('mkiText').value.trim():''; var sel=getSelectedTypes();
-      if (!addr){toast('Adresse eingeben');return;} if(!input){toast('Text einfügen');return;} if(!sel.length){toast('Müllart auswählen');return;}
-      localStorage.setItem('af_mull_addr',addr); localStorage.setItem('af_mull_types',JSON.stringify(sel));
-      resultEl.innerHTML='';
-      extractWithKI(input,addr,sel);
+    /* ── SCAN BUTTON (Hauptflow) ── */
+    scanBtn.addEventListener('click', function() {
+      var txt = pasteArea.value.trim();
+      var addr = addrInput.value.trim();
+      var sel = getSelectedTypes();
+      if (!addr) { toast('Adresse eingeben'); return; }
+      if (!txt)  { toast('Kalendertext einfügen'); return; }
+      if (!sel.length) { toast('Müllart auswählen'); return; }
+      localStorage.setItem('af_mull_addr', addr);
+      localStorage.setItem('af_mull_types', JSON.stringify(sel));
+      extractWithKI(txt, addr, sel);
     });
 
-    /* ── DIRECT URL FLOW ── */
+    /* ── URL FLOW (ICS / PDF) ── */
     urlPanel.querySelector('#mkiUrlRun').addEventListener('click', function() {
-      var urlVal=urlPanel.querySelector('#mkiUrl').value.trim();
-      if (!urlVal){toast('Link eingeben');return;}
-      var addr=addrInput.value.trim()||'Unbekannt';
-      var sel=getSelectedTypes();
-      if (!sel.length){toast('Müllart auswählen');return;}
-      localStorage.setItem('af_mull_addr',addr); localStorage.setItem('af_mull_types',JSON.stringify(sel));
-      resultEl.innerHTML='';
-      /* PDF gets special treatment */
-      if (urlVal.toLowerCase().indexOf('.pdf')>=0) { fetchAndParsePDF(urlVal,addr,sel); return; }
-      setStep(3,'⏳ Lade Kalender…');
-      tryUrls([urlVal],addr,sel);
-    });
-
-    /* ── MAIN AUTO FLOW ── */
-    runBtn.addEventListener('click', function() {
-      var addr=addrInput.value.trim();
-      if (!addr){toast('Adresse eingeben');return;}
-      var sel=getSelectedTypes();
-      if (!sel.length){toast('Müllart auswählen');return;}
-      localStorage.setItem('af_mull_addr',addr); localStorage.setItem('af_mull_types',JSON.stringify(sel));
-      runBtn.disabled=true; runBtn.textContent='⏳ Suche läuft…';
-      setStep(2,'⏳ Sucht…'); resultEl.innerHTML='';
-      var city=cityFromAddr(addr);
-      var street=addr.split(',')[0].replace(/\s*\d+[a-z]?$/i,'').trim();
-      Promise.all([
-        search('"'+city+'" Abfallkalender ICS download site:.at'),
-        search(city+' Abfallkalender ical ICS Österreich'),
-        search(street+' '+city+' Müllabfuhr Termine 2026'),
-        search(city+' Saubermacher awv Abfallkalender 2026')
-      ]).then(function(results) {
-        var all=results[0].concat(results[1]).concat(results[2]).concat(results[3]);
-        var seen={}; var candidates=[];
-        all.forEach(function(u){if(!seen[u]){seen[u]=true;candidates.push(u);}});
-        candidates.sort(function(a,b){return scoreUrl(b)-scoreUrl(a);});
-        tryUrls(candidates.slice(0,12),addr,sel);
-      }).catch(function(){
-        resetBtn(); setStep(1,'');
-        showFail('Suche fehlgeschlagen.\nLink direkt eingeben oder Text manuell einfügen.');
-      });
+      var urlVal = urlPanel.querySelector('#mkiUrl').value.trim();
+      if (!urlVal) { toast('Link eingeben'); return; }
+      var addr = addrInput.value.trim() || 'Unbekannt';
+      var sel = getSelectedTypes();
+      if (!sel.length) { toast('Müllart auswählen'); return; }
+      localStorage.setItem('af_mull_addr', addr);
+      localStorage.setItem('af_mull_types', JSON.stringify(sel));
+      resultEl.innerHTML = '';
+      if (urlVal.toLowerCase().indexOf('.pdf') >= 0) { fetchAndParsePDF(urlVal, addr, sel); return; }
+      setStep(3, '⏳ Lade…');
+      tryUrls([urlVal], addr, sel);
     });
   }
 
