@@ -881,6 +881,25 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// Force fresh load when app version changes (clears stale PWA/SW cache)
+(function(){
+  var V='6';
+  if(localStorage.getItem('af_ver')!==V){
+    localStorage.setItem('af_ver',V);
+    if('caches' in window) caches.keys().then(function(k){k.forEach(function(n){caches.delete(n);});});
+    if('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(sw){sw.unregister();});});
+    setTimeout(function(){location.reload(true);},300);
+  }
+})();
+
+// Show any JS errors on-screen so we can diagnose
+window.onerror=function(msg,src,line,col,err){
+  var d=document.createElement('div');
+  d.style.cssText='position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:12px;font-size:13px;z-index:99999;word-break:break-all;font-family:monospace';
+  d.textContent='JS ERROR: '+msg+' (line '+line+')';
+  document.body.appendChild(d);
+};
+
 // ── FIREBASE REALTIME DATABASE SYNC ──────────────────────────────────────
 let DB_URL = localStorage.getItem('af_db_url') || 'https://apfels-team-default-rtdb.europe-west1.firebasedatabase.app/amfels';
 // ─────────────────────────────────────────────────────────────────────────
