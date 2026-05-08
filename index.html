@@ -1449,6 +1449,10 @@ function doLogin() {
   loadData();
   loadProfiles(); // Team nach Login aktuell halten (wichtig bei Neuregistrierung)
   startSync();
+  // Onboarding nur beim ersten Login
+  if(!localStorage.getItem('af_onboarded_'+currentUser)){
+    setTimeout(()=>showOnboarding(),600);
+  }
 }
 
 function logout() {
@@ -3053,6 +3057,59 @@ function showInstallTip(){
       <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:12px;padding:0.85rem;font-family:Inter,sans-serif;font-size:0.88rem;font-weight:700;cursor:pointer;">Verstanden</button>
     </div>`;
   document.body.appendChild(overlay);
+}
+
+function showOnboarding(){
+  const slides=[
+    {icon:'🏠',title:'Willkommen bei Am Fels!',text:'Diese App ist euer digitales Teamzentrum für Aufgaben, Schichten, Bestellungen und mehr.'},
+    {icon:'📅',title:'Schichtplan',text:'Unter "Schicht" seht ihr wer wann arbeitet. Der Plan wird für jede Woche gespeichert.'},
+    {icon:'✓',title:'Aufgaben',text:'Erstellt Aufgaben für Küche, Service oder Theke. Erledigte Aufgaben müssen vom Admin freigegeben werden.'},
+    {icon:'💬',title:'Team-Chat',text:'Schreibt Nachrichten an alle. Wichtige Nachrichten können angepinnt werden.'},
+    {icon:'📦',title:'Bestellungen',text:'Fehlendes einfach in die Liste eintragen – der Chef sieht was bestellt werden muss.'},
+    {icon:'📱',title:'App installieren',text:'Für das beste Erlebnis: In Safari auf Teilen ↑ tippen und "Zum Home-Bildschirm" wählen.'},
+  ];
+  let cur=0;
+  const overlay=document.createElement('div');
+  overlay.id='onboardOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 1rem max(2rem,env(safe-area-inset-bottom));';
+
+  function render(){
+    const s=slides[cur];
+    const isLast=cur===slides.length-1;
+    overlay.innerHTML=`
+      <div style="width:100%;max-width:380px;background:var(--bg2);border-radius:24px 24px 20px 20px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,var(--bg3),var(--bg2));padding:2.5rem 1.5rem 1.5rem;text-align:center;">
+          <div style="font-size:3.5rem;margin-bottom:0.85rem">${s.icon}</div>
+          <div style="font-size:1.15rem;font-weight:600;margin-bottom:0.6rem">${s.title}</div>
+          <div style="font-size:0.85rem;color:var(--dim);line-height:1.6">${s.text}</div>
+        </div>
+        <div style="padding:1rem 1.5rem 1.25rem;">
+          <div style="display:flex;justify-content:center;gap:0.4rem;margin-bottom:1.1rem;">
+            ${slides.map((_,i)=>`<div style="width:${i===cur?'20px':'7px'};height:7px;border-radius:4px;background:${i===cur?'var(--gold)':'var(--bg4)'};transition:all 0.25s;"></div>`).join('')}
+          </div>
+          <button ontouchstart="onboardNext();event.preventDefault()" onclick="onboardNext()"
+            style="width:100%;background:var(--gold);color:#000;border:none;border-radius:14px;padding:0.9rem;font-family:Inter,sans-serif;font-size:0.92rem;font-weight:700;cursor:pointer;touch-action:manipulation;">
+            ${isLast?'Loslegen 🚀':'Weiter →'}
+          </button>
+          ${!isLast?`<button ontouchstart="closeOnboarding();event.preventDefault()" onclick="closeOnboarding()"
+            style="width:100%;background:none;border:none;padding:0.6rem;font-family:Inter,sans-serif;font-size:0.8rem;color:var(--dim);cursor:pointer;margin-top:0.25rem;touch-action:manipulation;">Überspringen</button>`:''}
+        </div>
+      </div>`;
+  }
+
+  window.onboardNext=function(){
+    if(cur<slides.length-1){cur++;render();}
+    else closeOnboarding();
+  };
+  window.closeOnboarding=function(){
+    localStorage.setItem('af_onboarded_'+currentUser,'1');
+    overlay.remove();
+    delete window.onboardNext;
+    delete window.closeOnboarding;
+  };
+
+  document.body.appendChild(overlay);
+  render();
 }
 
 function showDsgvo(){
