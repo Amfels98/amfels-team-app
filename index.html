@@ -310,6 +310,41 @@
     /* 6-tab nav tweak */
     .ni { font-size:0.48rem; padding:0.5rem 0.1rem; }
     .ni-icon { font-size:1rem; }
+
+    /* ── ÜBERGABE ── */
+    .ue-card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:0.85rem 0.9rem; margin-bottom:0.5rem; }
+    .ue-meta { font-size:0.65rem; color:var(--dim); margin-bottom:0.4rem; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
+    .ue-schicht { font-size:0.6rem; font-weight:700; padding:0.1rem 0.45rem; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em; }
+    .ue-frueh  { background:rgba(255,193,7,0.13); color:#e6ac00; }
+    .ue-mittag { background:rgba(91,141,238,0.12); color:var(--blue); }
+    .ue-abend  { background:rgba(155,107,204,0.12); color:#9b6bcc; }
+    .ue-text { font-size:0.88rem; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+    .ue-items { margin-top:0.6rem; }
+    .ue-item { display:flex; align-items:center; gap:0.55rem; padding:0.28rem 0; font-size:0.82rem; border-top:1px solid rgba(255,255,255,0.04); }
+    .ue-cb { width:20px; height:20px; border-radius:6px; border:1.5px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:0.72rem; flex-shrink:0; touch-action:manipulation; }
+    .ue-cb.done { background:var(--green); border-color:var(--green); color:#fff; }
+    .ue-del { background:none; border:none; color:var(--dim); cursor:pointer; font-size:0.75rem; opacity:0.4; touch-action:manipulation; }
+    .ue-del:hover { opacity:1; color:var(--red); }
+
+    /* ── INVENTAR ── */
+    .inv-card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:0.72rem 0.9rem; margin-bottom:0.45rem; display:flex; align-items:center; gap:0.7rem; }
+    .inv-dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+    .inv-ok    { background:var(--green); }
+    .inv-wenig { background:var(--gold); }
+    .inv-leer  { background:var(--red); }
+    .inv-name { flex:1; font-size:0.88rem; font-weight:500; }
+    .inv-kat { font-size:0.58rem; background:var(--bg4); border-radius:4px; padding:0.08rem 0.38rem; color:var(--dim); text-transform:uppercase; font-weight:600; letter-spacing:0.04em; }
+    .inv-actions { display:flex; gap:0.28rem; }
+    .inv-sbtn { font-size:0.62rem; padding:0.22rem 0.48rem; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--dim); cursor:pointer; font-family:'Inter',sans-serif; touch-action:manipulation; white-space:nowrap; }
+    .inv-sbtn.active-ok    { background:rgba(76,175,125,0.15); border-color:var(--green); color:var(--green); }
+    .inv-sbtn.active-wenig { background:rgba(184,146,74,0.15); border-color:var(--gold); color:var(--gold); }
+    .inv-sbtn.active-leer  { background:rgba(224,82,82,0.15); border-color:var(--red); color:var(--red); }
+
+    /* ── NACHRICHTEN (Pinnwand) ── */
+    .msg-card { background:rgba(184,146,74,0.07); border:1px solid rgba(184,146,74,0.2); border-radius:14px; padding:0.85rem 0.9rem; margin-bottom:0.5rem; }
+    .msg-card-text { font-size:0.9rem; line-height:1.5; margin-bottom:0.4rem; }
+    .msg-card-meta { font-size:0.65rem; color:var(--dim); }
+    .msg-to { font-size:0.62rem; background:rgba(91,141,238,0.12); color:var(--blue); padding:0.08rem 0.4rem; border-radius:4px; font-weight:600; }
   </style>
 </head>
 <body>
@@ -435,6 +470,8 @@
       <div id="dUrgent"></div>
       <p class="dlabel">Daueraufgaben heute</p>
       <div id="dRec"></div>
+      <div class="sh" style="margin-top:1.1rem"><span class="st">Übergabe</span><button class="plus" ontouchstart="openUebergabeModal();event.preventDefault()" onclick="openUebergabeModal()">+</button></div>
+      <div id="dUebergabe"></div>
     </div>
 
     <!-- AUFGABEN -->
@@ -502,6 +539,7 @@
     <div class="screen" id="s-bestellen">
       <div class="frow" style="margin-bottom:0.7rem">
         <button class="fc on" onclick="showOrderTab('liste',this)">📋 Liste</button>
+        <button class="fc" onclick="showOrderTab('inventar',this)">🏪 Inventar</button>
         <button class="fc" onclick="showOrderTab('lieferanten',this)">🚚 Lieferanten</button>
         <button class="fc" onclick="showOrderTab('dokumente',this)">📄 Dokumente</button>
       </div>
@@ -516,6 +554,17 @@
         </div>
         <div class="arow"><button class="gbtn" onclick="clearOrdered()">Bestellte löschen</button></div>
         <div id="orderList"></div>
+      </div>
+
+      <!-- Inventar -->
+      <div id="ot-inventar" style="display:none">
+        <div class="sh"><span class="st">Inventar</span><button class="plus" ontouchstart="openInvModal();event.preventDefault()" onclick="openInvModal()">+</button></div>
+        <div class="frow" style="margin-bottom:0.75rem">
+          <button class="fc on" id="invf-alle" ontouchstart="fInv('alle',this);event.preventDefault()" onclick="fInv('alle',this)">Alle</button>
+          <button class="fc" id="invf-wenig" ontouchstart="fInv('wenig',this);event.preventDefault()" onclick="fInv('wenig',this)">⚠ Wenig</button>
+          <button class="fc" id="invf-leer" ontouchstart="fInv('leer',this);event.preventDefault()" onclick="fInv('leer',this)">❌ Leer</button>
+        </div>
+        <div id="inventarList"></div>
       </div>
 
       <!-- Lieferanten -->
@@ -1770,10 +1819,12 @@ function showOrderTab(tab,el){
   document.querySelectorAll('#s-bestellen>.frow .fc').forEach(c=>c.classList.remove('on'));
   el.classList.add('on');
   document.getElementById('ot-liste').style.display=tab==='liste'?'block':'none';
+  document.getElementById('ot-inventar').style.display=tab==='inventar'?'block':'none';
   document.getElementById('ot-lieferanten').style.display=tab==='lieferanten'?'block':'none';
   document.getElementById('ot-dokumente').style.display=tab==='dokumente'?'block':'none';
   if(tab==='lieferanten') renderLieferanten();
   if(tab==='dokumente') renderPdfs();
+  if(tab==='inventar') renderInventar();
 }
 
 function renderOrders(){
@@ -2999,6 +3050,232 @@ function renderChat() {
   if (badge && document.getElementById('s-chat').classList.contains('on')) { badge.style.display='none'; badge.textContent=''; }
 }
 
+// ── ÜBERGABE-PROTOKOLL ──
+let uebergaben = [];
+
+async function loadUebergabe() {
+  if (!DB_URL) { renderUebergabe(); return; }
+  try {
+    const res = await fetch(`${DB_URL}/uebergabe.json`, {cache:'no-store'});
+    const data = await res.json();
+    uebergaben = data ? Object.values(data).sort((a,b)=>(b.ts||0)-(a.ts||0)) : [];
+    renderUebergabe();
+  } catch {}
+}
+
+function renderUebergabe() {
+  const c = document.getElementById('dUebergabe');
+  if (!c) return;
+  const recent = uebergaben.slice(0, 5);
+  if (!recent.length) { c.innerHTML = '<div style="font-size:0.78rem;color:var(--dim);padding:0.5rem 0 0.8rem">Noch kein Eintrag – tippe + für eine neue Übergabe.</div>'; return; }
+  c.innerHTML = recent.map(u => {
+    const items = (u.items||[]).map((it,i) => `
+      <div class="ue-item">
+        <div class="ue-cb${it.done?' done':''}" ontouchstart="toggleUeItem(${u.id},${i});event.preventDefault()" onclick="toggleUeItem(${u.id},${i})">${it.done?'✓':''}</div>
+        <span style="${it.done?'text-decoration:line-through;opacity:0.5':''}">    ${escapeHtml(it.text)}</span>
+      </div>`).join('');
+    return `<div class="ue-card">
+      <div class="ue-meta">
+        <span class="ue-schicht ue-${u.schicht||'abend'}">${{frueh:'Früh',mittag:'Mittag',abend:'Abend'}[u.schicht]||'–'}</span>
+        <span>${escapeHtml(u.by||'')}</span>
+        <span>${u.at||''}</span>
+        ${currentUser===ADMIN||currentUser===u.by ? `<span class="ue-del" ontouchstart="deleteUebergabe(${u.id});event.preventDefault()" onclick="deleteUebergabe(${u.id})">🗑</span>` : ''}
+      </div>
+      ${u.text ? `<div class="ue-text">${escapeHtml(u.text)}</div>` : ''}
+      ${items ? `<div class="ue-items">${items}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function addUebergabe(schicht, text, items) {
+  const entry = {
+    id: Date.now(), ts: Date.now(),
+    by: currentUser,
+    at: new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}),
+    schicht, text: text.trim(),
+    items: items.filter(i=>i.text.trim()).map(i=>({text:i.text.trim(),done:false}))
+  };
+  uebergaben.unshift(entry);
+  renderUebergabe();
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/uebergabe/${entry.id}.json`, {method:'PUT',body:JSON.stringify(entry),headers:{'Content-Type':'application/json'}}).catch(()=>{});
+}
+
+async function toggleUeItem(ueId, itemIdx) {
+  const u = uebergaben.find(x=>x.id===ueId);
+  if (!u || !u.items?.[itemIdx]) return;
+  u.items[itemIdx].done = !u.items[itemIdx].done;
+  renderUebergabe();
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/uebergabe/${ueId}/items.json`,{method:'PUT',body:JSON.stringify(u.items),headers:{'Content-Type':'application/json'}}).catch(()=>{});
+}
+
+async function deleteUebergabe(id) {
+  uebergaben = uebergaben.filter(u=>u.id!==id);
+  renderUebergabe();
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/uebergabe/${id}.json`,{method:'DELETE'}).catch(()=>{});
+}
+
+function openUebergabeModal() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:3000;display:flex;align-items:flex-end;justify-content:center;padding:0.5rem';
+  overlay.innerHTML=`<div style="background:var(--bg2);border-radius:18px 18px 0 0;padding:1.3rem 1rem max(2rem,env(safe-area-inset-bottom));width:100%;max-width:440px;overflow-y:auto;max-height:88vh">
+    <p style="font-size:0.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:1rem">Neue Übergabe</p>
+    <p style="font-size:0.65rem;color:var(--dim);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.08em">Schicht</p>
+    <div class="frow" style="margin-bottom:0.9rem" id="ue-schicht-row">
+      <button class="fc on" id="ues-frueh" ontouchstart="setUeSchicht('frueh');event.preventDefault()" onclick="setUeSchicht('frueh')">🌅 Früh</button>
+      <button class="fc" id="ues-mittag" ontouchstart="setUeSchicht('mittag');event.preventDefault()" onclick="setUeSchicht('mittag')">☀️ Mittag</button>
+      <button class="fc" id="ues-abend" ontouchstart="setUeSchicht('abend');event.preventDefault()" onclick="setUeSchicht('abend')">🌙 Abend</button>
+    </div>
+    <p style="font-size:0.65rem;color:var(--dim);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.08em">Notizen</p>
+    <textarea id="ue-text" placeholder="Was ist passiert? Besonderheiten, Hinweise…" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.75rem;font-family:Inter,sans-serif;font-size:0.88rem;color:var(--text);resize:none;outline:none;min-height:90px;margin-bottom:0.9rem"></textarea>
+    <p style="font-size:0.65rem;color:var(--dim);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.08em">Checkliste (optional)</p>
+    <div id="ue-items-list"></div>
+    <button ontouchstart="addUeItemField();event.preventDefault()" onclick="addUeItemField()" style="width:100%;background:none;border:1px dashed rgba(255,255,255,0.1);border-radius:10px;padding:0.6rem;font-family:Inter,sans-serif;font-size:0.78rem;color:var(--dim);cursor:pointer;margin-bottom:1rem;touch-action:manipulation">+ Punkt hinzufügen</button>
+    <button ontouchstart="submitUebergabe();event.preventDefault()" onclick="submitUebergabe()" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:13px;padding:0.9rem;font-family:Inter,sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;touch-action:manipulation">Übergabe speichern</button>
+    <button ontouchstart="this.closest('[style*=fixed]').remove();event.preventDefault()" onclick="this.closest('[style*=fixed]').remove()" style="width:100%;background:none;border:none;color:var(--dim);font-family:Inter,sans-serif;font-size:0.82rem;cursor:pointer;padding-top:0.8rem;touch-action:manipulation">Abbrechen</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  window._ueSchicht = 'frueh';
+}
+
+function setUeSchicht(s) {
+  window._ueSchicht = s;
+  ['frueh','mittag','abend'].forEach(k => {
+    const btn = document.getElementById('ues-'+k);
+    if (btn) btn.classList.toggle('on', k===s);
+  });
+}
+
+function addUeItemField() {
+  const list = document.getElementById('ue-items-list');
+  if (!list) return;
+  const div = document.createElement('div');
+  div.style.cssText='display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center';
+  div.innerHTML=`<input type="text" placeholder="z.B. Kasse abrechnen" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.75rem;font-family:Inter,sans-serif;font-size:0.85rem;color:var(--text);outline:none" /><button ontouchstart="this.parentElement.remove();event.preventDefault()" onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:1rem;touch-action:manipulation">×</button>`;
+  list.appendChild(div);
+  div.querySelector('input').focus();
+}
+
+function submitUebergabe() {
+  const text = document.getElementById('ue-text')?.value || '';
+  const itemEls = document.querySelectorAll('#ue-items-list input');
+  const items = Array.from(itemEls).map(el=>({text:el.value}));
+  const schicht = window._ueSchicht || 'frueh';
+  addUebergabe(schicht, text, items);
+  document.querySelector('[style*="position:fixed"][style*="z-index:3000"]')?.remove();
+  toast('Übergabe gespeichert ✓');
+}
+
+// ── INVENTAR ──
+let inventar = [];
+let invFilter = 'alle';
+
+async function loadInventar() {
+  if (!DB_URL) { renderInventar(); return; }
+  try {
+    const res = await fetch(`${DB_URL}/inventar.json`, {cache:'no-store'});
+    const data = await res.json();
+    inventar = data ? Object.values(data).sort((a,b)=>{const o={leer:0,wenig:1,ok:2};return (o[a.status]||1)-(o[b.status]||1);}) : [];
+    renderInventar();
+  } catch {}
+}
+
+function fInv(f,el) {
+  invFilter=f;
+  document.querySelectorAll('[id^="invf-"]').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  renderInventar();
+}
+
+function renderInventar() {
+  const c = document.getElementById('inventarList');
+  if (!c) return;
+  let list = inventar;
+  if (invFilter !== 'alle') list = list.filter(i=>i.status===invFilter);
+  if (!list.length) { c.innerHTML='<div class="empty"><div class="ei">🏪</div><div class="et">Nichts zu zeigen</div></div>'; return; }
+  c.innerHTML = list.map(item=>`
+    <div class="inv-card">
+      <div class="inv-dot inv-${item.status}"></div>
+      <div class="inv-name">${escapeHtml(item.name)}<br><span class="inv-kat">${item.kat||'Sonstiges'}</span></div>
+      <div class="inv-actions">
+        <button class="inv-sbtn${item.status==='ok'?' active-ok':''}" ontouchstart="setInvStatus(${item.id},'ok');event.preventDefault()" onclick="setInvStatus(${item.id},'ok')">✓</button>
+        <button class="inv-sbtn${item.status==='wenig'?' active-wenig':''}" ontouchstart="setInvStatus(${item.id},'wenig');event.preventDefault()" onclick="setInvStatus(${item.id},'wenig')">⚠</button>
+        <button class="inv-sbtn${item.status==='leer'?' active-leer':''}" ontouchstart="setInvStatus(${item.id},'leer');event.preventDefault()" onclick="setInvStatus(${item.id},'leer')">❌</button>
+        ${currentUser===ADMIN?`<button class="inv-sbtn" ontouchstart="deleteInv(${item.id});event.preventDefault()" onclick="deleteInv(${item.id})">🗑</button>`:''}
+      </div>
+    </div>`).join('');
+}
+
+async function setInvStatus(id, status) {
+  const item = inventar.find(i=>i.id===id);
+  if (!item) return;
+  item.status = status;
+  renderInventar();
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/inventar/${id}/status.json`,{method:'PUT',body:JSON.stringify(status),headers:{'Content-Type':'application/json'}}).catch(()=>{});
+}
+
+async function deleteInv(id) {
+  inventar = inventar.filter(i=>i.id!==id);
+  renderInventar();
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/inventar/${id}.json`,{method:'DELETE'}).catch(()=>{});
+}
+
+function openInvModal() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:3000;display:flex;align-items:flex-end;justify-content:center;padding:0.5rem';
+  overlay.innerHTML=`<div style="background:var(--bg2);border-radius:18px 18px 0 0;padding:1.3rem 1rem max(2rem,env(safe-area-inset-bottom));width:100%;max-width:440px">
+    <p style="font-size:0.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:1rem">Inventar-Artikel</p>
+    <input id="inv-name" type="text" placeholder="Artikelname z.B. Pommes frites" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.75rem;font-family:Inter,sans-serif;font-size:0.88rem;color:var(--text);outline:none;margin-bottom:0.7rem" />
+    <select id="inv-kat" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.75rem;font-family:Inter,sans-serif;font-size:0.88rem;color:var(--text);outline:none;margin-bottom:0.7rem;-webkit-appearance:none">
+      <option value="Küche">🍳 Küche</option>
+      <option value="Bar">🍺 Bar</option>
+      <option value="Reinigung">🧹 Reinigung</option>
+      <option value="Büro">📋 Büro</option>
+      <option value="Sonstiges">📦 Sonstiges</option>
+    </select>
+    <p style="font-size:0.65rem;color:var(--dim);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.08em">Status</p>
+    <div class="frow" style="margin-bottom:1rem">
+      <button class="fc on" id="invs-ok" ontouchstart="selInvS('ok');event.preventDefault()" onclick="selInvS('ok')">✓ OK</button>
+      <button class="fc" id="invs-wenig" ontouchstart="selInvS('wenig');event.preventDefault()" onclick="selInvS('wenig')">⚠ Wenig</button>
+      <button class="fc" id="invs-leer" ontouchstart="selInvS('leer');event.preventDefault()" onclick="selInvS('leer')">❌ Leer</button>
+    </div>
+    <button ontouchstart="submitInv();event.preventDefault()" onclick="submitInv()" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:13px;padding:0.9rem;font-family:Inter,sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;touch-action:manipulation">Speichern</button>
+    <button ontouchstart="this.closest('[style*=fixed]').remove();event.preventDefault()" onclick="this.closest('[style*=fixed]').remove()" style="width:100%;background:none;border:none;color:var(--dim);font-family:Inter,sans-serif;font-size:0.82rem;cursor:pointer;padding-top:0.8rem;touch-action:manipulation">Abbrechen</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  window._invStatus = 'ok';
+  setTimeout(()=>overlay.querySelector('#inv-name')?.focus(), 200);
+}
+
+function selInvS(s) {
+  window._invStatus = s;
+  ['ok','wenig','leer'].forEach(k=>{
+    const btn=document.getElementById('invs-'+k);
+    if(btn) btn.classList.toggle('on',k===s);
+  });
+}
+
+async function submitInv() {
+  const name = document.getElementById('inv-name')?.value.trim();
+  if (!name) { toast('Bitte Artikelname eingeben'); return; }
+  const kat = document.getElementById('inv-kat')?.value || 'Sonstiges';
+  const status = window._invStatus || 'ok';
+  const item = {id:Date.now(),ts:Date.now(),name,kat,status,by:currentUser};
+  inventar.push(item);
+  inventar.sort((a,b)=>{const o={leer:0,wenig:1,ok:2};return (o[a.status]||1)-(o[b.status]||1);});
+  renderInventar();
+  document.querySelector('[style*="position:fixed"][style*="z-index:3000"]')?.remove();
+  toast('Gespeichert ✓');
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/inventar/${item.id}.json`,{method:'PUT',body:JSON.stringify(item),headers:{'Content-Type':'application/json'}}).catch(()=>{});
+}
+
 // ── INIT ──
 renderNameGrid();  // Sofort mit bekannten Namen rendern
 loadProfiles();    // Fotos + neue Mitglieder aus Firebase nachladen
@@ -3023,6 +3300,8 @@ if(currentUser){
   loadChat();
   startChatPolling();
   loadSchicht(getWeekKey(0));
+  loadUebergabe();
+  loadInventar();
 }
 
 ['tTitle','rTitle','oItem','rzName','alTitel'].forEach(id=>{
