@@ -1941,29 +1941,7 @@ function showMuellkalender() {
     backBtn.textContent = '← Zurück'; backBtn.addEventListener('click', render);
     body.appendChild(backBtn);
 
-    /* ── STEP INDICATOR ── */
-    var stepsEl = document.createElement('div');
-    stepsEl.style.cssText = 'display:flex;align-items:center;gap:0.3rem;margin-bottom:0.75rem;font-size:0.7rem;color:var(--dim)';
-    stepsEl.id = 'mkiSteps';
-    body.appendChild(stepsEl);
-
-    function setStep(n, status) {
-      var steps = [
-        {n:1, label:'Adresse'},
-        {n:2, label:'Kalender suchen'},
-        {n:3, label:'Termine erkennen'},
-        {n:4, label:'Eintragen'}
-      ];
-      stepsEl.innerHTML = steps.map(function(s) {
-        var done   = s.n < n;
-        var active = s.n === n;
-        var col = done ? 'var(--gold)' : active ? 'var(--text)' : 'var(--dim)';
-        var prefix = done ? '✓ ' : (active && status ? status + ' ' : '');
-        return '<span style="color:' + col + ';font-weight:' + (active?'600':'400') + '">' + prefix + s.label + '</span>' +
-               (s.n < steps.length ? '<span style="opacity:.35">›</span>' : '');
-      }).join('');
-    }
-    setStep(1, '');
+    function setStep(n, status) { /* status shown via setStatus */ }
 
     /* ── ADDRESS AUTOCOMPLETE ── */
     var savedAddr = localStorage.getItem('af_mull_addr') || '';
