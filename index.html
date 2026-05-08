@@ -1918,425 +1918,447 @@ function showInventar() {
   loadInv();
 }
 
-/* ── MÜLLKALENDER ── */
+/* ── MÜLLKALENDER (WIZARD) ── */
 function showMuellkalender() {
   var body = makeOv('Müllkalender');
-  var REPEAT_LABELS = {none:'Einmalig', weekly:'Wöchentlich', biweekly:'Alle 2 Wochen', fourweekly:'Alle 4 Wochen', monthly:'Monatlich'};
-  function kiImport() {
-    body.innerHTML = '';
-    var VALID_TYPES = MULL_TYPES.map(function(t) { return t.key; });
-    var REPEAT_LABELS2 = {none:'Einmalig',weekly:'Wöchentlich',biweekly:'Alle 2 Wo.',fourweekly:'Alle 4 Wo.',monthly:'Monatlich'};
+  var REPEAT_LABELS = {none:'Einmalig',weekly:'Wöchentlich',biweekly:'Alle 2 Wochen',fourweekly:'Alle 4 Wochen',monthly:'Monatlich'};
+  var VALID_TYPES   = MULL_TYPES.map(function(t){return t.key;});
+  var REPSHORT      = {none:'',weekly:'· wöchentlich',biweekly:'· alle 2 Wo.',fourweekly:'· alle 4 Wo.',monthly:'· monatlich'};
+  var MONTH_DE      = ['','Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 
-    var backBtn = document.createElement('button');
-    backBtn.className = 'btn-d'; backBtn.style.cssText = 'margin-bottom:0.75rem;font-size:0.78rem';
-    backBtn.textContent = '← Zurück'; backBtn.addEventListener('click', render);
-    body.appendChild(backBtn);
-
-    /* ── ADDRESS AUTOCOMPLETE ── */
-    var savedAddr = localStorage.getItem('af_mull_addr') || '';
-    var addrWrap = document.createElement('div'); addrWrap.className = 'fg'; addrWrap.style.position = 'relative';
-    addrWrap.innerHTML = '<label class="fl">Meine Adresse (Straße Nr., PLZ Ort)</label><input class="inp" id="mkiAddr" placeholder="z.B. Hauptstraße 5, 51766 Engelskirchen" autocomplete="off" value="' + esc(savedAddr) + '">';
-    body.appendChild(addrWrap);
-
-    var acList = document.createElement('div');
-    acList.style.cssText = 'position:absolute;left:0;right:0;top:100%;background:var(--bg2);border:1px solid var(--border);border-radius:0 0 10px 10px;z-index:100;display:none;max-height:180px;overflow-y:auto';
-    addrWrap.appendChild(acList);
-
-    var acTimer = null;
-    var addrInput = addrWrap.querySelector('#mkiAddr');
-    addrInput.addEventListener('input', function() {
-      clearTimeout(acTimer);
-      var q = addrInput.value.trim();
-      if (q.length < 3) { acList.style.display = 'none'; return; }
-      acTimer = setTimeout(function() {
-        fetch('https://photon.komoot.io/api/?q=' + encodeURIComponent(q) + '&limit=6&lang=de')
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
-            var items = (data.features || []).map(function(f) {
-              var p = f.properties;
-              var street = (p.street || p.name || '');
-              var num    = p.housenumber || '';
-              var plz    = p.postcode || '';
-              var city2  = p.city || p.town || p.village || p.county || '';
-              if (!street || !city2) return null;
-              return (street + (num ? ' ' + num : '') + (plz || city2 ? ', ' + plz + (plz&&city2?' ':'') + city2 : ''));
-            }).filter(Boolean);
-            if (!items.length) { acList.style.display = 'none'; return; }
-            acList.innerHTML = '';
-            items.forEach(function(s) {
-              var row = document.createElement('div');
-              row.style.cssText = 'padding:0.55rem 0.85rem;font-size:0.82rem;border-bottom:1px solid var(--border);cursor:pointer';
-              row.textContent = s;
-              row.addEventListener('click', function() { addrInput.value = s; acList.style.display = 'none'; });
-              acList.appendChild(row);
-            });
-            acList.style.display = '';
-          }).catch(function() { acList.style.display = 'none'; });
-      }, 280);
+  /* ─ ICS helpers ─ */
+  function unfoldICS(t){return t.replace(/\r\n[ \t]/g,'').replace(/\n[ \t]/g,'');}
+  function mapICSType(s){
+    s=(s||'').toLowerCase().replace(/ü/g,'u').replace(/ä/g,'a').replace(/ö/g,'o').replace(/ß/g,'ss');
+    if(/restm|hausm|grau|schwarze|rest.?abf|rest.?mull|hausabf|gemischte/.test(s))return'Restmüll';
+    if(/biom|bio.?abf|braune|kompost|speise|grun.?abf/.test(s))return'Biomüll';
+    if(/gelb|plastik|leicht|dsd|grune.?tonne|wert.?stoff|verpack/.test(s))return'Gelber Sack';
+    if(/papier|pappe|karton|alte.?papier|blau|zeitun/.test(s))return'Papier';
+    if(/glas|altglas/.test(s))return'Glas';
+    return null;
+  }
+  function groupRepeat(evts){
+    var byType={};
+    evts.forEach(function(e){if(!byType[e.type])byType[e.type]=[];byType[e.type].push(e.date);});
+    var result=[];
+    Object.keys(byType).forEach(function(type){
+      var dates=byType[type].filter(function(d,i,a){return a.indexOf(d)===i;}).sort();
+      if(dates.length<3){dates.forEach(function(d){result.push({type:type,date:d,repeat:'none'});});return;}
+      var diffs=[];
+      for(var i=1;i<dates.length;i++)diffs.push(Math.round((new Date(dates[i])-new Date(dates[i-1]))/86400000));
+      var avg=diffs.reduce(function(a,b){return a+b;},0)/diffs.length;
+      var ok=diffs.every(function(d){return Math.abs(d-avg)<=4;});
+      var rep='none';
+      if(ok){if(avg>=5&&avg<=9)rep='weekly';else if(avg>=11&&avg<=17)rep='biweekly';else if(avg>=25&&avg<=35)rep='fourweekly';}
+      if(rep!=='none')result.push({type:type,date:dates[0],repeat:rep,repeatEnd:dates[dates.length-1]});
+      else dates.forEach(function(d){result.push({type:type,date:d,repeat:'none'});});
     });
-    document.addEventListener('click', function(e) { if (!addrWrap.contains(e.target)) acList.style.display = 'none'; });
-
-    /* ── MÜLLARTEN ── */
-    var typesDiv = document.createElement('div'); typesDiv.className = 'fg';
-    var typesLabel = document.createElement('label'); typesLabel.className = 'fl'; typesLabel.textContent = 'Welche Müllarten hast du?';
-    typesDiv.appendChild(typesLabel);
-    var savedTypes = JSON.parse(localStorage.getItem('af_mull_types') || '["Restmüll","Biomüll","Gelber Sack","Papier","Glas"]');
-    var typesRow = document.createElement('div'); typesRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.35rem;margin-top:0.3rem';
-    MULL_TYPES.forEach(function(t) {
-      var chip = document.createElement('button');
-      chip.className = 'chip' + (savedTypes.indexOf(t.key) >= 0 ? ' on' : '');
-      chip.setAttribute('data-mtype', t.key); chip.textContent = t.icon + ' ' + t.key;
-      chip.addEventListener('click', function() { chip.className = chip.classList.contains('on') ? 'chip' : 'chip on'; });
-      typesRow.appendChild(chip);
+    result.sort(function(a,b){return a.date<b.date?-1:1;});
+    return result;
+  }
+  function parseICS(text,sel){
+    text=unfoldICS(text);var raw=[];
+    text.split(/BEGIN:VEVENT/i).slice(1).forEach(function(block){
+      var dtm=block.match(/DTSTART[^:]*:(\d{8})/i);if(!dtm)return;
+      var date=dtm[1].slice(0,4)+'-'+dtm[1].slice(4,6)+'-'+dtm[1].slice(6,8);
+      var sum=block.match(/SUMMARY[^:]*:([^\r\n]+)/i);
+      var desc=block.match(/DESCRIPTION[^:]*:([^\r\n]+)/i);
+      var type=mapICSType(((sum?sum[1]:'')+(desc?' '+desc[1]:'')).trim());
+      if(type&&sel.indexOf(type)>=0)raw.push({type:type,date:date});
     });
-    typesDiv.appendChild(typesRow); body.appendChild(typesDiv);
+    return groupRepeat(raw);
+  }
 
-    /* ── DATEI AUSWÄHLEN (primär) ── */
-    var fileInput = document.createElement('input');
-    fileInput.type = 'file'; fileInput.accept = '.pdf,.ics'; fileInput.style.display = 'none';
-    body.appendChild(fileInput);
-
-    var fileBtn = document.createElement('button');
-    fileBtn.className = 'btn-g'; fileBtn.style.cssText = 'width:100%;margin-top:0.65rem';
-    fileBtn.textContent = '📂 PDF-Datei auswählen & scannen';
-    body.appendChild(fileBtn);
-    fileBtn.addEventListener('click', function() { fileInput.click(); });
-
-    /* ── ICS-LINK (sekundär, für direkte ICS-URLs) ── */
-    var icsToggle = document.createElement('button');
-    icsToggle.className = 'btn-d'; icsToggle.style.cssText = 'width:100%;margin-top:0.35rem;font-size:0.74rem';
-    icsToggle.textContent = '🔗 Stattdessen ICS-Kalender-Link laden';
-    body.appendChild(icsToggle);
-    var icsPanel = document.createElement('div'); icsPanel.style.cssText = 'display:none;margin-top:0.35rem';
-    icsPanel.innerHTML = '<input class="inp" id="mkiIcsUrl" placeholder="https://gemeinde.de/kalender.ics" autocomplete="off" style="margin-bottom:0.35rem"><button class="btn-g" style="width:100%" id="mkiIcsLoad">📥 ICS laden</button>';
-    body.appendChild(icsPanel);
-    icsToggle.addEventListener('click', function() {
-      icsPanel.style.display = icsPanel.style.display === 'none' ? '' : 'none';
-      if (icsPanel.style.display !== 'none') { var i = icsPanel.querySelector('#mkiIcsUrl'); if (i) i.focus(); }
-    });
-
-    var resultEl = document.createElement('div'); resultEl.style.marginTop = '0.7rem';
-    body.appendChild(resultEl);
-
-    /* ── HELPERS ── */
-    function getSelectedTypes() {
-      var t = []; typesRow.querySelectorAll('.chip.on').forEach(function(c) { t.push(c.getAttribute('data-mtype')); }); return t;
-    }
-    function setStatus(msg) {
-      resultEl.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center;font-size:0.82rem;color:var(--dim)">' + msg + '</div>';
-    }
-    function showFail(msg) {
-      resultEl.innerHTML='<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:10px;padding:0.65rem 0.85rem;font-size:0.8rem"><div style="font-weight:600;margin-bottom:0.2rem">Fehler</div><div style="color:var(--dim);white-space:pre-line">'+esc(msg)+'</div></div>';
-    }
-
-    /* ── ICS PARSING ── */
-    function unfoldICS(text) { return text.replace(/\r\n[ \t]/g,'').replace(/\n[ \t]/g,''); }
-    function mapICSType(s) {
-      s = (s||'').toLowerCase().replace(/ü/g,'u').replace(/ä/g,'a').replace(/ö/g,'o').replace(/ß/g,'ss');
-      if (/restm|hausm|grau|schwarze|rest.?abf|rest.?mull|hausabf|gemischte/.test(s)) return 'Restmüll';
-      if (/biom|bio.?abf|braune|kompost|speise|grun.?abf/.test(s)) return 'Biomüll';
-      if (/gelb|plastik|leicht|dsd|grune.?tonne|wert.?stoff|verpack/.test(s)) return 'Gelber Sack';
-      if (/papier|pappe|karton|alte.?papier|blau|zeitun/.test(s)) return 'Papier';
-      if (/glas|altglas/.test(s)) return 'Glas';
-      return null;
-    }
-    function groupRepeat(evts) {
-      var byType = {};
-      evts.forEach(function(e){if(!byType[e.type])byType[e.type]=[];byType[e.type].push(e.date);});
-      var result = [];
-      Object.keys(byType).forEach(function(type) {
-        var dates = byType[type].filter(function(d,i,a){return a.indexOf(d)===i;}).sort();
-        if (dates.length < 3) { dates.forEach(function(d){result.push({type:type,date:d,repeat:'none'});}); return; }
-        var diffs = [];
-        for (var i=1;i<dates.length;i++) diffs.push(Math.round((new Date(dates[i])-new Date(dates[i-1]))/86400000));
-        var avg = diffs.reduce(function(a,b){return a+b;},0)/diffs.length;
-        var ok = diffs.every(function(d){return Math.abs(d-avg)<=4;});
-        var rep = 'none';
-        if (ok) {
-          if (avg>=5&&avg<=9) rep='weekly';
-          else if (avg>=11&&avg<=17) rep='biweekly';
-          else if (avg>=25&&avg<=35) rep='fourweekly';
-        }
-        if (rep!=='none') result.push({type:type,date:dates[0],repeat:rep,repeatEnd:dates[dates.length-1]});
-        else dates.forEach(function(d){result.push({type:type,date:d,repeat:'none'});});
-      });
-      result.sort(function(a,b){return a.date<b.date?-1:1;});
-      return result;
-    }
-    function parseICS(text, selectedTypes) {
-      text = unfoldICS(text);
-      var raw = [];
-      text.split(/BEGIN:VEVENT/i).slice(1).forEach(function(block) {
-        var dtm = block.match(/DTSTART[^:]*:(\d{8})/i);
-        if (!dtm) return;
-        var date = dtm[1].slice(0,4)+'-'+dtm[1].slice(4,6)+'-'+dtm[1].slice(6,8);
-        var sum  = block.match(/SUMMARY[^:]*:([^\r\n]+)/i);
-        var desc = block.match(/DESCRIPTION[^:]*:([^\r\n]+)/i);
-        var type = mapICSType(((sum?sum[1]:'')+(desc?' '+desc[1]:'')).trim());
-        if (type && selectedTypes.indexOf(type)>=0) raw.push({type:type,date:date});
-      });
-      return groupRepeat(raw);
-    }
-
-    /* ── PDF.JS ── */
-    function loadPDFJS(cb) {
-      if (window.pdfjsLib) { cb(); return; }
-      var s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
-      s.onload = function() {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-        cb();
-      };
-      s.onerror = function() { cb(new Error('load')); };
-      document.head.appendChild(s);
-    }
-
-    /* ── AUTO-IMPORT ── */
-    function autoImport(parsed) {
-      if (!parsed.length) { showFail('Keine Termine erkannt.'); return; }
-      var wrap = document.createElement('div');
-      wrap.style.cssText = 'background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:0.85rem';
-      var hdr = document.createElement('div');
-      hdr.style.cssText = 'font-size:0.75rem;font-weight:600;color:var(--gold);margin-bottom:0.5rem';
-      hdr.textContent = '✓ ' + parsed.length + ' Einträge erkannt — werden eingetragen…';
-      wrap.appendChild(hdr);
-      parsed.forEach(function(e) {
-        var row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;margin-bottom:0.28rem;border-left:3px solid '+mullColor(e.type)+';padding-left:0.5rem';
-        var repTxt = e.repeat&&e.repeat!=='none' ? (REPEAT_LABELS2[e.repeat]||e.repeat)+(e.repeatEnd?' bis '+e.repeatEnd:'') : '';
-        row.innerHTML = '<span>'+mullIcon(e.type)+'</span><div style="flex:1"><div style="font-size:0.8rem;font-weight:500">'+esc(e.type)+'</div><div style="font-size:0.62rem;color:var(--dim)">'+esc(e.date)+(repTxt?' · '+esc(repTxt):'')+' </div></div>';
-        wrap.appendChild(row);
-      });
-      resultEl.innerHTML=''; resultEl.appendChild(wrap);
-      var done = 0;
-      parsed.forEach(function(e) {
-        var entry = {type:e.type, date:e.date, repeat:e.repeat||'none', by:me, ts:Date.now()};
-        if (e.repeatEnd) entry.repeatEnd = e.repeatEnd;
-        dbPost('/muell', entry, function(err, key) {
-          if (key) { mullData[key]=entry; mullData[key].id=key; }
-          done++;
-          if (done === parsed.length) {
-            loadDashExtras();
-            toast('✓ '+parsed.length+' Termine eingetragen');
-            render();
+  /* ─ PDF helper ─ */
+  function loadPDFJS(cb){
+    if(window.pdfjsLib){cb();return;}
+    var s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+    s.onload=function(){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';cb();};
+    s.onerror=function(){cb(new Error('load'));};
+    document.head.appendChild(s);
+  }
+  function extractPDFText(source){
+    return new Promise(function(resolve,reject){
+      loadPDFJS(function(err){
+        if(err)return reject(err);
+        var docPromise=source instanceof ArrayBuffer
+          ?window.pdfjsLib.getDocument({data:source}).promise
+          :window.pdfjsLib.getDocument({data:source}).promise;
+        docPromise.then(function(pdf){
+          setStatus('📄 '+pdf.numPages+' Seiten werden gelesen…');
+          var ps=[];
+          for(var i=1;i<=pdf.numPages;i++){
+            (function(n){ps.push(pdf.getPage(n).then(function(p){return p.getTextContent().then(function(c){return c.items.map(function(it){return it.str;}).join(' ');});}));})(i);
           }
-        });
+          Promise.all(ps).then(function(pages){resolve(pages.join('\n'));}).catch(reject);
+        }).catch(reject);
       });
+    });
+  }
+  function fetchBinary(url){
+    var proxies=['https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://corsproxy.io/?'+encodeURIComponent(url),'https://thingproxy.freeboard.io/fetch/'+url];
+    function tryNext(i){
+      if(i>=proxies.length)return Promise.reject(new Error('all failed'));
+      return fetch(proxies[i]).then(function(r){return r.arrayBuffer();}).then(function(buf){
+        var m=new Uint8Array(buf.slice(0,4));
+        if(String.fromCharCode(m[0],m[1],m[2],m[3])!=='%PDF')throw new Error('not pdf');
+        return buf;
+      }).catch(function(){return tryNext(i+1);});
     }
+    return tryNext(0);
+  }
+  function fetchText(url){
+    return fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(url))
+      .then(function(r){if(!r.ok)throw new Error();return r.text();})
+      .catch(function(){return fetch('https://corsproxy.io/?'+encodeURIComponent(url)).then(function(r){return r.text();});});
+  }
 
-    /* ── KI EXTRAKTION (nutzt Adresse von oben) ── */
-    function extractWithKI(calText, addr, sel) {
-      setStatus('🤖 KI analysiert Kalender…<br><span style="font-size:0.68rem;opacity:.6">kann 15–30 Sek. dauern</span>');
-      var streetRaw = addr.split(',')[0].trim();
-      var streetName = streetRaw.replace(/\s*\d+[a-zA-Z]?$/, '').trim();
-      var houseNr = (streetRaw.match(/\d+[a-zA-Z]?$/) || [''])[0];
-      var yr = new Date().getFullYear();
-      var prompt =
-        'Du bist ein Datenextraktor für deutsche Abfallkalender.\n\n' +
-        'MEINE ADRESSE: ' + addr + '\n' +
-        'MEINE STRASSE: "' + streetName + '"' + (houseNr ? ' Nr. ' + houseNr : '') + '\n' +
-        'GESUCHTE MÜLLARTEN: ' + sel.join(', ') + '\n\n' +
-        'ANLEITUNG:\n' +
-        'Schritt 1 – STRASSE FINDEN:\n' +
-        '  Suche "' + streetName + '" im Kalendertext. Beachte Abkürzungen (Str., -str., -straße).\n' +
-        '  Viele Kalender verwenden TOUR- oder BEZIRKSNUMMERN (z.B. "Tour 3", "Bezirk A").\n' +
-        '  Wenn deine Straße einer Tour/Bezirksnummer zugeordnet ist: MERKE diese Nummer.\n\n' +
-        'Schritt 2 – TERMINE EXTRAHIEREN:\n' +
-        '  Suche alle Abholdaten für deine Straße / deine Tour-Nummer.\n' +
-        '  Daten stehen oft als "5.1." oder "05.01." → umrechnen in ' + yr + '-01-05\n\n' +
-        'Schritt 3 – JSON AUSGABE (NUR das Array, keine Erklärung):\n' +
-        '[{"type":"Restmüll","date":"' + yr + '-01-05"},{"type":"Biomüll","date":"' + yr + '-01-12"},...]\n\n' +
-        'REGELN:\n' +
-        '- Nur Typen: ' + sel.join(' | ') + '\n' +
-        '- Datum immer YYYY-MM-DD, Jahr ' + yr + '\n' +
-        '- Straße/Tour nicht gefunden → antworte NUR: NICHT_GEFUNDEN\n\n' +
-        'KALENDERTEXT:\n' + calText.slice(0, 22000);
-      fetch('https://text.pollinations.ai/', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({messages:[{role:'system',content:'Du extrahierst Daten aus Abfallkalendern. Antworte ausschließlich mit einem JSON-Array oder NICHT_GEFUNDEN.'},{role:'user',content:prompt}],model:'openai',private:true})
-      })
-      .then(function(r){return r.text();})
-      .then(function(raw) {
+  /* ─ LLM helpers ─ */
+  function llmCall(msgs,onDone,onErr){
+    fetch('https://text.pollinations.ai/',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:msgs,model:'openai',private:true})})
+    .then(function(r){return r.text();}).then(onDone).catch(function(){onErr('Verbindungsfehler.');});
+  }
+  function findStreetsLLM(calText,onDone){
+    var prompt='Liste alle Straßennamen (und deren Tour-/Bezirksnummer falls vorhanden) aus folgendem deutschen Abfallkalender.\nAntworte NUR mit einem JSON-Array: [{"street":"Hauptstraße","tour":"3"},...]\nKeine Tour-Nummer → tour:""\nNUR das JSON-Array, keine Erklärung.\n\nKALENDERTEXT:\n'+calText.slice(0,18000);
+    llmCall([{role:'system',content:'Du extrahierst Straßennamen aus Abfallkalendern. Antworte ausschließlich mit einem JSON-Array.'},{role:'user',content:prompt}],
+      function(raw){var mm=raw.match(/\[[\s\S]*\]/);var streets=[];if(mm){try{streets=JSON.parse(mm[0]);}catch(e){}}onDone(streets);},
+      function(){onDone([]);});
+  }
+  function extractDatesLLM(calText,streetLabel,sel,onDone,onErr){
+    var yr=new Date().getFullYear();
+    var prompt='Du bist ein Datenextraktor für deutsche Abfallkalender.\n\n'+(streetLabel?'MEINE STRASSE / TOUR: "'+streetLabel+'"\n':'')+'GESUCHTE MÜLLARTEN: '+sel.join(', ')+'\n\nSuche alle Abholdaten'+(streetLabel?' für die Straße "'+streetLabel+'"':'')+'. Daten oft als "5.1." → '+yr+'-01-05\n\nJSON AUSGABE (NUR Array):\n[{"type":"Restmüll","date":"'+yr+'-01-05"},...]\n\nREGELN:\n- Nur Typen: '+sel.join(' | ')+'\n- Datum YYYY-MM-DD, Jahr '+yr+'\n- Nichts → NUR: NICHT_GEFUNDEN\n\nKALENDERTEXT:\n'+calText.slice(0,22000);
+    llmCall([{role:'system',content:'Du extrahierst Daten aus Abfallkalendern. Antworte ausschließlich mit einem JSON-Array oder NICHT_GEFUNDEN.'},{role:'user',content:prompt}],
+      function(raw){
         raw=(raw||'').trim();
-        if (raw.indexOf('NICHT_GEFUNDEN')>=0) { showFail('Straße "'+streetName+'" nicht im Kalender gefunden.\nAdresse prüfen oder Schreibweise kontrollieren.'); return; }
-        var mm = raw.match(/\[[\s\S]*\]/);
-        if (!mm) { showFail('Keine Termine erkannt.'); return; }
-        var parsed; try{parsed=JSON.parse(mm[0]);}catch(e){showFail('Fehler beim Verarbeiten.');return;}
-        parsed = parsed.filter(function(e){return e.date&&e.type&&VALID_TYPES.indexOf(e.type)>=0;});
-        parsed = groupRepeat(parsed.map(function(e){return {type:e.type,date:e.date};}));
-        autoImport(parsed);
-      })
-      .catch(function(){showFail('Verbindungsfehler.');});
+        if(raw.indexOf('NICHT_GEFUNDEN')>=0){onErr('Keine Termine für "'+(streetLabel||'diese Quelle')+'" gefunden.');return;}
+        var mm=raw.match(/\[[\s\S]*\]/);if(!mm){onErr('Keine Termine erkannt.');return;}
+        var parsed;try{parsed=JSON.parse(mm[0]);}catch(e){onErr('Fehler beim Verarbeiten.');return;}
+        parsed=parsed.filter(function(e){return e.date&&e.type&&VALID_TYPES.indexOf(e.type)>=0;});
+        onDone(groupRepeat(parsed.map(function(e){return{type:e.type,date:e.date};})));
+      },onErr);
+  }
+  function extractVisionLLM(b64,mime,sel,onDone,onErr){
+    var yr=new Date().getFullYear();
+    var prompt='Extrahiere alle Müllabfuhr-Termine aus diesem Bild eines deutschen Abfallkalenders.\nAntworte NUR mit JSON-Array:\n[{"type":"Restmüll","date":"'+yr+'-01-05"},...]\nTypen: '+sel.join(' | ')+'\nDatum YYYY-MM-DD, Jahr '+yr+'\nNichts → NUR: NICHT_GEFUNDEN';
+    llmCall([{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:'data:'+mime+';base64,'+b64}}]}],
+      function(raw){
+        raw=(raw||'').trim();
+        if(raw.indexOf('NICHT_GEFUNDEN')>=0){onErr('Keine Termine im Bild erkannt.');return;}
+        var mm=raw.match(/\[[\s\S]*\]/);if(!mm){onErr('Keine Termine erkannt.');return;}
+        var parsed;try{parsed=JSON.parse(mm[0]);}catch(e){onErr('Fehler beim Verarbeiten.');return;}
+        parsed=parsed.filter(function(e){return e.date&&e.type&&VALID_TYPES.indexOf(e.type)>=0;});
+        onDone(groupRepeat(parsed.map(function(e){return{type:e.type,date:e.date};})));
+      },onErr);
+  }
+
+  /* ─ UI helpers ─ */
+  function progress(step){
+    var steps=['Quelle','Straße','Vorschau'];
+    var wrap=document.createElement('div');wrap.style.cssText='display:flex;gap:0.4rem;margin-bottom:1rem;align-items:center';
+    steps.forEach(function(s,i){
+      var bar=document.createElement('div');bar.style.cssText='flex:1;height:3px;border-radius:2px;background:'+(i<step?'var(--gold)':'var(--border)');
+      wrap.appendChild(bar);
+    });
+    return wrap;
+  }
+  function sectionTitle(txt){
+    var d=document.createElement('div');d.style.cssText='font-size:0.7rem;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.6rem';d.textContent=txt;return d;
+  }
+  function setStatus(html){
+    body.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1.5rem;text-align:center;font-size:0.82rem;color:var(--dim);line-height:1.7">'+html+'</div>';
+  }
+  function showErr(msg){
+    body.innerHTML=
+      '<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.3);border-radius:12px;padding:1rem;margin-bottom:0.75rem"><div style="font-weight:700;color:var(--red);margin-bottom:0.3rem">Fehler</div><div style="font-size:0.8rem;color:var(--dim);white-space:pre-line">'+esc(msg)+'</div></div>'+
+      '<button class="btn-d" style="width:100%" id="errBack">← Neu versuchen</button>';
+    body.querySelector('#errBack').addEventListener('click',showSource);
+  }
+  function getChipsTypes(container){
+    var t=[];container.querySelectorAll('.chip.on[data-mtype]').forEach(function(c){t.push(c.getAttribute('data-mtype'));});return t;
+  }
+  function makeTypeChips(saved){
+    var row=document.createElement('div');row.style.cssText='display:flex;flex-wrap:wrap;gap:0.35rem;margin-top:0.3rem';
+    MULL_TYPES.forEach(function(t){
+      var c=document.createElement('button');c.className='chip'+(saved.indexOf(t.key)>=0?' on':'');
+      c.setAttribute('data-mtype',t.key);c.textContent=t.icon+' '+t.key;
+      c.addEventListener('click',function(){c.className=c.classList.contains('on')?'chip':'chip on';});
+      row.appendChild(c);
+    });
+    return row;
+  }
+
+  /* ─ STEP 1: SOURCE ─ */
+  function showSource(){
+    body.innerHTML='';
+    body.appendChild(progress(1));
+    body.appendChild(sectionTitle('Quelle auswählen'));
+
+    /* Drag & Drop / File Upload */
+    var dropZone=document.createElement('div');
+    dropZone.style.cssText='border:1.5px dashed var(--border);border-radius:14px;padding:1.25rem;text-align:center;margin-bottom:0.6rem;cursor:pointer;transition:border-color 0.15s';
+    dropZone.innerHTML='<div style="font-size:1.6rem;margin-bottom:0.3rem">📄</div><div style="font-size:0.85rem;font-weight:600;margin-bottom:0.2rem">PDF oder ICS Datei</div><div style="font-size:0.7rem;color:var(--dim)">Hierher ziehen oder tippen zum Auswählen</div>';
+    var fileInp=document.createElement('input');fileInp.type='file';fileInp.accept='.pdf,.ics,.ical,application/pdf,text/calendar';fileInp.style.display='none';
+    dropZone.appendChild(fileInp);
+    dropZone.addEventListener('click',function(e){if(e.target!==fileInp)fileInp.click();});
+    dropZone.addEventListener('dragover',function(e){e.preventDefault();dropZone.style.borderColor='var(--gold)';});
+    dropZone.addEventListener('dragleave',function(){dropZone.style.borderColor='var(--border)';});
+    dropZone.addEventListener('drop',function(e){e.preventDefault();dropZone.style.borderColor='var(--border)';var f=e.dataTransfer.files[0];if(f)handleFile(f);});
+    fileInp.addEventListener('change',function(){if(fileInp.files[0])handleFile(fileInp.files[0]);});
+    body.appendChild(dropZone);
+
+    /* Photo upload */
+    var photoZone=document.createElement('div');
+    photoZone.style.cssText='border:1.5px dashed var(--border);border-radius:14px;padding:1rem;text-align:center;margin-bottom:0.6rem;cursor:pointer';
+    photoZone.innerHTML='<div style="font-size:1.4rem;margin-bottom:0.2rem">📸</div><div style="font-size:0.82rem;font-weight:600;margin-bottom:0.15rem">Foto vom Kalender</div><div style="font-size:0.7rem;color:var(--dim)">KI erkennt Termine automatisch</div>';
+    var photoInp=document.createElement('input');photoInp.type='file';photoInp.accept='image/*';photoInp.capture='environment';photoInp.style.display='none';
+    photoZone.appendChild(photoInp);
+    photoZone.addEventListener('click',function(e){if(e.target!==photoInp)photoInp.click();});
+    photoInp.addEventListener('change',function(){if(photoInp.files[0])handlePhoto(photoInp.files[0]);});
+    body.appendChild(photoZone);
+
+    /* Separator */
+    var sep=document.createElement('div');sep.style.cssText='display:flex;align-items:center;gap:0.5rem;margin:0.2rem 0 0.55rem;color:var(--dim);font-size:0.7rem';
+    sep.innerHTML='<div style="flex:1;height:1px;background:var(--border)"></div>oder Link<div style="flex:1;height:1px;background:var(--border)"></div>';
+    body.appendChild(sep);
+
+    /* URL + Load button */
+    var urlRow=document.createElement('div');urlRow.style.cssText='display:flex;gap:0.4rem;margin-bottom:0.75rem';
+    var urlInp=document.createElement('input');urlInp.className='inp';urlInp.placeholder='https://… (.pdf oder .ics)';urlInp.style.flex='1';
+    var loadBtn=document.createElement('button');loadBtn.className='btn-g';loadBtn.textContent='Laden';
+    urlRow.appendChild(urlInp);urlRow.appendChild(loadBtn);
+    body.appendChild(urlRow);
+
+    /* Müllarten */
+    var typesWrap=document.createElement('div');typesWrap.className='fg';
+    typesWrap.innerHTML='<label class="fl">Meine Müllarten</label>';
+    var savedTypes=JSON.parse(localStorage.getItem('af_mull_types')||'["Restmüll","Biomüll","Gelber Sack","Papier","Glas"]');
+    var chipsRow=makeTypeChips(savedTypes);
+    typesWrap.appendChild(chipsRow);
+    body.appendChild(typesWrap);
+
+    /* Paste fallback toggle */
+    var pasteToggle=document.createElement('button');pasteToggle.className='btn-d';pasteToggle.style.cssText='width:100%;margin-top:0.4rem;font-size:0.78rem';pasteToggle.textContent='📋 Text einfügen (Fallback)';
+    var pasteWrap=document.createElement('div');pasteWrap.style.display='none';
+    var pasteTA=document.createElement('textarea');pasteTA.className='inp';pasteTA.style.cssText='height:90px;resize:vertical;margin-top:0.45rem';pasteTA.placeholder='Kalendertext hier einfügen…';
+    var pasteRun=document.createElement('button');pasteRun.className='btn-g';pasteRun.style.cssText='width:100%;margin-top:0.35rem';pasteRun.textContent='🔍 Auswerten';
+    pasteWrap.appendChild(pasteTA);pasteWrap.appendChild(pasteRun);
+    pasteToggle.addEventListener('click',function(){pasteWrap.style.display=pasteWrap.style.display==='none'?'':'none';});
+    pasteRun.addEventListener('click',function(){
+      var txt=pasteTA.value.trim();if(!txt){toast('Text einfügen');return;}
+      var sel=getChipsTypes(body);if(!sel.length){toast('Müllart auswählen');return;}
+      localStorage.setItem('af_mull_types',JSON.stringify(sel));
+      processText(txt,sel);
+    });
+    body.appendChild(pasteToggle);body.appendChild(pasteWrap);
+
+    /* List link */
+    var listBtn=document.createElement('button');listBtn.className='btn-d';listBtn.style.cssText='width:100%;margin-top:0.65rem;font-size:0.78rem';listBtn.textContent='📋 Eingetragene Termine';
+    listBtn.addEventListener('click',showList);
+    body.appendChild(listBtn);
+
+    function getSel(){return getChipsTypes(body);}
+
+    function handleFile(file){
+      var sel=getSel();if(!sel.length){toast('Müllart auswählen');return;}
+      localStorage.setItem('af_mull_types',JSON.stringify(sel));
+      if(file.name.toLowerCase().match(/\.ics$|\.ical$/)||file.type==='text/calendar'){
+        var r=new FileReader();r.onload=function(e){
+          var content=e.target.result;
+          if(content.indexOf('BEGIN:VCALENDAR')>=0){var evts=parseICS(content,sel);if(evts.length){showPreview(evts);}else{showErr('Keine passenden Termine gefunden.');}}
+          else{showErr('Keine gültige ICS-Datei.');}
+        };r.readAsText(file);return;
+      }
+      if(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')){
+        setStatus('📄 PDF wird gelesen…');
+        var r2=new FileReader();r2.onload=function(e){
+          extractPDFText(e.target.result).then(function(text){
+            if(!text||text.trim().length<50){showErr('PDF enthält keinen lesbaren Text.\nBitte Foto-Option nutzen.');return;}
+            processText(text,sel);
+          }).catch(function(){showErr('PDF konnte nicht gelesen werden.');});
+        };r2.readAsArrayBuffer(file);return;
+      }
+      showErr('Nicht unterstützter Dateityp.\nBitte PDF, ICS oder Foto verwenden.');
     }
 
-    /* ── PDF LESEN (lokal, kein Proxy) ── */
-    function readPDFBuffer(arrayBuf, addr, sel) {
-      setStatus('📄 PDF wird gelesen…');
-      window.pdfjsLib.getDocument({data: arrayBuf}).promise
-        .then(function(pdf) {
-          setStatus('📄 ' + pdf.numPages + ' Seiten werden ausgelesen…');
-          var ps = [];
-          for (var i = 1; i <= pdf.numPages; i++) {
-            (function(n) {
-              ps.push(pdf.getPage(n).then(function(p) {
-                return p.getTextContent().then(function(c) {
-                  return c.items.map(function(it) { return it.str; }).join(' ');
-                });
-              }));
-            })(i);
-          }
-          return Promise.all(ps).then(function(pages) { return pages.join('\n'); });
-        })
-        .then(function(text) {
-          if (!text || text.trim().length < 50) { showFail('PDF konnte nicht gelesen werden (kein Text erkannt).'); return; }
-          extractWithKI(text, addr, sel);
-        })
-        .catch(function() { showFail('Fehler beim Lesen der PDF.'); });
+    function handlePhoto(file){
+      var sel=getSel();if(!sel.length){toast('Müllart auswählen');return;}
+      localStorage.setItem('af_mull_types',JSON.stringify(sel));
+      setStatus('📸 Foto wird analysiert…<br><span style="font-size:0.68rem;opacity:.6">KI erkennt Termine — bitte 20–40 Sek. warten</span>');
+      var r=new FileReader();r.onload=function(e){
+        var full=e.target.result;var b64=full.split(',')[1];var mime=file.type||'image/jpeg';
+        extractVisionLLM(b64,mime,sel,showPreview,showErr);
+      };r.readAsDataURL(file);
     }
 
-    /* ── DATEI GELADEN ── */
-    fileInput.addEventListener('change', function() {
-      var file = fileInput.files[0];
-      if (!file) return;
-      var addr = addrInput.value.trim();
-      var sel = getSelectedTypes();
-      if (!addr) { toast('Adresse eingeben'); return; }
-      if (!sel.length) { toast('Müllart auswählen'); return; }
-      localStorage.setItem('af_mull_addr', addr);
-      localStorage.setItem('af_mull_types', JSON.stringify(sel));
-
-      if (file.name.toLowerCase().indexOf('.ics') >= 0) {
-        var rdr = new FileReader();
-        rdr.onload = function(ev) {
-          var events = parseICS(ev.target.result, sel);
-          if (events.length) { autoImport(events); } else { showFail('Keine passenden Termine in der ICS-Datei.'); }
-        };
-        rdr.readAsText(file);
+    loadBtn.addEventListener('click',function(){
+      var urlVal=urlInp.value.trim();var sel=getSel();
+      if(!urlVal){toast('Link eingeben');return;}if(!sel.length){toast('Müllart auswählen');return;}
+      localStorage.setItem('af_mull_types',JSON.stringify(sel));
+      var ul=urlVal.toLowerCase();
+      if(ul.indexOf('.ics')>=0||ul.indexOf('ical')>=0){
+        setStatus('⏳ ICS-Kalender wird geladen…');
+        fetchText(urlVal).then(function(content){
+          if(content.indexOf('BEGIN:VCALENDAR')>=0){var evts=parseICS(content,sel);if(evts.length){showPreview(evts);}else{showErr('Keine passenden Termine gefunden.');}}
+          else{showErr('Kein gültiger ICS-Kalender.');}
+        }).catch(function(){showErr('Kalender konnte nicht geladen werden.');});
         return;
       }
-
-      /* PDF */
-      setStatus('⏳ PDF.js wird geladen…');
-      loadPDFJS(function(err) {
-        if (err) { showFail('PDF.js konnte nicht geladen werden. Internetverbindung prüfen.'); return; }
-        var rdr = new FileReader();
-        rdr.onload = function(ev) { readPDFBuffer(ev.target.result, addr, sel); };
-        rdr.readAsArrayBuffer(file);
-      });
-    });
-
-    /* ── ICS LINK LADEN ── */
-    icsPanel.querySelector('#mkiIcsLoad').addEventListener('click', function() {
-      var urlVal = icsPanel.querySelector('#mkiIcsUrl').value.trim();
-      var addr = addrInput.value.trim();
-      var sel = getSelectedTypes();
-      if (!urlVal) { toast('Link eingeben'); return; }
-      if (!addr)   { toast('Adresse eingeben'); return; }
-      if (!sel.length) { toast('Müllart auswählen'); return; }
-      localStorage.setItem('af_mull_addr', addr);
-      localStorage.setItem('af_mull_types', JSON.stringify(sel));
-      setStatus('⏳ ICS wird geladen…');
-      fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(urlVal))
-        .then(function(r) { return r.text(); })
-        .catch(function() { return fetch('https://corsproxy.io/?' + encodeURIComponent(urlVal)).then(function(r) { return r.text(); }); })
-        .then(function(content) {
-          if (content.indexOf('BEGIN:VCALENDAR') >= 0) {
-            var events = parseICS(content, sel);
-            if (events.length) { autoImport(events); } else { showFail('Keine passenden Termine im Kalender.'); }
-          } else {
-            showFail('Kein gültiger ICS-Kalender unter diesem Link.');
-          }
-        })
-        .catch(function() { showFail('Link konnte nicht geladen werden.'); });
+      setStatus('⏳ PDF wird heruntergeladen…<br><span style="font-size:0.68rem;opacity:.6">kann 10–25 Sek. dauern</span>');
+      fetchBinary(urlVal).then(function(buf){
+        setStatus('📄 PDF wird gelesen…');return extractPDFText(buf);
+      }).then(function(text){
+        if(!text||text.trim().length<50){showErr('PDF enthält keinen lesbaren Text.\nBitte Foto-Option verwenden.');return;}
+        processText(text,sel);
+      }).catch(function(){showErr('PDF konnte nicht geladen werden.\nBitte Link prüfen oder Foto-Option nutzen.');});
     });
   }
 
-  function render() {
-    body.innerHTML = '';
-    /* KI Import Button */
-    var kiBtn = document.createElement('button');
-    kiBtn.className = 'btn-g'; kiBtn.style.cssText = 'width:100%;margin-bottom:0.75rem';
-    kiBtn.textContent = '🤖 KI-Import: Termine automatisch erkennen';
-    kiBtn.addEventListener('click', kiImport);
-    body.appendChild(kiBtn);
-
-    /* Add form */
-    var form = document.createElement('div'); form.className = 'add-form open'; form.style.marginBottom = '1rem';
-    form.innerHTML =
-      '<div class="fg"><label class="fl">Typ</label><select class="inp" id="mullType">' +
-        MULL_TYPES.map(function(t) { return '<option value="' + esc(t.key) + '">' + t.icon + ' ' + esc(t.key) + '</option>'; }).join('') +
-      '</select></div>' +
-      '<div class="fg"><label class="fl">Erster Termin</label><input class="inp" type="date" id="mullDate" value="' + todayKey() + '"></div>' +
-      '<div class="fg"><label class="fl">Wiederholung</label><select class="inp" id="mullRepeat">' +
-        Object.keys(REPEAT_LABELS).map(function(v) { return '<option value="' + v + '">' + REPEAT_LABELS[v] + '</option>'; }).join('') +
-      '</select></div>' +
-      '<div class="fg" id="mullEndFg" style="display:none"><label class="fl">Wiederholung bis</label><input class="inp" type="date" id="mullEndDate"></div>' +
-      '<button class="btn-g" style="width:100%" id="mullSave">Hinzufügen</button>';
-    body.appendChild(form);
-    form.querySelector('#mullRepeat').addEventListener('change', function() {
-      form.querySelector('#mullEndFg').style.display = this.value !== 'none' ? '' : 'none';
+  function processText(text,sel){
+    setStatus('🤖 Straßen werden erkannt…<br><span style="font-size:0.68rem;opacity:.6">10–20 Sek.</span>');
+    findStreetsLLM(text,function(streets){
+      if(!streets||!streets.length){
+        setStatus('🤖 Termine werden extrahiert…<br><span style="font-size:0.68rem;opacity:.6">15–30 Sek.</span>');
+        extractDatesLLM(text,null,sel,showPreview,showErr);
+      } else {
+        showStreetPicker(text,streets,sel);
+      }
     });
-    form.querySelector('#mullSave').addEventListener('click', function() {
-      var type   = form.querySelector('#mullType').value;
-      var date   = form.querySelector('#mullDate').value;
-      var repeat = form.querySelector('#mullRepeat').value;
-      var rEnd   = form.querySelector('#mullEndDate').value;
-      if (!date) { toast('Bitte Datum eingeben'); return; }
-      var entry = {type:type, date:date, repeat:repeat, by:me, ts:Date.now()};
-      if (repeat !== 'none' && rEnd) entry.repeatEnd = rEnd;
-      dbPost('/muell', entry, function(err, key) {
-        if (key) { mullData[key] = entry; mullData[key].id = key; }
-        renderList(); toast('✓ Eingetragen');
-        loadDashExtras();
-      });
-    });
-    renderList();
   }
-  function renderList() {
-    var old = body.querySelector('#mullList');
-    if (old) old.parentNode.removeChild(old);
-    var list = document.createElement('div'); list.id = 'mullList';
-    body.appendChild(list);
-    dbGet('/muell', function(err, data) {
-      mullData = data || {};
-      list.innerHTML = '';
-      if (!data || err || !Object.keys(data).length) { list.innerHTML = '<p class="empty">Keine Einträge</p>'; return; }
-      var entries = Object.keys(data).map(function(k) { var e = data[k]; e.id = k; return e; });
-      entries.sort(function(a, b) { return (a.date||'') < (b.date||'') ? -1 : 1; });
-      var now = new Date(); now.setHours(0,0,0,0);
-      var upcoming = entries.filter(function(e) { return (e.repeat && e.repeat !== 'none') || (e.date && keyToDate(e.date) >= now); });
-      var past     = entries.filter(function(e) { return (!e.repeat || e.repeat === 'none') && e.date && keyToDate(e.date) < now; });
-      var hdr = document.createElement('p');
-      hdr.style.cssText = 'font-size:0.65rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin:0 0 0.5rem';
-      hdr.textContent = 'Termine';
-      list.appendChild(hdr);
-      function renderEntry(e) {
-        var div = document.createElement('div'); div.className = 'card';
-        div.style.borderLeft = '3px solid ' + mullColor(e.type);
-        div.style.display = 'flex'; div.style.justifyContent = 'space-between'; div.style.alignItems = 'center';
-        var repText = REPEAT_LABELS[e.repeat||'none'] || '';
-        div.innerHTML =
-          '<div>' +
-            '<div style="display:flex;align-items:center;gap:0.4rem"><span>' + mullIcon(e.type) + '</span><span style="font-size:0.88rem;font-weight:500">' + esc(e.type) + '</span></div>' +
-            '<div style="font-size:0.65rem;color:var(--dim);margin-top:0.1rem">' + esc(e.date||'?') + ' · ' + esc(repText) + (e.repeatEnd ? ' bis ' + esc(e.repeatEnd) : '') + '</div>' +
-          '</div>' +
-          '<button class="del">✕</button>';
-        div.querySelector('.del').addEventListener('click', function() {
-          dbDel('/muell/' + e.id, function() { delete mullData[e.id]; renderList(); loadDashExtras(); });
+
+  /* ─ STEP 2: STREET PICKER ─ */
+  function showStreetPicker(text,streets,sel){
+    body.innerHTML='';
+    body.appendChild(progress(2));
+    body.appendChild(sectionTitle('Deine Straße wählen'));
+    var hint=document.createElement('div');hint.style.cssText='font-size:0.72rem;color:var(--dim);margin-bottom:0.6rem';hint.textContent=streets.length+' Straßen im Kalender gefunden';
+    body.appendChild(hint);
+    var searchInp=document.createElement('input');searchInp.className='inp';searchInp.placeholder='Straße suchen…';searchInp.style.marginBottom='0.45rem';
+    body.appendChild(searchInp);
+    var listWrap=document.createElement('div');listWrap.style.cssText='max-height:280px;overflow-y:auto';body.appendChild(listWrap);
+    function renderStreets(filter){
+      listWrap.innerHTML='';
+      var filtered=streets.filter(function(s){return!filter||s.street.toLowerCase().indexOf(filter.toLowerCase())>=0;});
+      if(!filtered.length){listWrap.innerHTML='<p class="empty">Keine Treffer</p>';return;}
+      filtered.forEach(function(s){
+        var label=s.street+(s.tour?' (Tour '+s.tour+')':'');
+        var row=document.createElement('button');row.className='btn-d';row.style.cssText='width:100%;margin-bottom:0.25rem;text-align:left;font-size:0.82rem;padding:0.55rem 0.75rem';
+        row.textContent=label;
+        row.addEventListener('click',function(){
+          var key=s.tour?s.street+' Tour '+s.tour:s.street;
+          setStatus('🤖 Termine für '+esc(s.street)+'…<br><span style="font-size:0.68rem;opacity:.6">15–30 Sek.</span>');
+          extractDatesLLM(text,key,sel,showPreview,showErr);
         });
+        listWrap.appendChild(row);
+      });
+    }
+    renderStreets('');
+    searchInp.addEventListener('input',function(){renderStreets(searchInp.value);});
+    var backBtn=document.createElement('button');backBtn.className='btn-d';backBtn.style.cssText='width:100%;margin-top:0.5rem;font-size:0.78rem';backBtn.textContent='← Zurück';
+    backBtn.addEventListener('click',showSource);body.appendChild(backBtn);
+  }
+
+  /* ─ STEP 3: PREVIEW ─ */
+  function showPreview(parsed){
+    if(!parsed||!parsed.length){showErr('Keine Termine erkannt.');return;}
+    body.innerHTML='';
+    body.appendChild(progress(3));
+    var titleEl=document.createElement('div');titleEl.style.cssText='font-size:0.72rem;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.25rem';titleEl.textContent=parsed.length+' Termine erkannt';
+    body.appendChild(titleEl);
+    var sub=document.createElement('div');sub.style.cssText='font-size:0.72rem;color:var(--dim);margin-bottom:0.75rem';sub.textContent='Nicht benötigte abwählen, dann bestätigen.';body.appendChild(sub);
+
+    var months={};
+    parsed.forEach(function(e){var m=e.date?e.date.slice(0,7):'?';if(!months[m])months[m]=[];months[m].push(e);});
+    var checks={};
+    Object.keys(months).sort().forEach(function(m){
+      var mp=m.split('-');var mLabel=mp.length>=2?(MONTH_DE[parseInt(mp[1])]||mp[1])+' '+mp[0]:m;
+      var mHdr=document.createElement('div');mHdr.style.cssText='font-size:0.64rem;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.06em;margin:0.65rem 0 0.3rem';mHdr.textContent=mLabel;body.appendChild(mHdr);
+      months[m].forEach(function(e){
+        var key=e.date+'|'+e.type;checks[key]=true;
+        var repTxt=e.repeat&&e.repeat!=='none'?(REPSHORT[e.repeat]||'')+(e.repeatEnd?' bis '+e.repeatEnd:''):'';
+        var rowEl=document.createElement('label');rowEl.style.cssText='display:flex;align-items:center;gap:0.6rem;padding:0.45rem 0.7rem;background:var(--bg2);border:1px solid var(--border);border-left:3px solid '+mullColor(e.type)+';border-radius:10px;margin-bottom:0.28rem;cursor:pointer';
+        var cb=document.createElement('input');cb.type='checkbox';cb.checked=true;cb.style.accentColor='var(--gold)';cb.setAttribute('data-key',key);
+        cb.addEventListener('change',function(){checks[key]=cb.checked;});
+        var info=document.createElement('div');info.style.flex='1';
+        info.innerHTML='<div style="font-size:0.82rem;font-weight:500">'+mullIcon(e.type)+' '+esc(e.type)+'</div><div style="font-size:0.62rem;color:var(--dim)">'+esc(e.date)+(repTxt?' '+esc(repTxt):'')+'</div>';
+        rowEl.appendChild(cb);rowEl.appendChild(info);body.appendChild(rowEl);
+      });
+    });
+
+    var btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:0.5rem;margin-top:0.8rem';
+    var backBtn=document.createElement('button');backBtn.className='btn-d';backBtn.style.flex='1';backBtn.textContent='← Zurück';backBtn.addEventListener('click',showSource);
+    var confirmBtn=document.createElement('button');confirmBtn.className='btn-g';confirmBtn.style.flex='2';confirmBtn.textContent='✓ In Kalender übernehmen';
+    confirmBtn.addEventListener('click',function(){
+      var toSave=parsed.filter(function(e){return checks[e.date+'|'+e.type];});
+      if(!toSave.length){toast('Mindestens einen Termin auswählen');return;}
+      doImport(toSave);
+    });
+    btnRow.appendChild(backBtn);btnRow.appendChild(confirmBtn);body.appendChild(btnRow);
+  }
+
+  /* ─ IMPORT ─ */
+  function doImport(toSave){
+    setStatus('💾 '+toSave.length+' Termine werden eingetragen…');
+    var done=0;
+    toSave.forEach(function(e){
+      var entry={type:e.type,date:e.date,repeat:e.repeat||'none',by:me,ts:Date.now()};
+      if(e.repeatEnd)entry.repeatEnd=e.repeatEnd;
+      dbPost('/muell',entry,function(err,key){
+        if(key){mullData[key]=entry;mullData[key].id=key;}
+        done++;if(done===toSave.length){loadDashExtras();toast('✓ '+toSave.length+' Termine eingetragen');showList();}
+      });
+    });
+  }
+
+  /* ─ LIST VIEW ─ */
+  function showList(){
+    body.innerHTML='';
+    var impBtn=document.createElement('button');impBtn.className='btn-g';impBtn.style.cssText='width:100%;margin-bottom:0.75rem';impBtn.textContent='📥 Neuer Import';impBtn.addEventListener('click',showSource);body.appendChild(impBtn);
+    var form=document.createElement('div');form.className='add-form open';form.style.marginBottom='1rem';
+    form.innerHTML=
+      '<div class="fg"><label class="fl">Typ</label><select class="inp" id="mullType">'+MULL_TYPES.map(function(t){return'<option value="'+esc(t.key)+'">'+t.icon+' '+esc(t.key)+'</option>';}).join('')+'</select></div>'+
+      '<div class="fg"><label class="fl">Erster Termin</label><input class="inp" type="date" id="mullDate" value="'+todayKey()+'"></div>'+
+      '<div class="fg"><label class="fl">Wiederholung</label><select class="inp" id="mullRepeat">'+Object.keys(REPEAT_LABELS).map(function(v){return'<option value="'+v+'">'+REPEAT_LABELS[v]+'</option>';}).join('')+'</select></div>'+
+      '<div class="fg" id="mullEndFg" style="display:none"><label class="fl">Wiederholung bis</label><input class="inp" type="date" id="mullEndDate"></div>'+
+      '<button class="btn-g" style="width:100%" id="mullSave">+ Manuell hinzufügen</button>';
+    body.appendChild(form);
+    form.querySelector('#mullRepeat').addEventListener('change',function(){form.querySelector('#mullEndFg').style.display=this.value!=='none'?'':'none';});
+    form.querySelector('#mullSave').addEventListener('click',function(){
+      var type=form.querySelector('#mullType').value,date=form.querySelector('#mullDate').value,repeat=form.querySelector('#mullRepeat').value,rEnd=form.querySelector('#mullEndDate').value;
+      if(!date){toast('Bitte Datum eingeben');return;}
+      var entry={type:type,date:date,repeat:repeat,by:me,ts:Date.now()};if(repeat!=='none'&&rEnd)entry.repeatEnd=rEnd;
+      dbPost('/muell',entry,function(err,key){if(key){mullData[key]=entry;mullData[key].id=key;}renderListItems();toast('✓ Eingetragen');loadDashExtras();});
+    });
+    renderListItems();
+  }
+  function renderListItems(){
+    var old=body.querySelector('#mullList');if(old)old.parentNode.removeChild(old);
+    var list=document.createElement('div');list.id='mullList';body.appendChild(list);
+    dbGet('/muell',function(err,data){
+      mullData=data||{};list.innerHTML='';
+      if(!data||err||!Object.keys(data).length){list.innerHTML='<p class="empty">Keine Einträge</p>';return;}
+      var entries=Object.keys(data).map(function(k){var e=data[k];e.id=k;return e;});
+      entries.sort(function(a,b){return(a.date||'')<(b.date||'')?-1:1;});
+      var now=new Date();now.setHours(0,0,0,0);
+      var upcoming=entries.filter(function(e){return(e.repeat&&e.repeat!=='none')||(e.date&&keyToDate(e.date)>=now);});
+      var past=entries.filter(function(e){return(!e.repeat||e.repeat==='none')&&e.date&&keyToDate(e.date)<now;});
+      var hdr=document.createElement('p');hdr.style.cssText='font-size:0.65rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin:0 0 0.5rem';hdr.textContent='Termine';list.appendChild(hdr);
+      function renderEntry(e){
+        var div=document.createElement('div');div.className='card';div.style.borderLeft='3px solid '+mullColor(e.type);div.style.cssText+=';display:flex;justify-content:space-between;align-items:center';
+        div.innerHTML='<div><div style="display:flex;align-items:center;gap:0.4rem"><span>'+mullIcon(e.type)+'</span><span style="font-size:0.88rem;font-weight:500">'+esc(e.type)+'</span></div><div style="font-size:0.65rem;color:var(--dim);margin-top:0.1rem">'+esc(e.date||'?')+' · '+esc(REPEAT_LABELS[e.repeat||'none']||'')+(e.repeatEnd?' bis '+esc(e.repeatEnd):'')+'</div></div><button class="del">✕</button>';
+        div.querySelector('.del').addEventListener('click',function(){dbDel('/muell/'+e.id,function(){delete mullData[e.id];renderListItems();loadDashExtras();});});
         list.appendChild(div);
       }
       upcoming.forEach(renderEntry);
-      if (past.length) {
-        var pastHdr = document.createElement('p');
-        pastHdr.style.cssText = 'font-size:0.62rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.04em;margin:0.6rem 0 0.3rem';
-        pastHdr.textContent = 'Vergangen';
-        list.appendChild(pastHdr);
-        past.slice(0, 5).forEach(renderEntry);
+      if(past.length){
+        var pastHdr=document.createElement('p');pastHdr.style.cssText='font-size:0.62rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.04em;margin:0.6rem 0 0.3rem';pastHdr.textContent='Vergangen';list.appendChild(pastHdr);
+        past.slice(0,5).forEach(renderEntry);
       }
     });
   }
-  render();
+
+  showSource();
 }
 
 /* ── EINSTELLUNGEN ── */
