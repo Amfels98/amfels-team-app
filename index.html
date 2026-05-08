@@ -235,6 +235,31 @@
     @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
     .pin-dots.shake { animation: shake 0.4s ease; }
 
+    /* ── DASHBOARD CALENDAR ── */
+    .dcal { margin: 0.35rem 0 0.2rem; }
+    .dcal-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.4rem; flex-wrap:wrap; gap:0.25rem; }
+    .dcal-title { font-size:0.78rem; font-weight:600; }
+    .dcal-table { width:100%; border-collapse:collapse; }
+    .dcal-table th { font-size:0.55rem; color:var(--dim); text-align:center; padding:0.15rem 0; font-weight:500; text-transform:uppercase; letter-spacing:0.03em; }
+    .dcal-table td { text-align:center; padding:0.1rem 0; }
+    .dcal-cell { display:inline-flex; flex-direction:column; align-items:center; }
+    .dcal-num { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.72rem; }
+    .dcal-num.today { border:1.5px solid var(--gold); color:var(--gold); font-weight:600; }
+    .dcal-num.holiday { color:var(--red); }
+    .dcal-dots { display:flex; gap:1.5px; margin-top:1px; min-height:5px; justify-content:center; }
+    .dcal-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+    .dcal-leg { margin-top:0.4rem; padding-top:0.4rem; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; gap:0.35rem 0.75rem; }
+    .dcal-leg-item { font-size:0.6rem; color:var(--dim); display:flex; align-items:center; gap:0.2rem; }
+
+    /* ── MÜLL REMINDER ── */
+    .mull-reminder { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:0.6rem 1rem; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.65rem; }
+    .mull-reminder.today { border-color:rgba(224,82,82,0.4); }
+    .mull-reminder.tomorrow { border-color:rgba(184,146,74,0.4); }
+    .mr-icon { font-size:1.4rem; }
+    .mr-body { flex:1; }
+    .mr-when { font-size:0.62rem; color:var(--dim); text-transform:uppercase; letter-spacing:0.04em; }
+    .mr-type { font-size:0.88rem; font-weight:500; margin-top:0.05rem; }
+
     /* ── TOAST ── */
     #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 0.55rem 1.1rem; font-size: 0.78rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 9999; white-space: nowrap; }
   </style>
@@ -388,6 +413,7 @@ var orders     = [];
 var chat       = [];
 var inventar   = [];
 var trinkgeld  = [];
+var mullData   = {};
 var shiftOff   = 0;
 var shiftDb    = {};
 var taskFilter = 'alle';
@@ -705,12 +731,31 @@ function loadDashExtras() {
   var shiftToday = {};
   var haccpToday = {};
   var uvToday = null;
-  function tryRender() { loaded++; if (loaded >= 3) renderExtras(); }
+  function tryRender() { loaded++; if (loaded >= 4) renderExtras(); }
   dbGet('/schicht/' + wk + '/' + todayDE, function(err, data) { shiftToday = data || {}; tryRender(); });
   dbGet('/haccp/' + today,                function(err, data) { haccpToday = data || {}; tryRender(); });
   dbGet('/uebergabe/' + today,            function(err, data) { uvToday = data; tryRender(); });
+  dbGet('/muell',                         function(err, data) { mullData = data || {}; tryRender(); });
   function renderExtras() {
     msg.innerHTML = '';
+    /* Mini Calendar */
+    var calCard = document.createElement('div'); calCard.className = 'card';
+    buildDashCalendar(calCard);
+    msg.appendChild(calCard);
+    /* Müll Reminders */
+    var reminders = getMullReminders();
+    reminders.forEach(function(r) {
+      var div = document.createElement('div');
+      div.className = 'mull-reminder ' + r.when;
+      div.innerHTML =
+        '<div class="mr-icon">' + mullIcon(r.type) + '</div>' +
+        '<div class="mr-body">' +
+          '<div class="mr-when">' + (r.when === 'today' ? 'Heute' : 'Morgen') + '</div>' +
+          '<div class="mr-type">' + esc(r.type) + ' Abholung</div>' +
+        '</div>' +
+        '<div style="width:8px;height:8px;border-radius:50%;background:' + mullColor(r.type) + ';flex-shrink:0"></div>';
+      msg.appendChild(div);
+    });
     /* Heute im Dienst */
     var shiftCard = document.createElement('div');
     shiftCard.className = 'card';
@@ -761,6 +806,7 @@ var MEHR_ITEMS = [
   {icon:'📦', label:'Inventar',   fn:'showInventar'},
   {icon:'📖', label:'Wiki',       fn:'showWiki'},
   {icon:'🏖️', label:'Urlaub',    fn:'showUrlaub'},
+  {icon:'🗑️', label:'Müll',      fn:'showMuellkalender'},
 ];
 function buildMehr() {
   var grid = el('mehrGrid');
@@ -916,6 +962,131 @@ function sendChat() {
     if (key) { msg.id = key; chat.push(msg); }
     renderChat();
   });
+}
+
+/* ── MÜLL ── */
+var MULL_TYPES = [
+  {key:'Restmüll',    icon:'🗑️',  color:'#888'},
+  {key:'Biomüll',     icon:'🌿',  color:'#4caf7d'},
+  {key:'Gelber Sack', icon:'♻️', color:'#e8c84a'},
+  {key:'Papier',      icon:'📦',  color:'#5b8dee'},
+  {key:'Glas',        icon:'🫙',  color:'#7dd4e8'},
+];
+function mullColor(type) {
+  var c = {'Restmüll':'#888','Biomüll':'#4caf7d','Gelber Sack':'#e8c84a','Papier':'#5b8dee','Glas':'#7dd4e8'};
+  return c[type] || 'var(--gold)';
+}
+function mullIcon(type) {
+  var ic = {'Restmüll':'🗑️','Biomüll':'🌿','Gelber Sack':'♻️','Papier':'📦','Glas':'🫙'};
+  return ic[type] || '🗑️';
+}
+function buildMullDays(data, year, month) {
+  var days = {};
+  if (!data) return days;
+  var monthStart = new Date(year, month, 1);
+  var monthEnd   = new Date(year, month + 1, 0);
+  Object.keys(data).forEach(function(k) {
+    var m = data[k];
+    if (!m || !m.date) return;
+    var startDate = keyToDate(m.date);
+    var repeat    = m.repeat || 'none';
+    var repeatEnd = m.repeatEnd ? keyToDate(m.repeatEnd) : new Date(year + 3, 11, 31);
+    function addDay(d) {
+      if (d > repeatEnd) return;
+      var dk = dateToKey(d); if (!days[dk]) days[dk] = []; days[dk].push(m.type);
+    }
+    if (repeat === 'none') {
+      if (startDate >= monthStart && startDate <= monthEnd) addDay(startDate);
+    } else if (repeat === 'monthly') {
+      var md = new Date(year, month, startDate.getDate());
+      if (md >= startDate && md <= monthEnd && md.getMonth() === month) addDay(md);
+    } else {
+      var interval = repeat === 'weekly' ? 7 : repeat === 'biweekly' ? 14 : repeat === 'fourweekly' ? 28 : 14;
+      var cur = new Date(startDate);
+      while (cur < monthStart) cur.setDate(cur.getDate() + interval);
+      var safety = 0;
+      while (cur <= monthEnd && safety++ < 20) { addDay(new Date(cur)); cur.setDate(cur.getDate() + interval); }
+    }
+  });
+  return days;
+}
+function getMullReminders() {
+  var reminders = [];
+  var now = new Date(); now.setHours(0,0,0,0);
+  var tmr = new Date(now); tmr.setDate(tmr.getDate() + 1);
+  var td = buildMullDays(mullData, now.getFullYear(), now.getMonth());
+  var tm = buildMullDays(mullData, tmr.getFullYear(), tmr.getMonth());
+  var tdk = dateToKey(now), tmk = dateToKey(tmr);
+  (td[tdk] || []).forEach(function(t) { reminders.push({when:'today',   type:t}); });
+  (tm[tmk] || []).forEach(function(t) { reminders.push({when:'tomorrow',type:t}); });
+  return reminders;
+}
+function buildDashCalendar(container) {
+  var now = new Date();
+  var year = now.getFullYear(), month = now.getMonth();
+  var todayStr = todayKey();
+  var mull = buildMullDays(mullData, year, month);
+  var mNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var wrap = document.createElement('div'); wrap.className = 'dcal';
+  /* header */
+  var hdr = document.createElement('div'); hdr.className = 'dcal-hdr';
+  var titleEl = document.createElement('span'); titleEl.className = 'dcal-title'; titleEl.textContent = mNames[month] + ' ' + year;
+  var legEl = document.createElement('div'); legEl.style.cssText = 'display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center';
+  legEl.innerHTML =
+    '<span class="dcal-leg-item"><span class="dcal-dot" style="background:var(--gold);outline:1.5px solid var(--gold)"></span>Heute</span>' +
+    '<span class="dcal-leg-item"><span style="width:5px;height:5px;border-radius:50%;background:var(--red);display:inline-block"></span>Feiertag</span>';
+  MULL_TYPES.forEach(function(mt) {
+    legEl.innerHTML += '<span class="dcal-leg-item"><span class="dcal-dot" style="background:' + mt.color + '"></span>' + mt.icon + '</span>';
+  });
+  hdr.appendChild(titleEl); hdr.appendChild(legEl); wrap.appendChild(hdr);
+  /* table */
+  var table = document.createElement('table'); table.className = 'dcal-table';
+  table.innerHTML = '<thead><tr><th>Mo</th><th>Di</th><th>Mi</th><th>Do</th><th>Fr</th><th>Sa</th><th>So</th></tr></thead>';
+  var tbody = document.createElement('tbody');
+  var firstDay = new Date(year, month, 1).getDay(); firstDay = (firstDay === 0) ? 6 : firstDay - 1;
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var day = 1; var tr;
+  for (var cell = 0; cell < 42; cell++) {
+    if (cell % 7 === 0) { tr = document.createElement('tr'); tbody.appendChild(tr); }
+    var td = document.createElement('td');
+    if (cell < firstDay || day > daysInMonth) { tr.appendChild(td); continue; }
+    var d = new Date(year, month, day);
+    var dk = dateToKey(d);
+    var holiday = isHoliday(d);
+    var isToday = dk === todayStr;
+    var dayMull = mull[dk] || [];
+    var cellEl = document.createElement('div'); cellEl.className = 'dcal-cell';
+    var numEl = document.createElement('div');
+    numEl.className = 'dcal-num' + (isToday ? ' today' : '') + (holiday ? ' holiday' : '');
+    if (holiday) numEl.title = holiday;
+    numEl.textContent = day;
+    cellEl.appendChild(numEl);
+    if (dayMull.length) {
+      var dotsEl = document.createElement('div'); dotsEl.className = 'dcal-dots';
+      dayMull.slice(0, 3).forEach(function(t) {
+        var dot = document.createElement('span'); dot.className = 'dcal-dot'; dot.style.background = mullColor(t); dotsEl.appendChild(dot);
+      });
+      cellEl.appendChild(dotsEl);
+    }
+    td.appendChild(cellEl); tr.appendChild(td); day++;
+  }
+  table.appendChild(tbody); wrap.appendChild(table);
+  /* holiday list for this month */
+  var movable = getMovableHolidays(year);
+  var mh = [];
+  for (var hk in AT_HOLIDAYS) { if (parseInt(hk.split('-')[0]) - 1 === month) mh.push({name:AT_HOLIDAYS[hk],key:hk}); }
+  for (var hk2 in movable) { var hd = keyToDate(year + '-' + hk2); if (hd.getMonth() === month) mh.push({name:movable[hk2],key:hk2}); }
+  if (mh.length) {
+    mh.sort(function(a,b) { return parseInt(a.key.split('-')[1]) - parseInt(b.key.split('-')[1]); });
+    var legDiv = document.createElement('div'); legDiv.className = 'dcal-leg';
+    mh.forEach(function(h) {
+      var p = document.createElement('span'); p.className = 'dcal-leg-item'; p.style.color = 'var(--red)';
+      var pts = h.key.split('-'); p.textContent = pts[1] + '.' + pts[0] + '. – ' + h.name;
+      legDiv.appendChild(p);
+    });
+    wrap.appendChild(legDiv);
+  }
+  container.appendChild(wrap);
 }
 
 /* ── SCHICHTPLAN ── */
@@ -1377,6 +1548,91 @@ function showInventar() {
     });
   });
   loadInv();
+}
+
+/* ── MÜLLKALENDER ── */
+function showMuellkalender() {
+  var body = makeOv('Müllkalender');
+  var REPEAT_LABELS = {none:'Einmalig', weekly:'Wöchentlich', biweekly:'Alle 2 Wochen', fourweekly:'Alle 4 Wochen', monthly:'Monatlich'};
+  function render() {
+    body.innerHTML = '';
+    /* Add form */
+    var form = document.createElement('div'); form.className = 'add-form open'; form.style.marginBottom = '1rem';
+    form.innerHTML =
+      '<div class="fg"><label class="fl">Typ</label><select class="inp" id="mullType">' +
+        MULL_TYPES.map(function(t) { return '<option value="' + esc(t.key) + '">' + t.icon + ' ' + esc(t.key) + '</option>'; }).join('') +
+      '</select></div>' +
+      '<div class="fg"><label class="fl">Erster Termin</label><input class="inp" type="date" id="mullDate" value="' + todayKey() + '"></div>' +
+      '<div class="fg"><label class="fl">Wiederholung</label><select class="inp" id="mullRepeat">' +
+        Object.keys(REPEAT_LABELS).map(function(v) { return '<option value="' + v + '">' + REPEAT_LABELS[v] + '</option>'; }).join('') +
+      '</select></div>' +
+      '<div class="fg" id="mullEndFg" style="display:none"><label class="fl">Wiederholung bis</label><input class="inp" type="date" id="mullEndDate"></div>' +
+      '<button class="btn-g" style="width:100%" id="mullSave">Hinzufügen</button>';
+    body.appendChild(form);
+    form.querySelector('#mullRepeat').addEventListener('change', function() {
+      form.querySelector('#mullEndFg').style.display = this.value !== 'none' ? '' : 'none';
+    });
+    form.querySelector('#mullSave').addEventListener('click', function() {
+      var type   = form.querySelector('#mullType').value;
+      var date   = form.querySelector('#mullDate').value;
+      var repeat = form.querySelector('#mullRepeat').value;
+      var rEnd   = form.querySelector('#mullEndDate').value;
+      if (!date) { toast('Bitte Datum eingeben'); return; }
+      var entry = {type:type, date:date, repeat:repeat, by:me, ts:Date.now()};
+      if (repeat !== 'none' && rEnd) entry.repeatEnd = rEnd;
+      dbPost('/muell', entry, function(err, key) {
+        if (key) { mullData[key] = entry; mullData[key].id = key; }
+        renderList(); toast('✓ Eingetragen');
+        loadDashExtras();
+      });
+    });
+    renderList();
+  }
+  function renderList() {
+    var old = body.querySelector('#mullList');
+    if (old) old.parentNode.removeChild(old);
+    var list = document.createElement('div'); list.id = 'mullList';
+    body.appendChild(list);
+    dbGet('/muell', function(err, data) {
+      mullData = data || {};
+      list.innerHTML = '';
+      if (!data || err || !Object.keys(data).length) { list.innerHTML = '<p class="empty">Keine Einträge</p>'; return; }
+      var entries = Object.keys(data).map(function(k) { var e = data[k]; e.id = k; return e; });
+      entries.sort(function(a, b) { return (a.date||'') < (b.date||'') ? -1 : 1; });
+      var now = new Date(); now.setHours(0,0,0,0);
+      var upcoming = entries.filter(function(e) { return (e.repeat && e.repeat !== 'none') || (e.date && keyToDate(e.date) >= now); });
+      var past     = entries.filter(function(e) { return (!e.repeat || e.repeat === 'none') && e.date && keyToDate(e.date) < now; });
+      var hdr = document.createElement('p');
+      hdr.style.cssText = 'font-size:0.65rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin:0 0 0.5rem';
+      hdr.textContent = 'Termine';
+      list.appendChild(hdr);
+      function renderEntry(e) {
+        var div = document.createElement('div'); div.className = 'card';
+        div.style.borderLeft = '3px solid ' + mullColor(e.type);
+        div.style.display = 'flex'; div.style.justifyContent = 'space-between'; div.style.alignItems = 'center';
+        var repText = REPEAT_LABELS[e.repeat||'none'] || '';
+        div.innerHTML =
+          '<div>' +
+            '<div style="display:flex;align-items:center;gap:0.4rem"><span>' + mullIcon(e.type) + '</span><span style="font-size:0.88rem;font-weight:500">' + esc(e.type) + '</span></div>' +
+            '<div style="font-size:0.65rem;color:var(--dim);margin-top:0.1rem">' + esc(e.date||'?') + ' · ' + esc(repText) + (e.repeatEnd ? ' bis ' + esc(e.repeatEnd) : '') + '</div>' +
+          '</div>' +
+          '<button class="del">✕</button>';
+        div.querySelector('.del').addEventListener('click', function() {
+          dbDel('/muell/' + e.id, function() { delete mullData[e.id]; renderList(); loadDashExtras(); });
+        });
+        list.appendChild(div);
+      }
+      upcoming.forEach(renderEntry);
+      if (past.length) {
+        var pastHdr = document.createElement('p');
+        pastHdr.style.cssText = 'font-size:0.62rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.04em;margin:0.6rem 0 0.3rem';
+        pastHdr.textContent = 'Vergangen';
+        list.appendChild(pastHdr);
+        past.slice(0, 5).forEach(renderEntry);
+      }
+    });
+  }
+  render();
 }
 
 /* ── WIKI ── */
