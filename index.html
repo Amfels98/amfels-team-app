@@ -306,6 +306,7 @@
         <div class="stat"><div class="stat-n" id="statOrders">–</div><div class="stat-l">Bestellungen</div></div>
       </div>
       <div id="dashCal"></div>
+      <div id="dashCalPanel" style="display:none"></div>
       <div id="dashTasks"></div>
       <div id="dashMsg"></div>
     </div>
@@ -1090,8 +1091,8 @@ function renderDashCal() {
     backBtn.addEventListener('click', function() { dashCalYear = nowObj.getFullYear(); dashCalMonth = nowObj.getMonth(); renderDashCal(); });
     midEl.appendChild(backBtn);
   }
-  prevBtn.addEventListener('click', function() { dashCalMonth--; if (dashCalMonth < 0) { dashCalMonth = 11; dashCalYear--; } renderDashCal(); });
-  nextBtn.addEventListener('click', function() { dashCalMonth++; if (dashCalMonth > 11) { dashCalMonth = 0; dashCalYear++; } renderDashCal(); });
+  prevBtn.addEventListener('click', function() { dashCalMonth--; if (dashCalMonth < 0) { dashCalMonth = 11; dashCalYear--; } closeDayPanel(); renderDashCal(); });
+  nextBtn.addEventListener('click', function() { dashCalMonth++; if (dashCalMonth > 11) { dashCalMonth = 0; dashCalYear++; } closeDayPanel(); renderDashCal(); });
   nav.appendChild(prevBtn); nav.appendChild(midEl); nav.appendChild(nextBtn);
   card.appendChild(nav);
   /* Table */
@@ -1125,9 +1126,11 @@ function renderDashCal() {
       cellEl.appendChild(dotsEl);
     }
     cellEl.addEventListener('click', (function(dk_, num_) { return function() {
+      var alreadySelected = num_.classList.contains('selected');
       container.querySelectorAll('.dcal-num').forEach(function(n) { n.classList.remove('selected'); });
+      if (alreadySelected) { closeDayPanel(); return; }
       num_.classList.add('selected');
-      showDayDetail(dk_);
+      showDayPanel(dk_);
     }; })(dk, numEl));
     td.appendChild(cellEl); tr.appendChild(td); day++;
   }
@@ -1146,74 +1149,97 @@ function renderDashCal() {
   container.appendChild(card);
 }
 
-function showDayDetail(dateStr) {
+function closeDayPanel() {
+  var panel = el('dashCalPanel');
+  if (panel) { panel.style.display = 'none'; panel.innerHTML = ''; }
+  var calContainer = el('dashCal');
+  if (calContainer) calContainer.querySelectorAll('.dcal-num').forEach(function(n) { n.classList.remove('selected'); });
+}
+
+function showDayPanel(dateStr) {
+  var panel = el('dashCalPanel');
+  if (!panel) return;
   var d = keyToDate(dateStr);
   var holiday = isHoliday(d);
   var dayMull = (buildMullDays(mullData, d.getFullYear(), d.getMonth()))[dateStr] || [];
   var dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
   var pts = dateStr.split('-');
   var dateLabel = dayNames[d.getDay()] + ', ' + pts[2] + '.' + pts[1] + '.' + pts[0];
-  var ob = makeOv(dateLabel);
+
+  panel.style.display = '';
+  panel.innerHTML = '';
+  var card = document.createElement('div'); card.className = 'card'; card.style.marginTop = '0.5rem';
+
+  /* Header */
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem';
+  var lbl = document.createElement('span'); lbl.style.cssText = 'font-size:0.88rem;font-weight:600'; lbl.textContent = dateLabel;
+  var closeBtn = document.createElement('button'); closeBtn.className = 'del'; closeBtn.textContent = '✕';
+  closeBtn.addEventListener('click', closeDayPanel);
+  hdr.appendChild(lbl); hdr.appendChild(closeBtn); card.appendChild(hdr);
+
+  /* Holiday */
   if (holiday) {
     var hDiv = document.createElement('div');
-    hDiv.style.cssText = 'background:rgba(224,82,82,0.1);border:1px solid rgba(224,82,82,0.25);border-radius:10px;padding:0.55rem 0.85rem;margin-bottom:0.75rem;font-size:0.82rem;color:var(--red)';
-    hDiv.textContent = '🎉 Feiertag: ' + holiday;
-    ob.appendChild(hDiv);
+    hDiv.style.cssText = 'background:rgba(224,82,82,0.1);border:1px solid rgba(224,82,82,0.25);border-radius:8px;padding:0.4rem 0.7rem;margin-bottom:0.5rem;font-size:0.78rem;color:var(--red)';
+    hDiv.textContent = '🎉 ' + holiday; card.appendChild(hDiv);
   }
+
+  /* Müll */
   if (dayMull.length) {
-    var mHdr = document.createElement('p'); mHdr.style.cssText = 'font-size:0.6rem;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:0.4rem'; mHdr.textContent = 'Müllabholung';
-    ob.appendChild(mHdr);
     dayMull.forEach(function(t) {
-      var row = document.createElement('div'); row.className = 'card'; row.style.cssText = 'border-left:3px solid ' + mullColor(t) + ';display:flex;align-items:center;gap:0.4rem';
-      row.innerHTML = '<span>' + mullIcon(t) + '</span><span style="font-size:0.88rem">' + esc(t) + '</span>';
-      ob.appendChild(row);
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;margin-bottom:0.35rem';
+      row.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:' + mullColor(t) + ';flex-shrink:0"></span>' + mullIcon(t) + ' ' + esc(t);
+      card.appendChild(row);
     });
   }
-  var tHdr = document.createElement('p'); tHdr.style.cssText = 'font-size:0.6rem;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin:0.75rem 0 0.4rem'; tHdr.textContent = 'Aufgaben';
-  ob.appendChild(tHdr);
-  var tList = document.createElement('div'); ob.appendChild(tList);
-  function renderDayTasks() {
+
+  /* Tasks */
+  var tList = document.createElement('div'); card.appendChild(tList);
+  function renderPanelTasks() {
     tList.innerHTML = '';
     var dt = tasks.filter(function(t) { return t.due === dateStr; });
-    if (!dt.length) {
-      var ep = document.createElement('p'); ep.style.cssText = 'font-size:0.82rem;color:var(--dim);padding:0.15rem 0 0.5rem'; ep.textContent = 'Keine Aufgaben'; tList.appendChild(ep);
-    } else {
+    if (dt.length) {
       dt.forEach(function(t) {
-        var row = document.createElement('div'); row.className = 'task' + (t.done ? ' done' : ''); row.style.marginBottom = '0.4rem';
+        var row = document.createElement('div'); row.className = 'task' + (t.done ? ' done' : ''); row.style.marginBottom = '0.35rem';
         row.innerHTML = '<div class="t-check">' + (t.done ? '✓' : '') + '</div><div class="t-body"><div class="t-title">' + esc(t.title) + '</div><div class="t-meta">' + esc(t.assign||'Alle') + (t.priority === 'dringend' ? ' · <span class="prio-badge prio-dringend">Dringend</span>' : '') + '</div></div>';
-        row.querySelector('.t-check').addEventListener('click', function() { toggleTask(t.id); renderDayTasks(); renderDashCal(); });
+        row.querySelector('.t-check').addEventListener('click', function() { toggleTask(t.id); renderPanelTasks(); renderDashCal(); renderDashTasks(); });
         tList.appendChild(row);
       });
     }
   }
-  renderDayTasks();
+  renderPanelTasks();
+
+  /* Add task button + inline form */
   var addBtn = document.createElement('button'); addBtn.className = 'btn-g'; addBtn.style.cssText = 'width:100%;margin-top:0.5rem'; addBtn.textContent = '+ Aufgabe hinzufügen';
-  ob.appendChild(addBtn);
-  var qForm = document.createElement('div'); qForm.style.cssText = 'display:none;margin-top:0.75rem';
+  card.appendChild(addBtn);
+  var qForm = document.createElement('div'); qForm.style.cssText = 'display:none;margin-top:0.65rem';
   qForm.innerHTML =
-    '<div class="fg"><label class="fl">Titel</label><input class="inp" id="qdTitle" placeholder="Was muss erledigt werden?"></div>' +
-    '<div class="fg"><label class="fl">Für</label><select class="inp" id="qdAssign"><option value="Alle">Alle</option>' +
+    '<div class="fg"><label class="fl">Titel</label><input class="inp" id="dcpTitle" placeholder="Was muss erledigt werden?"></div>' +
+    '<div class="fg"><label class="fl">Für</label><select class="inp" id="dcpAssign"><option value="Alle">Alle</option>' +
       TEAM.map(function(n) { return '<option value="' + esc(n) + '"' + (n===me?' selected':'') + '>' + esc(n) + '</option>'; }).join('') +
     '</select></div>' +
-    '<div class="fg"><label class="fl">Priorität</label><select class="inp" id="qdPrio"><option value="normal">Normal</option><option value="dringend">Dringend</option></select></div>' +
-    '<div class="row2"><button class="btn-g" id="qdSave">Speichern</button><button class="btn-d" id="qdCancel">Abbrechen</button></div>';
-  ob.appendChild(qForm);
-  addBtn.addEventListener('click', function() { addBtn.style.display = 'none'; qForm.style.display = ''; qForm.querySelector('#qdTitle').focus(); });
-  qForm.querySelector('#qdCancel').addEventListener('click', function() { qForm.style.display = 'none'; addBtn.style.display = ''; });
-  qForm.querySelector('#qdSave').addEventListener('click', function() {
-    var title = qForm.querySelector('#qdTitle').value.trim();
+    '<div class="fg"><label class="fl">Priorität</label><select class="inp" id="dcpPrio"><option value="normal">Normal</option><option value="dringend">Dringend</option></select></div>' +
+    '<div class="row2"><button class="btn-g" id="dcpSave">Speichern</button><button class="btn-d" id="dcpCancel">Abbrechen</button></div>';
+  card.appendChild(qForm);
+  addBtn.addEventListener('click', function() { addBtn.style.display = 'none'; qForm.style.display = ''; qForm.querySelector('#dcpTitle').focus(); });
+  qForm.querySelector('#dcpCancel').addEventListener('click', function() { qForm.style.display = 'none'; addBtn.style.display = ''; });
+  qForm.querySelector('#dcpSave').addEventListener('click', function() {
+    var title = qForm.querySelector('#dcpTitle').value.trim();
     if (!title) { toast('Bitte Titel eingeben'); return; }
-    var assign = qForm.querySelector('#qdAssign').value;
-    var prio   = qForm.querySelector('#qdPrio').value;
-    var task = {title:title, assign:assign, done:false, by:me, ts:Date.now(), due:dateStr, priority:prio};
+    var task = {title:title, assign:qForm.querySelector('#dcpAssign').value, done:false, by:me, ts:Date.now(), due:dateStr, priority:qForm.querySelector('#dcpPrio').value};
     dbPost('/tasks', task, function(err, key) {
       if (key) { task.id = key; tasks.unshift(task); }
-      qForm.querySelector('#qdTitle').value = '';
+      qForm.querySelector('#dcpTitle').value = '';
       qForm.style.display = 'none'; addBtn.style.display = '';
-      renderDayTasks(); renderTasks(); updateDash(); renderDashCal();
+      renderPanelTasks(); renderTasks(); updateDash(); renderDashCal(); renderDashTasks();
       toast('✓ Aufgabe gespeichert');
     });
   });
+
+  panel.appendChild(card);
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
 /* ── SCHICHTPLAN ── */
