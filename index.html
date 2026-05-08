@@ -1985,18 +1985,15 @@ function showMuellkalender() {
 }
 
 /* ── KI ASSISTENT ── */
-var KI_KEY_STORE = 'af_ki_key';
 function showKI() {
   var body = makeOv('🤖 KI Assistent');
   var kiMessages = [];
 
-  function getKey() { return localStorage.getItem(KI_KEY_STORE) || ''; }
-
-  function addMsg(role, text, isLoading) {
-    var chat = el('kiChat'); if (!chat) return;
+  function addMsg(role, text, loaderId) {
+    var chat = el('kiChat'); if (!chat) return null;
     var div = document.createElement('div');
-    div.className = 'ki-msg ' + role + (isLoading ? ' loading' : '');
-    div.id = isLoading ? 'kiLoader' : '';
+    div.className = 'ki-msg ' + role + (loaderId ? ' loading' : '');
+    if (loaderId) div.id = loaderId;
     div.textContent = text;
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
@@ -2008,93 +2005,49 @@ function showKI() {
     var text = inp.value.trim(); if (!text) return;
     inp.value = '';
     addMsg('user', text);
-    kiMessages.push({role:'user', parts:[{text:text}]});
+    kiMessages.push({role:'user', content:text});
+    addMsg('ai', 'Schreibt…', 'kiLoader');
 
-    addMsg('ai', 'Schreibt…', true);
-
-    var sysPrompt = 'Du bist der KI-Assistent für das Restaurant Am Fels in Österreich. Antworte auf Deutsch. ' +
+    var sysPrompt = 'Du bist der KI-Assistent für das Restaurant Am Fels in Österreich. Antworte immer auf Deutsch. ' +
       'Team: Leon (Admin), Sasho, Patrik, Tea, Daniel. Aktuell eingeloggt: ' + (me || 'Unbekannt') + '. ' +
       'Offene Aufgaben: ' + tasks.filter(function(t) { return !t.done; }).map(function(t) { return t.title; }).slice(0,5).join(', ') + '. ' +
-      'Hilf bei Fragen zu Rezepten, Schichtplanung, Reinigung, Aufgaben, Inventar und allem was das Restaurant betrifft. Sei freundlich und präzise.';
+      'Hilf bei Rezepten, Schichtplanung, Reinigung, Aufgaben, Inventar und allem was das Restaurant betrifft. Kurze, freundliche Antworten.';
 
-    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + getKey(), {
+    var msgs = [{role:'system', content:sysPrompt}].concat(kiMessages);
+
+    fetch('https://text.pollinations.ai/', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        system_instruction: {parts:[{text:sysPrompt}]},
-        contents: kiMessages
-      })
+      body: JSON.stringify({messages: msgs, model:'openai', private:true})
     })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
+    .then(function(r) { return r.text(); })
+    .then(function(reply) {
       var loader = el('kiLoader'); if (loader) loader.parentNode.removeChild(loader);
-      var reply = '';
-      if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        reply = data.candidates[0].content.parts[0].text;
-      } else if (data.error) {
-        reply = 'Fehler: ' + (data.error.message || 'API Fehler');
-        if (data.error.status === 'INVALID_ARGUMENT' || data.error.code === 400) {
-          reply = 'Ungültiger API Key. Bitte oben ändern.';
-        }
-      } else {
-        reply = 'Keine Antwort erhalten.';
-      }
-      kiMessages.push({role:'model', parts:[{text:reply}]});
+      reply = (reply || '').trim();
+      if (!reply) reply = 'Keine Antwort erhalten.';
+      kiMessages.push({role:'assistant', content:reply});
       addMsg('ai', reply);
     })
     .catch(function() {
       var loader = el('kiLoader'); if (loader) loader.parentNode.removeChild(loader);
-      addMsg('ai', 'Verbindungsfehler. Internetverbindung oder API Key prüfen.');
+      addMsg('ai', 'Verbindungsfehler. Bitte nochmal versuchen.');
     });
   }
 
-  function renderKI() {
-    body.innerHTML = '';
-    var key = getKey();
-    if (!key) {
-      var setupDiv = document.createElement('div');
-      setupDiv.innerHTML =
-        '<p style="font-size:0.82rem;color:var(--dim);margin-bottom:0.75rem;line-height:1.5">' +
-          'Für den KI Assistenten brauchst du einen kostenlosen Google Gemini API Key.<br>' +
-          '<b>ai.google.dev</b> → "Get API key" → kopieren' +
-        '</p>' +
-        '<div class="fg"><label class="fl">Gemini API Key</label><input class="inp" id="kiKeyInp" placeholder="AIzaSy..." autocomplete="off"></div>' +
-        '<button class="btn-g" style="width:100%" id="kiKeySave">Speichern & Starten</button>';
-      body.appendChild(setupDiv);
-      body.querySelector('#kiKeySave').addEventListener('click', function() {
-        var k = body.querySelector('#kiKeyInp').value.trim();
-        if (!k) { toast('API Key eingeben'); return; }
-        localStorage.setItem(KI_KEY_STORE, k);
-        renderKI();
-      });
-      return;
-    }
+  body.innerHTML = '';
+  var chatEl = document.createElement('div'); chatEl.className = 'ki-chat'; chatEl.id = 'kiChat';
+  body.appendChild(chatEl);
+  addMsg('ai', 'Hallo! Ich bin der KI Assistent für Am Fels. Wie kann ich helfen? 👋');
 
-    var topRow = document.createElement('div');
-    topRow.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:0.4rem';
-    var changeKeyBtn = document.createElement('button');
-    changeKeyBtn.className = 'btn-d'; changeKeyBtn.style.fontSize = '0.72rem';
-    changeKeyBtn.textContent = '🔑 API Key ändern';
-    changeKeyBtn.addEventListener('click', function() { localStorage.removeItem(KI_KEY_STORE); renderKI(); });
-    topRow.appendChild(changeKeyBtn);
-    body.appendChild(topRow);
+  var inputRow = document.createElement('div'); inputRow.className = 'ki-input-row';
+  var inp = document.createElement('input'); inp.className = 'inp'; inp.id = 'kiInp';
+  inp.placeholder = 'Frag mich etwas…';
+  var sendBtn = document.createElement('button'); sendBtn.className = 'btn-g'; sendBtn.textContent = '→';
+  inputRow.appendChild(inp); inputRow.appendChild(sendBtn);
+  body.appendChild(inputRow);
 
-    var chatEl = document.createElement('div'); chatEl.className = 'ki-chat'; chatEl.id = 'kiChat';
-    body.appendChild(chatEl);
-    addMsg('ai', 'Hallo! Ich bin der KI Assistent für Am Fels. Was kann ich für dich tun? 👋');
-
-    var inputRow = document.createElement('div'); inputRow.className = 'ki-input-row';
-    var inp = document.createElement('input'); inp.className = 'inp'; inp.id = 'kiInp';
-    inp.placeholder = 'Frag mich etwas…';
-    var sendBtn = document.createElement('button'); sendBtn.className = 'btn-g'; sendBtn.textContent = '→';
-    inputRow.appendChild(inp); inputRow.appendChild(sendBtn);
-    body.appendChild(inputRow);
-
-    sendBtn.addEventListener('click', sendMsg);
-    inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') sendMsg(); });
-  }
-
-  renderKI();
+  sendBtn.addEventListener('click', sendMsg);
+  inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') sendMsg(); });
 }
 
 /* ── WIKI ── */
