@@ -4399,6 +4399,13 @@ if(currentUser){
     history.replaceState({}, '', location.pathname);
   }
 })();
+
+// ── SERVICE WORKER ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
 </script>
 </body>
 </html>
