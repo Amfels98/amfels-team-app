@@ -548,6 +548,8 @@
         <button class="schicht-nav-btn" ontouchstart="shiftWeekNav(1);event.preventDefault()" onclick="shiftWeekNav(1)">Vor →</button>
       </div>
       <div id="schichtList"></div>
+      <div class="sh" style="margin-top:1.25rem"><span class="st">Stundenkonto diese Woche</span></div>
+      <div id="schichtStats"></div>
     </div>
 
     <!-- CHAT -->
@@ -3739,6 +3741,45 @@ function renderSchicht() {
     });
     list.appendChild(div);
   });
+  renderSchichtStats();
+}
+
+function renderSchichtStats(){
+  const el=document.getElementById('schichtStats');
+  if(!el)return;
+  const weekKey=getWeekKey(shiftWeek);
+  const wData=schichtData[weekKey]||{};
+  const SHIFT_HOURS={frueh:6,mittag:5,abend:6};
+  const stats={};
+  TEAM.forEach(n=>{stats[n]={schichten:0,stunden:0};});
+  Object.values(wData).forEach(dayData=>{
+    ['frueh','mittag','abend'].forEach(sk=>{
+      const members=Array.isArray(dayData[sk])?dayData[sk]:[];
+      members.forEach(name=>{
+        if(!stats[name])stats[name]={schichten:0,stunden:0};
+        stats[name].schichten++;
+        stats[name].stunden+=SHIFT_HOURS[sk]||0;
+      });
+    });
+  });
+  const entries=Object.entries(stats).filter(([,v])=>v.schichten>0||TEAM.includes(''));
+  if(!entries.length){el.innerHTML='<div class="empty" style="padding:0.5rem 0"><div class="et">Noch keine Schichten eingetragen</div></div>';return;}
+  const maxH=Math.max(...entries.map(([,v])=>v.stunden),1);
+  el.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:0.9rem;margin-bottom:1rem;">
+    ${TEAM.map(name=>{
+      const v=stats[name]||{schichten:0,stunden:0};
+      const pct=Math.round(v.stunden/maxH*100);
+      return`<div style="margin-bottom:0.75rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.3rem;">
+          <span style="font-size:0.85rem;font-weight:500">${name}</span>
+          <span style="font-size:0.75rem;color:var(--dim)">${v.schichten} Schicht${v.schichten!==1?'en':''} · <strong style="color:var(--text)">${v.stunden}h</strong></span>
+        </div>
+        <div style="height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:var(--gold);border-radius:3px;transition:width 0.3s;"></div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
 // ── CHAT ──
