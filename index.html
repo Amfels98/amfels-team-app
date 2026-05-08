@@ -2137,16 +2137,51 @@ function showMuellkalender() {
       return found;
     }
 
+    /* ── PDF SUPPORT ── */
+    function loadPDFJS(cb) {
+      if (window.pdfjsLib) { cb(); return; }
+      var s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload=function(){
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        cb();
+      };
+      s.onerror=function(){cb(new Error('load'));};
+      document.head.appendChild(s);
+    }
+    function fetchAndParsePDF(url, addr, sel) {
+      setStep(3,'📄 PDF laden…');
+      loadPDFJS(function(err) {
+        if (err) { showFail('PDF-Reader konnte nicht geladen werden.\nText aus PDF kopieren → "Text manuell einfügen" nutzen.'); return; }
+        setStep(3,'📄 PDF lesen…');
+        fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(url))
+          .then(function(r){return r.arrayBuffer();})
+          .then(function(buf){return window.pdfjsLib.getDocument({data:buf}).promise;})
+          .then(function(pdf){
+            var ps=[]; for(var i=1;i<=pdf.numPages;i++){
+              (function(n){ps.push(pdf.getPage(n).then(function(p){return p.getTextContent().then(function(c){return c.items.map(function(it){return it.str;}).join(' ');})}));})(i);
+            }
+            return Promise.all(ps).then(function(pages){return pages.join('\n');});
+          })
+          .then(function(text){extractWithKI(text,addr,sel);})
+          .catch(function(){
+            resetBtn();
+            showFail('PDF konnte nicht gelesen werden.\nText aus dem PDF kopieren und "Text manuell einfügen" nutzen.');
+            fallbackPanel.style.display='';
+          });
+      });
+    }
+
     /* ── KI TEXT EXTRACTION (last resort) ── */
     function extractWithKI(calText, addr, sel) {
       setStep(3, '🤖 KI analysiert…');
       var prompt =
-        'Österreichischer Abfallkalender. Adresse: ' + addr + '. Müllarten: ' + sel.join(', ') + '.\n' +
-        'Extrahiere alle Abholtermine für diese Adresse.\n' +
-        'Nur JSON: [{"type":"Restmüll","date":"2026-01-05","repeat":"none"},...]\n' +
-        'Typen: ' + sel.join('|') + '. Datum YYYY-MM-DD. Jahr: ' + new Date().getFullYear() + '.\n' +
-        'repeat: none|weekly|biweekly|fourweekly — wenn Muster: nur 1. Termin + repeatEnd:"YYYY-MM-DD"\n' +
-        'Nicht gefunden → nur: NICHT_GEFUNDEN\n\nText:\n' + calText.slice(0, 14000);
+        'Abfallkalender (Deutschland/Österreich). Adresse: ' + addr + '.\n' +
+        'Gesucht: Abholtermine für Müllarten: ' + sel.join(', ') + '.\n' +
+        'Antworte NUR mit JSON-Array:\n[{"type":"Restmüll","date":"2026-01-05","repeat":"none"},...]\n' +
+        'Erlaubte Typen: ' + sel.join('|') + '. Datum: YYYY-MM-DD. Jahr: ' + new Date().getFullYear() + '.\n' +
+        'repeat: none|weekly|biweekly|fourweekly — wenn Muster erkennbar: nur 1. Termin + "repeatEnd":"YYYY-MM-DD"\n' +
+        'Straße/Adresse nicht im Kalender vorhanden → antworte nur: NICHT_GEFUNDEN\n\nKalendertext:\n' + calText.slice(0, 15000);
       fetch('https://text.pollinations.ai/', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body:JSON.stringify({messages:[{role:'system',content:'JSON-only extractor.'},{role:'user',content:prompt}],model:'openai',private:true})
@@ -2169,6 +2204,8 @@ function showMuellkalender() {
       if (!urls.length) { resetBtn(); setStep(1,''); showFail('Kalender nicht gefunden. Bitte Link direkt eingeben (→ Gemeinde-Website → Abfall → Kalender downloaden → Link kopieren) oder Text einfügen.'); return; }
       var url=urls[0]; var rest=urls.slice(1);
       var ul=url.toLowerCase(); var isICS=ul.indexOf('.ics')>=0||ul.indexOf('ical')>=0;
+      /* PDF → special handler */
+      if (ul.indexOf('.pdf')>=0) { fetchAndParsePDF(url,addr,sel); return; }
       var domain=url.replace(/https?:\/\//,'').split('/')[0];
       setStep(3, '⏳ ' + domain + '…');
       proxyFetch(url)
@@ -2261,8 +2298,11 @@ function showMuellkalender() {
       var addr=addrInput.value.trim()||'Unbekannt';
       var sel=getSelectedTypes();
       if (!sel.length){toast('Müllart auswählen');return;}
-      localStorage.setItem('af_mull_types',JSON.stringify(sel));
-      resultEl.innerHTML=''; setStep(3,'⏳ Lade Kalender…');
+      localStorage.setItem('af_mull_addr',addr); localStorage.setItem('af_mull_types',JSON.stringify(sel));
+      resultEl.innerHTML='';
+      /* PDF gets special treatment */
+      if (urlVal.toLowerCase().indexOf('.pdf')>=0) { fetchAndParsePDF(urlVal,addr,sel); return; }
+      setStep(3,'⏳ Lade Kalender…');
       tryUrls([urlVal],addr,sel);
     });
 
