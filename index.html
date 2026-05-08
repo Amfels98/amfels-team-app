@@ -500,6 +500,7 @@
       <div class="frow" style="margin-bottom:0.75rem">
         <button class="fc on" id="atab-aufgaben" ontouchstart="switchAufgabenTab('aufgaben',this);event.preventDefault()" onclick="switchAufgabenTab('aufgaben',this)">✓ Aufgaben</button>
         <button class="fc" id="atab-dauerhaft" ontouchstart="switchAufgabenTab('dauerhaft',this);event.preventDefault()" onclick="switchAufgabenTab('dauerhaft',this)">🔄 Täglich</button>
+        <button class="fc" id="atab-reinigung" ontouchstart="switchAufgabenTab('reinigung',this);event.preventDefault()" onclick="switchAufgabenTab('reinigung',this)">🧹 Reinigung</button>
       </div>
       <!-- Einmalige Aufgaben -->
       <div id="aufgaben-sub-aufgaben">
@@ -531,6 +532,11 @@
           </button>
         </div>
         <div id="recList"></div>
+      </div>
+      <!-- Reinigung sub-tab -->
+      <div id="aufgaben-sub-reinigung" style="display:none">
+        <div class="sh"><span class="st">Reinigungsplan</span></div>
+        <div id="reinigungList"></div>
       </div>
     </div><!-- /s-aufgaben -->
 
@@ -1520,8 +1526,10 @@ function switchAufgabenTab(sub, el) {
   el.classList.add('on');
   document.getElementById('aufgaben-sub-aufgaben').style.display = sub === 'aufgaben' ? 'block' : 'none';
   document.getElementById('aufgaben-sub-dauerhaft').style.display = sub === 'dauerhaft' ? 'block' : 'none';
+  document.getElementById('aufgaben-sub-reinigung').style.display = sub === 'reinigung' ? 'block' : 'none';
   const muellBtn = document.getElementById('muellAdminBtn');
   if (muellBtn) muellBtn.style.display = (sub === 'dauerhaft' && currentUser === ADMIN) ? 'block' : 'none';
+  if (sub === 'reinigung') renderReinigung();
 }
 
 // ── MODALS ──
@@ -3407,6 +3415,121 @@ function renderDash(){
 
 function render(){renderDash();renderTasks();renderRec();renderOrders();renderLieferanten();renderPdfs();renderWiki();}
 
+// ── REINIGUNG ──
+const REINIGUNG_TEMPLATES = [
+  {id:'kueche_taeglich', freq:'täglich', bereich:'Küche', title:'Küche Täglich', items:[
+    'Arbeitsflächen desinfizieren','Herd und Backofen reinigen','Frittierwanne leeren & reinigen','Böden wischen (Küche)','Mülleimer leeren','Kühlschrankdichtungen prüfen','Abflüsse reinigen',
+  ]},
+  {id:'service_taeglich', freq:'täglich', bereich:'Service', title:'Service Täglich', items:[
+    'Tische reinigen & eindecken','Stühle abwischen','Fenster & Glasfronten','Böden saugen + wischen','Menükarten reinigen','Besteck & Gläser polieren',
+  ]},
+  {id:'wc_taeglich', freq:'täglich', bereich:'WC', title:'WC Täglich', items:[
+    'Toiletten desinfizieren','Waschbecken reinigen','Spiegel putzen','Böden wischen','Seife & Papier auffüllen','Mülleimer leeren',
+  ]},
+  {id:'bar_taeglich', freq:'täglich', bereich:'Bar/Theke', title:'Bar Täglich', items:[
+    'Theke abwischen','Zapfanlage spülen','Gläserspüler reinigen','Eismaschine prüfen','Kaffeeautomat reinigen','Böden wischen (Bar)',
+  ]},
+  {id:'kueche_woechentlich', freq:'wöchentlich', bereich:'Küche', title:'Küche Wöchentlich', items:[
+    'Kühlschränke komplett reinigen','Tiefkühlschrank abtauen & reinigen','Dunstabzugshaube reinigen','Schränke & Regale auswischen','Wände in Kochbereich reinigen','Warmhaltegeräte reinigen',
+  ]},
+  {id:'allgemein_woechentlich', freq:'wöchentlich', bereich:'Allgemein', title:'Allgemein Wöchentlich', items:[
+    'Fenster putzen (innen)','Notausgänge prüfen & freihalten','Erste-Hilfe-Kasten prüfen','Lagerräume aufräumen','Schädlingskontrollen durchführen',
+  ]},
+];
+
+let reinigungData = {};
+
+async function loadReinigung(){
+  const today=new Date().toISOString().slice(0,10);
+  const week=getWeekKey(0);
+  try{
+    const r=await fetch(FB+'/reinigung/'+today+'.json');
+    if(r.ok){const d=await r.json();if(d)reinigungData[today]=d;}
+    const rw=await fetch(FB+'/reinigung/'+week+'.json');
+    if(rw.ok){const d=await rw.json();if(d)reinigungData[week]=d;}
+  }catch(e){}
+  if(document.getElementById('aufgaben-sub-reinigung')?.style.display==='block') renderReinigung();
+}
+
+function renderReinigung(){
+  const el=document.getElementById('reinigungList');
+  if(!el)return;
+  const today=new Date().toISOString().slice(0,10);
+  const week=getWeekKey(0);
+
+  let html='';
+  REINIGUNG_TEMPLATES.forEach(tmpl=>{
+    const key=tmpl.freq==='täglich'?today:week;
+    const data=reinigungData[key]||{};
+    const checked=(data[tmpl.id]||[]);
+    const done=checked.length;
+    const total=tmpl.items.length;
+    const pct=Math.round(done/total*100);
+    const complete=done===total;
+
+    html+=`<div style="background:var(--bg2);border:1px solid ${complete?'rgba(76,175,125,0.3)':'var(--border)'};border-radius:14px;padding:0.9rem;margin-bottom:0.7rem;">
+      <div onclick="toggleReinSection('rs-${tmpl.id}')" style="cursor:pointer;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+          <div>
+            <div style="font-size:0.88rem;font-weight:600">${tmpl.title}</div>
+            <div style="font-size:0.65rem;color:var(--dim);margin-top:0.1rem">${tmpl.freq} · ${tmpl.bereich}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:0.75rem;font-weight:600;color:${complete?'var(--green)':done>0?'var(--orange)':'var(--dim)'}">${done}/${total}</div>
+          </div>
+        </div>
+        <div style="height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${complete?'var(--green)':'var(--gold)'};border-radius:2px;transition:width 0.3s;"></div>
+        </div>
+      </div>
+      <div id="rs-${tmpl.id}" style="display:none;margin-top:0.8rem;">
+        ${tmpl.items.map((item,i)=>{
+          const isDone=checked.includes(i);
+          return `<div style="display:flex;align-items:center;gap:0.65rem;padding:0.45rem 0;border-bottom:1px solid var(--border);" ontouchstart="toggleReinItem('${tmpl.id}','${key}',${i},${!isDone});event.preventDefault()" onclick="toggleReinItem('${tmpl.id}','${key}',${i},${!isDone})">
+            <div style="width:20px;height:20px;border-radius:6px;background:${isDone?'var(--green)':'var(--bg4)'};border:1.5px solid ${isDone?'var(--green)':'var(--border)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;transition:all 0.15s;">
+              ${isDone?'<span style="color:#fff;font-size:0.7rem;font-weight:700">✓</span>':''}
+            </div>
+            <span style="font-size:0.82rem;${isDone?'text-decoration:line-through;color:var(--dim)':''}">${escapeHtml(item)}</span>
+          </div>`;
+        }).join('')}
+        ${complete?`<div style="margin-top:0.65rem;font-size:0.75rem;color:var(--green);text-align:center;font-weight:600">✅ Abgeschlossen ${(data[tmpl.id+'_by'])?'von '+data[tmpl.id+'_by']:''}</div>`:''}
+      </div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+function toggleReinSection(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.style.display=el.style.display==='block'?'none':'block';
+}
+
+async function toggleReinItem(tmplId,key,idx,checked){
+  if(!reinigungData[key])reinigungData[key]={};
+  const arr=reinigungData[key][tmplId]||[];
+  if(checked){if(!arr.includes(idx))arr.push(idx);}
+  else{const i=arr.indexOf(idx);if(i>-1)arr.splice(i,1);}
+  reinigungData[key][tmplId]=arr;
+  const tmpl=REINIGUNG_TEMPLATES.find(t=>t.id===tmplId);
+  if(tmpl&&arr.length===tmpl.items.length){
+    reinigungData[key][tmplId+'_by']=currentUser;
+    reinigungData[key][tmplId+'_ts']=Date.now();
+  }
+  renderReinigung();
+  // Re-open section
+  const el=document.getElementById('rs-'+tmplId);
+  if(el)el.style.display='block';
+  // Firebase sync debounced
+  if(!window._reinTimer)window._reinTimer={};
+  clearTimeout(window._reinTimer[tmplId]);
+  window._reinTimer[tmplId]=setTimeout(async()=>{
+    try{
+      await fetch(FB+'/reinigung/'+key+'.json',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({[tmplId]:reinigungData[key][tmplId],[tmplId+'_by']:currentUser,[tmplId+'_ts']:Date.now()})});
+    }catch(e){}
+  },1500);
+}
+
 // ── GLOBALE SUCHE ──
 function openSearch(){
   const overlay=document.createElement('div');
@@ -4120,6 +4243,7 @@ if(currentUser){
   checkBirthdays();
   loadTrinkgeld();
   loadHaccp();
+  loadReinigung();
 }
 
 ['tTitle','rTitle','oItem','rzName','alTitel'].forEach(id=>{
