@@ -1925,11 +1925,11 @@ function showMuellkalender() {
   function kiImport() {
     body.innerHTML = '';
     var VALID_TYPES = MULL_TYPES.map(function(t) { return t.key; });
+    var REPEAT_LABELS2 = {none:'Einmalig',weekly:'Wöchentlich',biweekly:'Alle 2 Wo.',fourweekly:'Alle 4 Wo.',monthly:'Monatlich'};
 
     var backBtn = document.createElement('button');
     backBtn.className = 'btn-d'; backBtn.style.cssText = 'margin-bottom:0.75rem;font-size:0.78rem';
-    backBtn.textContent = '← Zurück';
-    backBtn.addEventListener('click', render);
+    backBtn.textContent = '← Zurück'; backBtn.addEventListener('click', render);
     body.appendChild(backBtn);
 
     var title = document.createElement('p');
@@ -1937,17 +1937,13 @@ function showMuellkalender() {
     title.textContent = '🤖 Abfallkalender automatisch einlesen';
     body.appendChild(title);
 
-    var hint = document.createElement('p');
-    hint.style.cssText = 'font-size:0.74rem;color:var(--dim);margin:0 0 0.65rem;line-height:1.5';
-    hint.textContent = 'Kompletten Kalender von der Gemeinde-Website kopieren und einfügen. Deine Straße + Hausnummer eingeben — die KI filtert automatisch nur deine Termine raus.';
-    body.appendChild(hint);
-
+    /* Address */
     var savedAddr = localStorage.getItem('af_mull_addr') || '';
-
     var addrDiv = document.createElement('div'); addrDiv.className = 'fg';
     addrDiv.innerHTML = '<label class="fl">Deine Straße + Hausnummer</label><input class="inp" id="mkiAddr" placeholder="z.B. Hauptstraße 5" autocomplete="off" value="' + esc(savedAddr) + '">';
     body.appendChild(addrDiv);
 
+    /* Müllarten */
     var typesDiv = document.createElement('div'); typesDiv.className = 'fg';
     var typesLabel = document.createElement('label'); typesLabel.className = 'fl'; typesLabel.textContent = 'Welche Müllarten hast du?';
     typesDiv.appendChild(typesLabel);
@@ -1955,66 +1951,66 @@ function showMuellkalender() {
     var typesRow = document.createElement('div'); typesRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.35rem;margin-top:0.3rem';
     MULL_TYPES.forEach(function(t) {
       var chip = document.createElement('button');
-      var active = savedTypes.indexOf(t.key) >= 0;
-      chip.className = 'chip' + (active ? ' on' : '');
-      chip.setAttribute('data-mtype', t.key);
-      chip.textContent = t.icon + ' ' + t.key;
-      chip.addEventListener('click', function() {
-        chip.className = chip.className === 'chip on' ? 'chip' : 'chip on';
-      });
+      chip.className = 'chip' + (savedTypes.indexOf(t.key) >= 0 ? ' on' : '');
+      chip.setAttribute('data-mtype', t.key); chip.textContent = t.icon + ' ' + t.key;
+      chip.addEventListener('click', function() { chip.className = chip.classList.contains('on') ? 'chip' : 'chip on'; });
       typesRow.appendChild(chip);
     });
-    typesDiv.appendChild(typesRow);
-    body.appendChild(typesDiv);
+    typesDiv.appendChild(typesRow); body.appendChild(typesDiv);
 
-    var textDiv = document.createElement('div'); textDiv.className = 'fg';
-    textDiv.innerHTML = '<label class="fl">Abfallkalender Text (komplett einfügen)</label><textarea class="inp" id="mkiText" style="height:120px;resize:vertical" placeholder="Gesamten Text vom Abfallkalender hier einfügen..."></textarea>';
-    body.appendChild(textDiv);
+    /* Tabs: URL vs Text */
+    var tabsEl = document.createElement('div'); tabsEl.className = 'chips'; tabsEl.style.margin = '0.15rem 0 0.5rem';
+    var tabUrl  = document.createElement('button'); tabUrl.className  = 'chip on'; tabUrl.textContent  = '🔗 Website-Link';
+    var tabText = document.createElement('button'); tabText.className = 'chip';     tabText.textContent = '📋 Text einfügen';
+    tabsEl.appendChild(tabUrl); tabsEl.appendChild(tabText); body.appendChild(tabsEl);
+
+    var panelUrl = document.createElement('div');
+    panelUrl.innerHTML =
+      '<p style="font-size:0.72rem;color:var(--dim);margin:0 0 0.4rem;line-height:1.5">Link zur Abfallkalender-Seite deiner Gemeinde eingeben — die App lädt die Seite automatisch:</p>' +
+      '<input class="inp" id="mkiUrl" type="url" placeholder="https://gemeinde.at/abfall-kalender" autocomplete="off" value="' + esc(localStorage.getItem('af_mull_url')||'') + '">';
+    body.appendChild(panelUrl);
+
+    var panelText = document.createElement('div'); panelText.style.display = 'none';
+    panelText.innerHTML =
+      '<p style="font-size:0.72rem;color:var(--dim);margin:0 0 0.4rem;line-height:1.5">Kompletten Kalendertext von der Gemeinde-Website kopieren und hier einfügen:</p>' +
+      '<textarea class="inp" id="mkiText" style="height:110px;resize:vertical" placeholder="Gesamten Kalendertext einfügen…"></textarea>';
+    body.appendChild(panelText);
+
+    tabUrl.addEventListener('click', function()  { tabUrl.className = 'chip on'; tabText.className = 'chip'; panelUrl.style.display = ''; panelText.style.display = 'none'; });
+    tabText.addEventListener('click', function() { tabText.className = 'chip on'; tabUrl.className = 'chip'; panelText.style.display = ''; panelUrl.style.display = 'none'; });
 
     var runBtn = document.createElement('button');
-    runBtn.className = 'btn-g'; runBtn.style.cssText = 'width:100%;margin-top:0.2rem';
+    runBtn.className = 'btn-g'; runBtn.style.cssText = 'width:100%;margin-top:0.5rem';
     runBtn.textContent = '🔍 Meine Termine erkennen';
     body.appendChild(runBtn);
 
     var resultEl = document.createElement('div'); resultEl.style.marginTop = '0.6rem';
     body.appendChild(resultEl);
 
-    runBtn.addEventListener('click', function() {
-      var addr  = el('mkiAddr') ? el('mkiAddr').value.trim() : '';
-      var input = el('mkiText') ? el('mkiText').value.trim() : '';
-      if (!addr)  { toast('Straße + Hausnummer eingeben'); return; }
-      if (!input) { toast('Kalendertext einfügen'); return; }
-
-      var selectedTypes = [];
-      typesRow.querySelectorAll('.chip.on').forEach(function(c) { selectedTypes.push(c.getAttribute('data-mtype')); });
-      if (!selectedTypes.length) { toast('Mindestens eine Müllart auswählen'); return; }
-      localStorage.setItem('af_mull_addr', addr);
-      localStorage.setItem('af_mull_types', JSON.stringify(selectedTypes));
-
-      runBtn.disabled = true; runBtn.textContent = '⏳ KI analysiert…';
-      resultEl.innerHTML = '';
-
-      var prompt =
-        'Ich habe den kompletten Abfallkalender meiner Gemeinde. Meine Adresse ist: ' + addr + '\n' +
-        'Ich entsorge folgende Müllarten: ' + selectedTypes.join(', ') + '\n' +
-        'Extrahiere NUR die Abholtermine die für MEINE Adresse/Straße UND meine Müllarten gelten.\n' +
-        'Der Kalender enthält viele Straßen — filtere nur meine raus.\n' +
-        'Antworte NUR mit einem JSON-Array (absolut kein Text davor oder danach):\n' +
-        '[{"type":"Restmüll","date":"' + new Date().getFullYear() + '-01-05","repeat":"none"},...]\n' +
-        'Gültige type-Werte (NUR diese): ' + selectedTypes.join(', ') + '\n' +
-        'Datum im Format YYYY-MM-DD. Aktuelles Jahr: ' + new Date().getFullYear() + '\n' +
+    function buildPrompt(calText, addr, selectedTypes) {
+      return 'Ich habe den kompletten Abfallkalender meiner österreichischen Gemeinde.\n' +
+        'Meine Adresse ist: ' + addr + '\n' +
+        'Meine Müllarten: ' + selectedTypes.join(', ') + '\n' +
+        'Extrahiere NUR die Abholtermine für MEINE Straße/Adresse und MEINE Müllarten.\n' +
+        'Der Kalender enthält viele Straßen — filtere nur meine heraus.\n' +
+        'Antworte NUR mit einem JSON-Array, kein Text davor oder danach:\n' +
+        '[{"type":"Restmüll","date":"2026-01-05","repeat":"none"},...]\n' +
+        'Gültige type-Werte: ' + selectedTypes.join(', ') + '\n' +
+        'Datum: YYYY-MM-DD. Aktuelles Jahr: ' + new Date().getFullYear() + '\n' +
         'repeat: none | weekly | biweekly | fourweekly | monthly\n' +
-        'Wenn wiederkehrend: nur ersten Termin + repeat setzen, optional repeatEnd:"YYYY-MM-DD"\n' +
-        'Falls meine Straße nicht im Kalender vorkommt: antworte nur NICHT_GEFUNDEN\n\n' +
-        'Kalendertext:\n' + input;
+        'Wenn wiederkehrend: nur ersten Termin angeben + repeat, optional repeatEnd:"YYYY-MM-DD"\n' +
+        'Straße nicht im Kalender: antworte nur NICHT_GEFUNDEN\n\n' +
+        'Kalender:\n' + calText.slice(0, 12000);
+    }
 
+    function runKI(calText, addr, selectedTypes) {
       fetch('https://text.pollinations.ai/', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({
           messages: [
-            {role:'system', content:'Du bist ein Daten-Extraktor. Antworte NUR mit dem angeforderten JSON, niemals mit erklärendem Text.'},
-            {role:'user', content:prompt}
+            {role:'system', content:'Du bist ein präziser Daten-Extraktor. Antworte ausschließlich mit dem angeforderten JSON-Array, niemals mit erklärendem Text.'},
+            {role:'user', content:buildPrompt(calText, addr, selectedTypes)}
           ],
           model:'openai', private:true
         })
@@ -2022,33 +2018,25 @@ function showMuellkalender() {
       .then(function(r) { return r.text(); })
       .then(function(raw) {
         runBtn.disabled = false; runBtn.textContent = '🔍 Meine Termine erkennen';
-        var addrVal = el('mkiAddr') ? el('mkiAddr').value.trim() : '';
         raw = (raw || '').trim();
-        if (raw === 'NICHT_GEFUNDEN' || raw.indexOf('NICHT_GEFUNDEN') >= 0) {
-          resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Deine Straße wurde im Kalender nicht gefunden. Prüfe Schreibweise oder versuche nur den Straßennamen ohne Nummer.</p>';
-          return;
+        if (raw.indexOf('NICHT_GEFUNDEN') >= 0) {
+          resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Straße nicht im Kalender gefunden. Schreibweise prüfen oder nur Straßennamen ohne Nummer versuchen.</p>'; return;
         }
-        var jsonMatch = raw.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) { resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Konnte keine Termine erkennen. Anderen Text versuchen.</p>'; return; }
-        var parsed;
-        try { parsed = JSON.parse(jsonMatch[0]); } catch(e) { resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Fehler beim Lesen der Ergebnisse.</p>'; return; }
+        var jsonMatch = raw.match(/\[[\s\S]*?\]/);
+        if (!jsonMatch) { resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Keine Termine erkannt. Anderen Text oder Link versuchen.</p>'; return; }
+        var parsed; try { parsed = JSON.parse(jsonMatch[0]); } catch(e) { resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Fehler beim Verarbeiten. Nochmal versuchen.</p>'; return; }
         parsed = parsed.filter(function(e) { return e.date && e.type && VALID_TYPES.indexOf(e.type) >= 0; });
-        if (!parsed.length) { resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Keine gültigen Termine gefunden.</p>'; return; }
+        if (!parsed.length) { resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Keine gültigen Termine. Adresse oder Müllarten prüfen.</p>'; return; }
 
         var preview = document.createElement('div');
-        var pHdr = document.createElement('p');
-        pHdr.style.cssText = 'font-size:0.75rem;font-weight:600;color:var(--gold);margin:0 0 0.4rem';
-        pHdr.textContent = parsed.length + ' Termine erkannt:';
-        preview.appendChild(pHdr);
-        var REPEAT_LABELS2 = {none:'Einmalig',weekly:'Wöchentlich',biweekly:'Alle 2 Wo.',fourweekly:'Alle 4 Wo.',monthly:'Monatlich'};
+        var pHdr = document.createElement('p'); pHdr.style.cssText = 'font-size:0.75rem;font-weight:600;color:var(--gold);margin:0 0 0.4rem';
+        pHdr.textContent = parsed.length + ' Termine erkannt:'; preview.appendChild(pHdr);
         parsed.forEach(function(e) {
           var row = document.createElement('div'); row.className = 'card'; row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;border-left:3px solid ' + mullColor(e.type);
           row.innerHTML = '<span>' + mullIcon(e.type) + '</span><div style="flex:1"><div style="font-size:0.82rem;font-weight:500">' + esc(e.type) + '</div><div style="font-size:0.65rem;color:var(--dim)">' + esc(e.date) + ' · ' + esc(REPEAT_LABELS2[e.repeat||'none']||'') + (e.repeatEnd ? ' bis ' + esc(e.repeatEnd) : '') + '</div></div>';
           preview.appendChild(row);
         });
-
-        var importBtn = document.createElement('button');
-        importBtn.className = 'btn-g'; importBtn.style.cssText = 'width:100%;margin-top:0.5rem';
+        var importBtn = document.createElement('button'); importBtn.className = 'btn-g'; importBtn.style.cssText = 'width:100%;margin-top:0.5rem';
         importBtn.textContent = '✓ Alle ' + parsed.length + ' Termine eintragen';
         importBtn.addEventListener('click', function() {
           importBtn.disabled = true; importBtn.textContent = '⏳ Wird eingetragen…';
@@ -2059,11 +2047,7 @@ function showMuellkalender() {
             dbPost('/muell', entry, function(err, key) {
               if (key) { mullData[key] = entry; mullData[key].id = key; }
               done++;
-              if (done === parsed.length) {
-                loadDashExtras();
-                toast('✓ ' + parsed.length + ' Termine eingetragen');
-                render();
-              }
+              if (done === parsed.length) { loadDashExtras(); toast('✓ ' + parsed.length + ' Termine eingetragen'); render(); }
             });
           });
         });
@@ -2072,8 +2056,46 @@ function showMuellkalender() {
       })
       .catch(function() {
         runBtn.disabled = false; runBtn.textContent = '🔍 Meine Termine erkennen';
-        resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Verbindungsfehler. Bitte nochmal versuchen.</p>';
+        resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Verbindungsfehler. Nochmal versuchen.</p>';
       });
+    }
+
+    runBtn.addEventListener('click', function() {
+      var addr = el('mkiAddr') ? el('mkiAddr').value.trim() : '';
+      if (!addr) { toast('Straße + Hausnummer eingeben'); return; }
+      var selectedTypes = [];
+      typesRow.querySelectorAll('.chip.on').forEach(function(c) { selectedTypes.push(c.getAttribute('data-mtype')); });
+      if (!selectedTypes.length) { toast('Mindestens eine Müllart auswählen'); return; }
+      localStorage.setItem('af_mull_addr', addr);
+      localStorage.setItem('af_mull_types', JSON.stringify(selectedTypes));
+
+      var isUrl = panelUrl.style.display !== 'none';
+      if (isUrl) {
+        var urlVal = el('mkiUrl') ? el('mkiUrl').value.trim() : '';
+        if (!urlVal) { toast('Website-Link eingeben'); return; }
+        localStorage.setItem('af_mull_url', urlVal);
+        runBtn.disabled = true; runBtn.textContent = '⏳ Seite wird geladen…';
+        resultEl.innerHTML = '';
+        fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(urlVal))
+          .then(function(r) { return r.text(); })
+          .then(function(html) {
+            runBtn.textContent = '⏳ KI analysiert…';
+            var tmp = document.createElement('div'); tmp.innerHTML = html;
+            var calText = (tmp.textContent || tmp.innerText || '').replace(/\s+/g, ' ').trim();
+            if (!calText || calText.length < 50) { runBtn.disabled = false; runBtn.textContent = '🔍 Meine Termine erkennen'; resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Seite konnte nicht geladen werden. Text-Tab verwenden.</p>'; return; }
+            runKI(calText, addr, selectedTypes);
+          })
+          .catch(function() {
+            runBtn.disabled = false; runBtn.textContent = '🔍 Meine Termine erkennen';
+            resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Link konnte nicht geladen werden. Seite manuell öffnen und Text kopieren.</p>';
+          });
+      } else {
+        var input = el('mkiText') ? el('mkiText').value.trim() : '';
+        if (!input) { toast('Kalendertext einfügen'); return; }
+        runBtn.disabled = true; runBtn.textContent = '⏳ KI analysiert…';
+        resultEl.innerHTML = '';
+        runKI(input, addr, selectedTypes);
+      }
     });
   }
 
