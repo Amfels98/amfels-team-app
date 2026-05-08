@@ -1926,7 +1926,15 @@ function showMuellkalender() {
     body.innerHTML = '';
     var VALID_TYPES = MULL_TYPES.map(function(t) { return t.key; });
     var REPEAT_LABELS2 = {none:'Einmalig',weekly:'Wöchentlich',biweekly:'Alle 2 Wo.',fourweekly:'Alle 4 Wo.',monthly:'Monatlich'};
-    var PROXY = 'https://api.allorigins.win/raw?url=';
+
+    /* Proxy fallback chain */
+    function proxyFetch(url) {
+      return fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url))
+        .then(function(r) { if (!r.ok) throw new Error(); return r.text(); })
+        .catch(function() {
+          return fetch('https://corsproxy.io/?' + url).then(function(r) { return r.text(); });
+        });
+    }
 
     var backBtn = document.createElement('button');
     backBtn.className = 'btn-d'; backBtn.style.cssText = 'margin-bottom:0.75rem;font-size:0.78rem';
@@ -2018,15 +2026,28 @@ function showMuellkalender() {
 
     var runBtn = document.createElement('button');
     runBtn.className = 'btn-g'; runBtn.style.cssText = 'width:100%;margin-top:0.6rem';
-    runBtn.textContent = '🔍 Kalender automatisch suchen & einlesen';
+    runBtn.textContent = '🔍 Automatisch suchen & einlesen';
     body.appendChild(runBtn);
 
+    /* Direct URL input */
+    var urlToggle = document.createElement('button');
+    urlToggle.className = 'btn-d'; urlToggle.style.cssText = 'width:100%;margin-top:0.35rem;font-size:0.74rem';
+    urlToggle.textContent = '🔗 Ich habe den direkten Kalender-Link';
+    body.appendChild(urlToggle);
+    var urlPanel = document.createElement('div'); urlPanel.style.cssText = 'display:none;margin-top:0.35rem';
+    urlPanel.innerHTML = '<div class="fg"><label class="fl" style="margin-bottom:0.3rem">Kalender-Link (.ics oder Gemeinde-Seite)</label><input class="inp" id="mkiUrl" placeholder="https://gemeinde.at/abfall/kalender.ics" autocomplete="off"></div><button class="btn-g" style="width:100%" id="mkiUrlRun">📥 Kalender laden</button>';
+    body.appendChild(urlPanel);
+    urlToggle.addEventListener('click', function() {
+      urlPanel.style.display = urlPanel.style.display==='none' ? '' : 'none';
+      if (urlPanel.style.display!=='none') { var inp=urlPanel.querySelector('#mkiUrl'); if(inp)inp.focus(); }
+    });
+
     var fallbackToggle = document.createElement('button');
-    fallbackToggle.className = 'btn-d'; fallbackToggle.style.cssText = 'width:100%;margin-top:0.4rem;font-size:0.74rem';
+    fallbackToggle.className = 'btn-d'; fallbackToggle.style.cssText = 'width:100%;margin-top:0.35rem;font-size:0.74rem';
     fallbackToggle.textContent = '📋 Kalendertext manuell einfügen';
     body.appendChild(fallbackToggle);
     var fallbackPanel = document.createElement('div'); fallbackPanel.style.cssText = 'display:none;margin-top:0.4rem';
-    fallbackPanel.innerHTML = '<textarea class="inp" id="mkiText" style="height:100px;resize:vertical" placeholder="Text vom Abfallkalender hier einfügen…"></textarea><button class="btn-g" style="width:100%;margin-top:0.4rem" id="mkiTextRun">🔍 Aus Text erkennen</button>';
+    fallbackPanel.innerHTML = '<textarea class="inp" id="mkiText" style="height:90px;resize:vertical" placeholder="Text vom Abfallkalender hier einfügen…"></textarea><button class="btn-g" style="width:100%;margin-top:0.35rem" id="mkiTextRun">🔍 Aus Text erkennen</button>';
     body.appendChild(fallbackPanel);
     fallbackToggle.addEventListener('click', function() { fallbackPanel.style.display = fallbackPanel.style.display === 'none' ? '' : 'none'; });
 
@@ -2038,147 +2059,179 @@ function showMuellkalender() {
       var t = []; typesRow.querySelectorAll('.chip.on').forEach(function(c) { t.push(c.getAttribute('data-mtype')); }); return t;
     }
     function cityFromAddr(a) {
-      var parts = a.split(','); var raw = parts.length > 1 ? parts[parts.length-1].trim() : parts[0].trim();
-      return raw.replace(/^\d{4,5}\s*/, '').trim();
+      var parts=a.split(','); var raw=parts.length>1?parts[parts.length-1].trim():parts[0].trim();
+      return raw.replace(/^\d{4,5}\s*/,'').trim();
     }
 
-    /* ── ICS PARSER (no KI needed — 100% reliable) ── */
+    /* ── ICS PARSING ── */
+    function unfoldICS(text) { return text.replace(/\r\n[ \t]/g,'').replace(/\n[ \t]/g,''); }
     function mapICSType(s) {
-      s = (s||'').toLowerCase().replace(/ü/g,'u').replace(/ä/g,'a').replace(/ö/g,'o');
-      if (/restm|hausm|grau|schwarze|rest.?abf|rest.?mull/.test(s)) return 'Restmüll';
-      if (/biom|bio.?abf|braune|kompost|org/.test(s))               return 'Biomüll';
-      if (/gelb|plastik|leicht|dsd|grune tonne|wert.?stoff/.test(s)) return 'Gelber Sack';
-      if (/papier|pappe|karton|alte.?papier|blau/.test(s))           return 'Papier';
-      if (/glas|altglas/.test(s))                                     return 'Glas';
+      s = (s||'').toLowerCase().replace(/ü/g,'u').replace(/ä/g,'a').replace(/ö/g,'o').replace(/ß/g,'ss');
+      if (/restm|hausm|grau|schwarze|rest.?abf|rest.?mull|hausabf|gemischte/.test(s)) return 'Restmüll';
+      if (/biom|bio.?abf|braune|kompost|speise|grun.?abf/.test(s)) return 'Biomüll';
+      if (/gelb|plastik|leicht|dsd|grune.?tonne|wert.?stoff|verpack/.test(s)) return 'Gelber Sack';
+      if (/papier|pappe|karton|alte.?papier|blau|zeitun/.test(s)) return 'Papier';
+      if (/glas|altglas/.test(s)) return 'Glas';
       return null;
     }
-    function parseICS(text, selectedTypes) {
-      var events = [];
-      var seen = {};
-      var blocks = text.split(/BEGIN:VEVENT/i);
-      blocks.slice(1).forEach(function(block) {
-        var dtm = block.match(/DTSTART[^:]*:(\d{8})/i);
-        var sum = block.match(/SUMMARY[^:]*:([^\r\n]+)/i);
-        if (!dtm || !sum) return;
-        var ds = dtm[1];
-        var date = ds.slice(0,4)+'-'+ds.slice(4,6)+'-'+ds.slice(6,8);
-        var type = mapICSType(sum[1].trim());
-        if (type && selectedTypes.indexOf(type) >= 0) {
-          var key = type + '|' + date;
-          if (!seen[key]) { seen[key] = true; events.push({type:type, date:date, repeat:'none'}); }
+    function groupRepeat(evts) {
+      var byType = {};
+      evts.forEach(function(e){if(!byType[e.type])byType[e.type]=[];byType[e.type].push(e.date);});
+      var result = [];
+      Object.keys(byType).forEach(function(type) {
+        var dates = byType[type].filter(function(d,i,a){return a.indexOf(d)===i;}).sort();
+        if (dates.length < 3) { dates.forEach(function(d){result.push({type:type,date:d,repeat:'none'});}); return; }
+        var diffs = [];
+        for (var i=1;i<dates.length;i++) diffs.push(Math.round((new Date(dates[i])-new Date(dates[i-1]))/86400000));
+        var avg = diffs.reduce(function(a,b){return a+b;},0)/diffs.length;
+        var ok = diffs.every(function(d){return Math.abs(d-avg)<=4;});
+        var rep = 'none';
+        if (ok) {
+          if (avg>=5&&avg<=9) rep='weekly';
+          else if (avg>=11&&avg<=17) rep='biweekly';
+          else if (avg>=25&&avg<=35) rep='fourweekly';
         }
+        if (rep!=='none') result.push({type:type,date:dates[0],repeat:rep,repeatEnd:dates[dates.length-1]});
+        else dates.forEach(function(d){result.push({type:type,date:d,repeat:'none'});});
       });
-      events.sort(function(a,b) { return a.date < b.date ? -1 : 1; });
-      return events;
+      result.sort(function(a,b){return a.date<b.date?-1:1;});
+      return result;
+    }
+    function parseICS(text, selectedTypes) {
+      text = unfoldICS(text);
+      var raw = [];
+      text.split(/BEGIN:VEVENT/i).slice(1).forEach(function(block) {
+        var dtm = block.match(/DTSTART[^:]*:(\d{8})/i);
+        if (!dtm) return;
+        var date = dtm[1].slice(0,4)+'-'+dtm[1].slice(4,6)+'-'+dtm[1].slice(6,8);
+        var sum  = block.match(/SUMMARY[^:]*:([^\r\n]+)/i);
+        var desc = block.match(/DESCRIPTION[^:]*:([^\r\n]+)/i);
+        var type = mapICSType(((sum?sum[1]:'')+(desc?' '+desc[1]:'')).trim());
+        if (type && selectedTypes.indexOf(type)>=0) raw.push({type:type,date:date});
+      });
+      return groupRepeat(raw);
     }
 
-    /* ── URL SCORING ── */
+    /* ── URL SCORING & EXTRACTION ── */
     function scoreUrl(u) {
-      var l = u.toLowerCase();
-      var s = 0;
-      if (l.indexOf('.ics') >= 0 || l.indexOf('ical') >= 0 || l.indexOf('calendar') >= 0) s += 6;
-      if (/abfall|m.ll|entsorg|recycl|muell/.test(l)) s += 3;
-      if (/kalender|plan|termin|abfuhr/.test(l)) s += 2;
-      if (/\.at(\/|$)/.test(l)) s += 1;
-      if (/gemeinde|stadt|markt/.test(l)) s += 1;
+      var l=u.toLowerCase(); var s=0;
+      if (/\.ics(\?|$)/.test(l))                                  s+=10;
+      if (/ical|vcalendar|kalender\.php|export.*cal/.test(l))     s+=7;
+      if (/abfall|muell|m.ll|entsorg|abfuhr/.test(l))             s+=3;
+      if (/kalender|plan|termin|download/.test(l))                 s+=2;
+      if (/saubermacher|awv|gav|eav|umweltprofis/.test(l))        s+=2;
+      if (/\.at(\/|$|\?)/.test(l))                                 s+=1;
+      if (/gemeinde|stadtgemeinde|marktgemeinde/.test(l))          s+=1;
       return s;
     }
     function extractUrls(html) {
-      var found = []; var seen = {};
-      var re = /href=["']?(https?:\/\/[^"'\s>]+)/gi; var m;
-      var skip = /google|duckduck|bing|facebook|wikipedia|twitter|youtube|maps\.google|gstatic|w3\.org/i;
-      while ((m = re.exec(html)) !== null) {
-        var u = m[1].replace(/&amp;/g,'&').split('#')[0];
-        if (skip.test(u) || seen[u]) continue;
-        seen[u] = true; found.push(u);
+      var found=[]; var seen={};
+      var re=/href=["']?(https?:\/\/[^"'\s>]+)/gi; var m;
+      var skip=/google|duckduck|bing|facebook|wikipedia|twitter|youtube|gstatic|w3\.org|cloudflare|jquery/i;
+      while ((m=re.exec(html))!==null) {
+        var u=m[1].replace(/&amp;/g,'&').split('#')[0];
+        if (skip.test(u)||seen[u]) continue;
+        seen[u]=true; found.push(u);
       }
-      found.sort(function(a,b) { return scoreUrl(b)-scoreUrl(a); });
+      found.sort(function(a,b){return scoreUrl(b)-scoreUrl(a);});
       return found;
     }
 
-    /* ── KI TEXT EXTRACTION (fallback when no ICS found) ── */
+    /* ── KI TEXT EXTRACTION (last resort) ── */
     function extractWithKI(calText, addr, sel) {
-      setStep(3, '⏳');
+      setStep(3, '🤖 KI analysiert…');
       var prompt =
-        'Österreichischer Abfallkalender. Meine Adresse: ' + addr + '. Müllarten: ' + sel.join(', ') + '.\n' +
-        'Extrahiere NUR Abholtermine für MEINE Straße + MEINE Müllarten.\n' +
-        'Antworte NUR JSON-Array:\n[{"type":"Restmüll","date":"2026-01-05","repeat":"none"},...]\n' +
+        'Österreichischer Abfallkalender. Adresse: ' + addr + '. Müllarten: ' + sel.join(', ') + '.\n' +
+        'Extrahiere alle Abholtermine für diese Adresse.\n' +
+        'Nur JSON: [{"type":"Restmüll","date":"2026-01-05","repeat":"none"},...]\n' +
         'Typen: ' + sel.join('|') + '. Datum YYYY-MM-DD. Jahr: ' + new Date().getFullYear() + '.\n' +
-        'repeat: none|weekly|biweekly|fourweekly|monthly (wenn wiederkehrend: nur 1. Termin, optional repeatEnd)\n' +
-        'Straße nicht vorhanden → NICHT_GEFUNDEN\n\nText:\n' + calText.slice(0, 15000);
+        'repeat: none|weekly|biweekly|fourweekly — wenn Muster: nur 1. Termin + repeatEnd:"YYYY-MM-DD"\n' +
+        'Nicht gefunden → nur: NICHT_GEFUNDEN\n\nText:\n' + calText.slice(0, 14000);
       fetch('https://text.pollinations.ai/', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({messages:[{role:'system',content:'JSON-only data extractor.'},{role:'user',content:prompt}],model:'openai',private:true})
+        body:JSON.stringify({messages:[{role:'system',content:'JSON-only extractor.'},{role:'user',content:prompt}],model:'openai',private:true})
       })
       .then(function(r){return r.text();})
       .then(function(raw) {
-        runBtn.disabled = false; runBtn.textContent = '🔍 Kalender automatisch suchen & einlesen';
-        raw = (raw||'').trim();
-        if (raw.indexOf('NICHT_GEFUNDEN') >= 0) { showFail('Straße nicht im Kalender. Schreibweise prüfen.'); return; }
-        var mm = raw.match(/\[[\s\S]*?\]/);
+        resetBtn(); raw=(raw||'').trim();
+        if (raw.indexOf('NICHT_GEFUNDEN')>=0) { showFail('Straße nicht gefunden. Adresse prüfen oder Link direkt eingeben.'); return; }
+        var mm=raw.match(/\[[\s\S]*?\]/);
         if (!mm) { showFail('Keine Termine erkannt.'); return; }
-        var parsed; try { parsed = JSON.parse(mm[0]); } catch(e) { showFail('Fehler beim Verarbeiten.'); return; }
-        parsed = parsed.filter(function(e){return e.date&&e.type&&VALID_TYPES.indexOf(e.type)>=0;});
+        var parsed; try{parsed=JSON.parse(mm[0]);}catch(e){showFail('Fehler beim Verarbeiten.');return;}
+        parsed=parsed.filter(function(e){return e.date&&e.type&&VALID_TYPES.indexOf(e.type)>=0;});
         showResults(parsed);
       })
-      .catch(function() { runBtn.disabled=false; runBtn.textContent='🔍 Kalender automatisch suchen & einlesen'; showFail('Verbindungsfehler.'); });
+      .catch(function(){resetBtn(); showFail('Verbindungsfehler.');});
     }
 
-    /* ── TRY URLS: ICS first, then HTML ── */
+    /* ── TRY URLS ── */
     function tryUrls(urls, addr, sel) {
-      if (!urls.length) { runBtn.disabled=false; runBtn.textContent='🔍 Kalender automatisch suchen & einlesen'; setStep(1,''); showFail('Kalender nicht gefunden. Text manuell einfügen.'); fallbackPanel.style.display=''; return; }
-      var url = urls[0]; var rest = urls.slice(1);
-      var isICS = url.toLowerCase().indexOf('.ics') >= 0 || url.toLowerCase().indexOf('ical') >= 0;
-      fetch(PROXY + encodeURIComponent(url))
-        .then(function(r){return r.text();})
+      if (!urls.length) { resetBtn(); setStep(1,''); showFail('Kalender nicht gefunden. Bitte Link direkt eingeben (→ Gemeinde-Website → Abfall → Kalender downloaden → Link kopieren) oder Text einfügen.'); return; }
+      var url=urls[0]; var rest=urls.slice(1);
+      var ul=url.toLowerCase(); var isICS=ul.indexOf('.ics')>=0||ul.indexOf('ical')>=0;
+      var domain=url.replace(/https?:\/\//,'').split('/')[0];
+      setStep(3, '⏳ ' + domain + '…');
+      proxyFetch(url)
         .then(function(content) {
-          if (isICS || content.indexOf('BEGIN:VCALENDAR') >= 0) {
-            var events = parseICS(content, sel);
-            if (events.length) { localStorage.setItem('af_mull_url', url); showResults(events); return; }
+          if (isICS||content.indexOf('BEGIN:VCALENDAR')>=0) {
+            var events=parseICS(content,sel);
+            if (events.length) { localStorage.setItem('af_mull_url',url); showResults(events); return; }
+            tryUrls(rest,addr,sel); return;
           }
-          /* Look for ICS links in HTML page */
-          var icsLinks = extractUrls(content).filter(function(u){ return u.toLowerCase().indexOf('.ics')>=0||u.toLowerCase().indexOf('ical')>=0; });
-          if (icsLinks.length) { tryUrls(icsLinks.concat(rest), addr, sel); return; }
-          /* Use KI on text */
-          var tmp = document.createElement('div'); tmp.innerHTML = content;
-          /* Strip scripts/styles from text */
-          tmp.querySelectorAll('script,style,nav,header,footer').forEach(function(n){n.parentNode&&n.parentNode.removeChild(n);});
-          var text = (tmp.textContent||tmp.innerText||'').replace(/\s+/g,' ').trim();
-          if (text.length > 300) { localStorage.setItem('af_mull_url', url); extractWithKI(text, addr, sel); }
-          else { tryUrls(rest, addr, sel); }
+          var icsLinks=extractUrls(content).filter(function(u){return u.toLowerCase().indexOf('.ics')>=0||u.toLowerCase().indexOf('ical')>=0;});
+          if (icsLinks.length) { tryUrls(icsLinks.slice(0,5).concat(rest),addr,sel); return; }
+          var tmp=document.createElement('div'); tmp.innerHTML=content;
+          tmp.querySelectorAll('script,style,nav,header,footer,aside').forEach(function(n){n.parentNode&&n.parentNode.removeChild(n);});
+          var text=(tmp.textContent||tmp.innerText||'').replace(/\s+/g,' ').trim();
+          if (text.length>500) { localStorage.setItem('af_mull_url',url); extractWithKI(text,addr,sel); }
+          else tryUrls(rest,addr,sel);
         })
-        .catch(function(){tryUrls(rest, addr, sel);});
+        .catch(function(){tryUrls(rest,addr,sel);});
     }
 
-    /* ── SEARCH ── */
+    /* ── SEARCH: SearXNG JSON (primary) → DDG HTML (fallback) ── */
     function search(query) {
-      return fetch(PROXY + encodeURIComponent('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query)))
-        .then(function(r){return r.text();})
-        .then(extractUrls);
+      var q=encodeURIComponent(query);
+      return proxyFetch('https://searx.be/search?q='+q+'&format=json&language=de-AT')
+        .then(function(text){
+          var data=JSON.parse(text);
+          return (data.results||[]).map(function(r){return r.url;}).filter(Boolean);
+        })
+        .catch(function(){
+          return proxyFetch('https://html.duckduckgo.com/html/?q='+q)
+            .then(extractUrls).catch(function(){return [];});
+        });
     }
+
+    function resetBtn() { runBtn.disabled=false; runBtn.textContent='🔍 Automatisch suchen & einlesen'; }
 
     function showResults(parsed) {
-      runBtn.disabled = false; runBtn.textContent = '🔍 Kalender automatisch suchen & einlesen';
-      if (!parsed.length) { showFail('Keine Termine erkannt. Text manuell einfügen.'); return; }
-      setStep(4, '');
-      var preview = document.createElement('div');
-      var pHdr = document.createElement('p'); pHdr.style.cssText = 'font-size:0.75rem;font-weight:600;color:var(--gold);margin:0 0 0.4rem';
-      pHdr.textContent = parsed.length + ' Termine erkannt:'; preview.appendChild(pHdr);
+      resetBtn();
+      if (!parsed.length) { showFail('Keine Termine erkannt.'); return; }
+      setStep(4,'');
+      var preview=document.createElement('div');
+      var hdr=document.createElement('p');
+      hdr.style.cssText='font-size:0.75rem;font-weight:600;color:var(--gold);margin:0 0 0.4rem';
+      hdr.textContent=parsed.length+' Einträge erkannt:'; preview.appendChild(hdr);
       parsed.forEach(function(e) {
-        var row = document.createElement('div'); row.className = 'card';
-        row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;border-left:3px solid '+mullColor(e.type);
-        row.innerHTML = '<span>'+mullIcon(e.type)+'</span><div style="flex:1"><div style="font-size:0.82rem;font-weight:500">'+esc(e.type)+'</div><div style="font-size:0.65rem;color:var(--dim)">'+esc(e.date)+' · '+esc(REPEAT_LABELS2[e.repeat||'none']||'')+(e.repeatEnd?' bis '+esc(e.repeatEnd):'')+' </div></div>';
+        var row=document.createElement('div'); row.className='card';
+        row.style.cssText='display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;border-left:3px solid '+mullColor(e.type);
+        var repTxt=e.repeat&&e.repeat!=='none'?(REPEAT_LABELS2[e.repeat]||e.repeat)+(e.repeatEnd?' bis '+e.repeatEnd:''):'';
+        row.innerHTML='<span>'+mullIcon(e.type)+'</span><div style="flex:1"><div style="font-size:0.82rem;font-weight:500">'+esc(e.type)+'</div><div style="font-size:0.65rem;color:var(--dim)">'+esc(e.date)+(repTxt?' · '+esc(repTxt):'')+' </div></div>';
         preview.appendChild(row);
       });
-      var importBtn = document.createElement('button'); importBtn.className='btn-g'; importBtn.style.cssText='width:100%;margin-top:0.5rem';
-      importBtn.textContent = '✓ Alle '+parsed.length+' Termine eintragen';
+      var importBtn=document.createElement('button'); importBtn.className='btn-g'; importBtn.style.cssText='width:100%;margin-top:0.5rem';
+      importBtn.textContent='✓ Alle '+parsed.length+' Einträge eintragen';
       importBtn.addEventListener('click', function() {
         importBtn.disabled=true; importBtn.textContent='⏳ Wird eingetragen…';
         var done=0;
         parsed.forEach(function(e) {
           var entry={type:e.type,date:e.date,repeat:e.repeat||'none',by:me,ts:Date.now()};
           if (e.repeatEnd) entry.repeatEnd=e.repeatEnd;
-          dbPost('/muell', entry, function(err,key){ if(key){mullData[key]=entry;mullData[key].id=key;} done++; if(done===parsed.length){loadDashExtras();toast('✓ '+parsed.length+' Termine eingetragen');render();} });
+          dbPost('/muell',entry,function(err,key){
+            if(key){mullData[key]=entry;mullData[key].id=key;}
+            done++; if(done===parsed.length){loadDashExtras();toast('✓ '+parsed.length+' Einträge eingetragen');render();}
+          });
         });
       });
       preview.appendChild(importBtn);
@@ -2186,8 +2239,9 @@ function showMuellkalender() {
     }
 
     function showFail(msg) {
-      resultEl.innerHTML = '<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:10px;padding:0.65rem 0.85rem;font-size:0.8rem"><div style="font-weight:600;margin-bottom:0.2rem">Nicht gefunden</div><div style="color:var(--dim)">'+esc(msg)+'</div></div>';
-      fallbackPanel.style.display = '';
+      resetBtn(); setStep(1,'');
+      resultEl.innerHTML='<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:10px;padding:0.65rem 0.85rem;font-size:0.8rem"><div style="font-weight:600;margin-bottom:0.2rem">Nicht gefunden</div><div style="color:var(--dim);white-space:pre-line">'+esc(msg)+'</div></div>';
+      urlPanel.style.display='';
     }
 
     /* ── MANUAL TEXT FALLBACK ── */
@@ -2196,40 +2250,47 @@ function showMuellkalender() {
       var addr=addrInput.value.trim(); var input=el('mkiText')?el('mkiText').value.trim():''; var sel=getSelectedTypes();
       if (!addr){toast('Adresse eingeben');return;} if(!input){toast('Text einfügen');return;} if(!sel.length){toast('Müllart auswählen');return;}
       localStorage.setItem('af_mull_addr',addr); localStorage.setItem('af_mull_types',JSON.stringify(sel));
-      runBtn.disabled=true; resultEl.innerHTML='';
-      extractWithKI(input, addr, sel);
+      resultEl.innerHTML='';
+      extractWithKI(input,addr,sel);
+    });
+
+    /* ── DIRECT URL FLOW ── */
+    urlPanel.querySelector('#mkiUrlRun').addEventListener('click', function() {
+      var urlVal=urlPanel.querySelector('#mkiUrl').value.trim();
+      if (!urlVal){toast('Link eingeben');return;}
+      var addr=addrInput.value.trim()||'Unbekannt';
+      var sel=getSelectedTypes();
+      if (!sel.length){toast('Müllart auswählen');return;}
+      localStorage.setItem('af_mull_types',JSON.stringify(sel));
+      resultEl.innerHTML=''; setStep(3,'⏳ Lade Kalender…');
+      tryUrls([urlVal],addr,sel);
     });
 
     /* ── MAIN AUTO FLOW ── */
     runBtn.addEventListener('click', function() {
-      var addr = addrInput.value.trim();
-      if (!addr) { toast('Adresse eingeben'); return; }
-      var sel = getSelectedTypes();
-      if (!sel.length) { toast('Müllart auswählen'); return; }
-      localStorage.setItem('af_mull_addr', addr);
-      localStorage.setItem('af_mull_types', JSON.stringify(sel));
-
-      runBtn.disabled = true; setStep(2, '⏳'); resultEl.innerHTML = '';
-      var city = cityFromAddr(addr);
-      var street = addr.split(',')[0].replace(/\d+.*$/,'').trim();
-
-      /* Run 3 searches in parallel: ICS-specific, street-specific, city-level */
+      var addr=addrInput.value.trim();
+      if (!addr){toast('Adresse eingeben');return;}
+      var sel=getSelectedTypes();
+      if (!sel.length){toast('Müllart auswählen');return;}
+      localStorage.setItem('af_mull_addr',addr); localStorage.setItem('af_mull_types',JSON.stringify(sel));
+      runBtn.disabled=true; runBtn.textContent='⏳ Suche läuft…';
+      setStep(2,'⏳ Sucht…'); resultEl.innerHTML='';
+      var city=cityFromAddr(addr);
+      var street=addr.split(',')[0].replace(/\s*\d+[a-z]?$/i,'').trim();
       Promise.all([
-        search(city + ' Abfallkalender ical ICS herunterladen Österreich').catch(function(){return[];}),
-        search(street + ' ' + city + ' Abfallkalender Müllabfuhr Termine 2026').catch(function(){return[];}),
-        search(city + ' Abfallkalender Gemeinde Entsorgung 2026').catch(function(){return[];})
+        search('"'+city+'" Abfallkalender ICS download site:.at'),
+        search(city+' Abfallkalender ical ICS Österreich'),
+        search(street+' '+city+' Müllabfuhr Termine 2026'),
+        search(city+' Saubermacher awv Abfallkalender 2026')
       ]).then(function(results) {
-        var all = results[0].concat(results[1]).concat(results[2]);
-        /* Deduplicate + sort: ICS files first, then by score */
-        var seen = {}; var candidates = [];
-        all.forEach(function(u){ if(!seen[u]){seen[u]=true;candidates.push(u);} });
+        var all=results[0].concat(results[1]).concat(results[2]).concat(results[3]);
+        var seen={}; var candidates=[];
+        all.forEach(function(u){if(!seen[u]){seen[u]=true;candidates.push(u);}});
         candidates.sort(function(a,b){return scoreUrl(b)-scoreUrl(a);});
-        setStep(3,'⏳');
-        tryUrls(candidates.slice(0,10), addr, sel);
+        tryUrls(candidates.slice(0,12),addr,sel);
       }).catch(function(){
-        runBtn.disabled=false; runBtn.textContent='🔍 Kalender automatisch suchen & einlesen';
-        setStep(1,''); showFail('Suche fehlgeschlagen. Text manuell einfügen.');
-        fallbackPanel.style.display='';
+        resetBtn(); setStep(1,'');
+        showFail('Suche fehlgeschlagen.\nLink direkt eingeben oder Text manuell einfügen.');
       });
     });
   }
