@@ -2140,45 +2140,76 @@ function showMuellkalender() {
     /* ── PDF SUPPORT ── */
     function showPDFInstructions(url) {
       resetBtn(); setStep(1,'');
-      resultEl.innerHTML =
-        '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:0.85rem">' +
-        '<div style="font-weight:600;font-size:0.85rem;margin-bottom:0.5rem">📄 PDF erkannt</div>' +
-        '<div style="font-size:0.75rem;color:var(--dim);line-height:1.7;margin-bottom:0.65rem">' +
-        '1. PDF öffnen<br>' +
-        '2. Alles markieren: <strong style="color:var(--text)">Strg+A</strong> (PC) · auf iPhone: antippen+halten → Alles auswählen<br>' +
-        '3. Kopieren: <strong style="color:var(--text)">Strg+C</strong><br>' +
-        '4. Unten einfügen und Erkennen klicken' +
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:0.85rem';
+      wrap.innerHTML =
+        '<div style="font-weight:600;font-size:0.85rem;margin-bottom:0.35rem">📄 PDF erkannt</div>' +
+        '<div style="font-size:0.72rem;color:var(--dim);line-height:1.6;margin-bottom:0.6rem">' +
+        'PDF öffnen → alles markieren → kopieren → hier einfügen:' +
         '</div>' +
-        '<a href="' + esc(url) + '" target="_blank" rel="noopener" style="display:block;padding:0.7rem;text-align:center;background:var(--gold);color:#000;border-radius:10px;text-decoration:none;font-weight:600;font-size:0.84rem">📄 PDF öffnen →</a>' +
-        '</div>';
-      fallbackPanel.style.display = '';
+        '<a href="' + esc(url) + '" target="_blank" rel="noopener" style="display:block;padding:0.65rem;text-align:center;background:var(--gold);color:#000;border-radius:10px;text-decoration:none;font-weight:600;font-size:0.84rem;margin-bottom:0.5rem">📄 PDF öffnen →</a>' +
+        '<textarea id="mkiPDFText" class="inp" style="height:110px;resize:vertical;margin-bottom:0.4rem" placeholder="Text aus PDF hier einfügen…"></textarea>' +
+        '<button class="btn-g" style="width:100%" id="mkiPDFRun">🔍 Termine erkennen & automatisch eintragen</button>';
+      resultEl.innerHTML = ''; resultEl.appendChild(wrap);
+      wrap.querySelector('#mkiPDFRun').addEventListener('click', function() {
+        var txt = wrap.querySelector('#mkiPDFText').value.trim();
+        var addr = addrInput.value.trim();
+        var sel = getSelectedTypes();
+        if (!txt) { toast('Text einfügen'); return; }
+        if (!addr) { toast('Adresse eingeben'); return; }
+        if (!sel.length) { toast('Müllart auswählen'); return; }
+        localStorage.setItem('af_mull_addr', addr);
+        localStorage.setItem('af_mull_types', JSON.stringify(sel));
+        extractWithKI(txt, addr, sel);
+      });
+    }
+    function setStatus(msg) {
+      resultEl.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center;font-size:0.82rem;color:var(--dim)">' + msg + '</div>';
     }
     function loadPDFJS(cb) {
       if (window.pdfjsLib) { cb(); return; }
       var s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js';
+      s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
       s.onload = function() {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
         cb();
       };
       s.onerror = function() { cb(new Error('load')); };
       document.head.appendChild(s);
     }
-    function fetchAndParsePDF(url, addr, sel) {
-      setStep(3, '📄 PDF…');
-      resultEl.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center"><div style="font-size:0.82rem;color:var(--dim);margin-bottom:0.3rem">📄 PDF wird geladen…</div><div style="font-size:0.68rem;opacity:.6;color:var(--dim)">kann 5–10 Sek. dauern</div></div>';
-      var giveUp = setTimeout(function() { showPDFInstructions(url); }, 12000);
-      loadPDFJS(function(err) {
-        if (err) { clearTimeout(giveUp); showPDFInstructions(url); return; }
-        fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url))
+    function fetchBinary(url) {
+      var proxies = [
+        'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+        'https://corsproxy.io/?' + encodeURIComponent(url),
+        'https://thingproxy.freeboard.io/fetch/' + url
+      ];
+      function tryNext(i) {
+        if (i >= proxies.length) return Promise.reject(new Error('all failed'));
+        return fetch(proxies[i])
           .then(function(r) { return r.arrayBuffer(); })
           .then(function(buf) {
-            var magic = new Uint8Array(buf.slice(0, 5));
-            if (String.fromCharCode(magic[0],magic[1],magic[2],magic[3]) !== '%PDF') throw new Error('not a pdf');
-            resultEl.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center"><div style="font-size:0.82rem;color:var(--dim)">📄 PDF wird gelesen…</div></div>';
+            var m = new Uint8Array(buf.slice(0, 4));
+            if (String.fromCharCode(m[0],m[1],m[2],m[3]) !== '%PDF') throw new Error('not pdf');
+            return buf;
+          })
+          .catch(function() { return tryNext(i + 1); });
+      }
+      return tryNext(0);
+    }
+    function fetchAndParsePDF(url, addr, sel) {
+      setStep(3, '📄 PDF…');
+      setStatus('⏳ PDF.js wird geladen…');
+      var giveUp = setTimeout(function() { showPDFInstructions(url); }, 30000);
+      loadPDFJS(function(err) {
+        if (err) { clearTimeout(giveUp); showPDFInstructions(url); return; }
+        setStatus('⏳ PDF wird heruntergeladen…<br><span style="font-size:0.68rem;opacity:.6">kann 5–15 Sek. dauern</span>');
+        fetchBinary(url)
+          .then(function(buf) {
+            setStatus('📄 PDF wird gelesen…');
             return window.pdfjsLib.getDocument({data: buf}).promise;
           })
           .then(function(pdf) {
+            setStatus('📄 ' + pdf.numPages + ' Seiten werden ausgelesen…');
             var ps = [];
             for (var i = 1; i <= pdf.numPages; i++) {
               (function(n) {
