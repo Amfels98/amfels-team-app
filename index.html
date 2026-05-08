@@ -468,6 +468,8 @@
         <div class="scard"><div class="snum" id="sE">0</div><div class="slabel">Heute erledigt</div></div>
       </div>
       <div id="dFeiertage" style="margin-bottom:0.6rem"></div>
+      <!-- Trinkgeld heute -->
+      <div id="dTrinkgeld" style="margin-bottom:0.6rem"></div>
       <p class="dlabel">Offene Aufgaben</p>
       <div id="dUrgent"></div>
       <p class="dlabel">Daueraufgaben heute</p>
@@ -3248,6 +3250,68 @@ async function sendNachricht() {
   fetch(`${DB_URL}/nachrichten/${msg.id}.json`,{method:'PUT',body:JSON.stringify(msg),headers:{'Content-Type':'application/json'}}).catch(()=>{});
 }
 
+// ── TRINKGELD ──
+let trinkgeldData = [];
+
+async function loadTrinkgeld() {
+  if (!DB_URL) { renderTrinkgeld(); return; }
+  try {
+    const res = await fetch(`${DB_URL}/trinkgeld.json`, {cache:'no-store'});
+    const data = await res.json();
+    trinkgeldData = data ? Object.values(data).sort((a,b)=>(b.ts||0)-(a.ts||0)) : [];
+    renderTrinkgeld();
+  } catch {}
+}
+
+function renderTrinkgeld() {
+  const el = document.getElementById('dTrinkgeld');
+  if (!el) return;
+  const today = new Date().toLocaleDateString('de-DE');
+  const todayEntries = trinkgeldData.filter(t => t.datum === today);
+  const total = todayEntries.reduce((s,t)=>s+(parseFloat(t.betrag)||0),0);
+  el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:0.85rem 0.9rem;margin-bottom:0.5rem;display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="font-size:0.62rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.2rem">Trinkgeld heute</div>
+      <div style="font-size:1.5rem;font-weight:700;color:var(--gold)">${total.toFixed(2).replace('.',',')} €</div>
+      ${todayEntries.length?`<div style="font-size:0.65rem;color:var(--dim);margin-top:0.15rem">${todayEntries.length} Eintrag${todayEntries.length>1?'e':''}</div>`:''}
+    </div>
+    <button ontouchstart="openTrinkgeldModal();event.preventDefault()" onclick="openTrinkgeldModal()" style="background:var(--gold);color:#000;border:none;border-radius:11px;padding:0.55rem 1rem;font-family:Inter,sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;touch-action:manipulation">+ Eintragen</button>
+  </div>`;
+}
+
+function openTrinkgeldModal() {
+  const today = new Date().toLocaleDateString('de-DE');
+  const entries = trinkgeldData.filter(t=>t.datum===today);
+  const overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:3000;display:flex;align-items:flex-end;justify-content:center;padding:0.5rem';
+  const history = entries.slice(0,8).map(t=>`<div style="display:flex;justify-content:space-between;padding:0.35rem 0;border-top:1px solid rgba(255,255,255,0.05);font-size:0.82rem"><span style="color:var(--dim)">${t.by}</span><span style="color:var(--gold);font-weight:600">${parseFloat(t.betrag).toFixed(2).replace('.',',')} €</span></div>`).join('');
+  overlay.innerHTML=`<div style="background:var(--bg2);border-radius:18px 18px 0 0;padding:1.3rem 1rem max(2rem,env(safe-area-inset-bottom));width:100%;max-width:440px">
+    <p style="font-size:0.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:1rem">Trinkgeld eintragen</p>
+    <div style="display:flex;gap:0.55rem;margin-bottom:1rem">
+      <input id="tg-betrag" type="number" min="0" step="0.50" placeholder="0,00" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.75rem;font-family:Inter,sans-serif;font-size:1.3rem;font-weight:700;color:var(--gold);outline:none;text-align:center" />
+      <span style="display:flex;align-items:center;font-size:1.3rem;font-weight:700;color:var(--gold)">€</span>
+    </div>
+    <button ontouchstart="addTrinkgeld();event.preventDefault()" onclick="addTrinkgeld()" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:13px;padding:0.9rem;font-family:Inter,sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;touch-action:manipulation;margin-bottom:0.9rem">Speichern</button>
+    ${entries.length?`<p style="font-size:0.65rem;color:var(--dim);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.08em">Heute</p>${history}`:''}
+    <button ontouchstart="this.closest('[style*=fixed]').remove();event.preventDefault()" onclick="this.closest('[style*=fixed]').remove()" style="width:100%;background:none;border:none;color:var(--dim);font-family:Inter,sans-serif;font-size:0.82rem;cursor:pointer;padding-top:0.8rem;touch-action:manipulation">Schließen</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  setTimeout(()=>overlay.querySelector('#tg-betrag')?.focus(),200);
+}
+
+async function addTrinkgeld() {
+  const betrag = parseFloat(document.getElementById('tg-betrag')?.value);
+  if (!betrag || betrag <= 0) { toast('Bitte Betrag eingeben'); return; }
+  const entry = {id:Date.now(),ts:Date.now(),betrag,by:currentUser,datum:new Date().toLocaleDateString('de-DE'),at:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})};
+  trinkgeldData.unshift(entry);
+  renderTrinkgeld();
+  document.querySelector('[style*="position:fixed"][style*="z-index:3000"]')?.remove();
+  toast(`${betrag.toFixed(2).replace('.',',')} € Trinkgeld eingetragen ✓`);
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/trinkgeld/${entry.id}.json`,{method:'PUT',body:JSON.stringify(entry),headers:{'Content-Type':'application/json'}}).catch(()=>{});
+}
+
 // ── GEBURTSTAGE ──
 function checkBirthdays() {
   const today = new Date();
@@ -3408,6 +3472,7 @@ if(currentUser){
   loadInventar();
   loadNachrichten();
   checkBirthdays();
+  loadTrinkgeld();
 }
 
 ['tTitle','rTitle','oItem','rzName','alTitel'].forEach(id=>{
