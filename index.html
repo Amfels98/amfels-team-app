@@ -22,43 +22,43 @@
     html, body { height:100%; font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); overflow:hidden; -webkit-font-smoothing:antialiased; }
 
     /* ── LOGIN ── */
-    #loginScreen { position:fixed; inset:0; background:var(--bg); z-index:1000; display:flex; flex-direction:column; overflow:hidden; }
+    #loginScreen { position:fixed; inset:0; background:var(--bg); z-index:1000; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; padding:max(env(safe-area-inset-top),0.75rem) 1.5rem max(env(safe-area-inset-bottom),0.75rem); }
     #loginScreen.hidden { display:none; }
-    .ls-inner { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column; align-items:center; padding:env(safe-area-inset-top,2rem) 1.5rem 2rem; padding-top:max(2.5rem,env(safe-area-inset-top)); }
+    .ls-inner { width:100%; max-width:340px; display:flex; flex-direction:column; align-items:center; }
     /* Header */
-    .ll { font-size:0.6rem; letter-spacing:0.35em; color:var(--gold); text-transform:uppercase; margin-bottom:0.25rem; }
-    .lt { font-size:2rem; font-weight:200; letter-spacing:-0.02em; margin-bottom:0.1rem; }
-    .ls { font-size:0.7rem; color:var(--dim); margin-bottom:2rem; }
+    .ll { font-size:0.55rem; letter-spacing:0.35em; color:var(--gold); text-transform:uppercase; margin-bottom:0.2rem; }
+    .lt { font-size:1.8rem; font-weight:200; letter-spacing:-0.02em; margin-bottom:0.05rem; }
+    .ls { font-size:0.68rem; color:var(--dim); margin-bottom:1.1rem; }
     /* Steps */
-    .ls-step { width:100%; max-width:340px; display:none; flex-direction:column; align-items:center; }
+    .ls-step { width:100%; display:none; flex-direction:column; align-items:center; }
     .ls-step.active { display:flex; }
-    .ls-label { font-size:0.6rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:0.7rem; align-self:flex-start; }
+    .ls-label { font-size:0.6rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:0.6rem; align-self:flex-start; }
     /* Name grid */
-    .ngrid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; width:100%; margin-bottom:1.2rem; }
-    .nbtn { background:var(--bg3); border:1.5px solid var(--border); color:var(--text); padding:0.9rem 0.6rem; border-radius:16px; font-family:'Inter',sans-serif; font-size:0.88rem; font-weight:500; cursor:pointer; -webkit-tap-highlight-color:transparent; display:flex; flex-direction:column; align-items:center; gap:0.35rem; transition:border-color 0.15s,background 0.15s; active:none; }
+    .ngrid { display:grid; grid-template-columns:1fr 1fr; gap:0.45rem; width:100%; margin-bottom:0.9rem; }
+    .nbtn { background:var(--bg3); border:1.5px solid var(--border); color:var(--text); padding:0.75rem 0.5rem; border-radius:14px; font-family:'Inter',sans-serif; font-size:0.88rem; font-weight:500; cursor:pointer; -webkit-tap-highlight-color:rgba(0,0,0,0); display:flex; flex-direction:column; align-items:center; gap:0.28rem; transition:border-color 0.15s,background 0.15s; touch-action:manipulation; }
     .nbtn:active { background:rgba(184,146,74,0.15); border-color:var(--gold); }
-    .nbtn .av { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.15rem; background:var(--bg4); border:2px solid var(--border); }
-    .nbtn .nm { font-size:0.85rem; font-weight:600; color:var(--text); }
-    .nbtn-img { width:40px; height:40px; border-radius:50%; object-fit:cover; }
+    .nbtn .av { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1rem; background:var(--bg4); border:2px solid var(--border); }
+    .nbtn .nm { font-size:0.82rem; font-weight:600; color:var(--text); }
+    .nbtn-img { width:36px; height:36px; border-radius:50%; object-fit:cover; }
     .nbtn-badge { font-size:0.52rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; padding:0.06rem 0.35rem; border-radius:4px; }
-    .ls-invite-btn { background:none; border:1px solid var(--border); border-radius:12px; padding:0.7rem; width:100%; font-family:'Inter',sans-serif; font-size:0.78rem; color:var(--dim); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    .ls-invite-btn { background:none; border:1px solid var(--border); border-radius:12px; padding:0.65rem; width:100%; font-family:'Inter',sans-serif; font-size:0.78rem; color:var(--dim); cursor:pointer; -webkit-tap-highlight-color:rgba(0,0,0,0); touch-action:manipulation; }
     /* PIN screen */
-    .ls-back { background:none; border:none; color:var(--dim); font-family:'Inter',sans-serif; font-size:0.82rem; cursor:pointer; align-self:flex-start; padding:0; margin-bottom:1.5rem; -webkit-tap-highlight-color:transparent; }
-    .ls-pin-user { font-size:1.3rem; font-weight:600; margin-bottom:0.3rem; }
-    .ls-pin-sub { font-size:0.72rem; color:var(--dim); margin-bottom:1.8rem; }
-    .pin-dots { display:flex; gap:0.75rem; margin-bottom:1.5rem; }
+    .ls-back { background:none; border:none; color:var(--dim); font-family:'Inter',sans-serif; font-size:0.82rem; cursor:pointer; align-self:flex-start; padding:0.5rem 0; margin-bottom:0.9rem; -webkit-tap-highlight-color:rgba(0,0,0,0); touch-action:manipulation; }
+    .ls-pin-user { font-size:1.25rem; font-weight:600; margin-bottom:0.25rem; }
+    .ls-pin-sub { font-size:0.72rem; color:var(--dim); margin-bottom:1.2rem; }
+    .pin-dots { display:flex; gap:0.75rem; margin-bottom:1.2rem; }
     .pin-dot { width:16px; height:16px; border-radius:50%; background:var(--bg4); border:2px solid rgba(255,255,255,0.15); transition:all 0.15s; }
     .pin-dot.filled { background:var(--gold); border-color:var(--gold); transform:scale(1.1); }
     #pinInput { position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; }
-    .pin-keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:0.5rem; width:100%; max-width:260px; }
-    .pk { background:var(--bg3); border:1px solid var(--border); border-radius:14px; padding:1rem; font-family:'Inter',sans-serif; font-size:1.3rem; font-weight:500; color:var(--text); cursor:pointer; text-align:center; -webkit-tap-highlight-color:transparent; transition:background 0.1s; user-select:none; }
+    .pin-keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:0.45rem; width:100%; max-width:260px; }
+    .pk { background:var(--bg3); border:1px solid var(--border); border-radius:14px; padding:0.85rem; font-family:'Inter',sans-serif; font-size:1.2rem; font-weight:500; color:var(--text); cursor:pointer; text-align:center; -webkit-tap-highlight-color:rgba(0,0,0,0); transition:background 0.1s; user-select:none; touch-action:manipulation; }
     .pk:active { background:var(--bg4); }
     .pk.del { font-size:1.1rem; color:var(--dim); }
-    #pinError { color:var(--red); font-size:0.8rem; min-height:1.2rem; margin-top:0.75rem; text-align:center; }
+    #pinError { color:var(--red); font-size:0.8rem; min-height:1.2rem; margin-top:0.65rem; text-align:center; }
     /* Invite */
-    .lbtn { width:100%; max-width:340px; background:var(--gold); color:#000; border:none; padding:0.9rem; border-radius:14px; font-family:'Inter',sans-serif; font-size:0.88rem; font-weight:700; cursor:pointer; }
+    .lbtn { width:100%; background:var(--gold); color:#000; border:none; padding:0.85rem; border-radius:14px; font-family:'Inter',sans-serif; font-size:0.88rem; font-weight:700; cursor:pointer; touch-action:manipulation; }
     .lbtn:disabled { opacity:0.3; cursor:not-allowed; }
-    .llab { font-size:0.62rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:0.75rem; align-self:flex-start; width:100%; max-width:340px; }
+    .llab { font-size:0.62rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:0.75rem; align-self:flex-start; width:100%; }
 
     /* ── APP ── */
     #app { display:flex; flex-direction:column; height:100%; height:100dvh; }
@@ -879,11 +879,6 @@ function renderNameGrid() {
     btn.innerHTML = p.photo
       ? `<img class="nbtn-img" src="${p.photo}" style="border:2.5px solid ${bc}">${name}${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}`
       : `<span class="av" style="border:2px solid ${bc}">${EMOJI[i % EMOJI.length]}</span><span class="nm">${name}</span>${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}`;
-    btn.addEventListener('touchstart', function(e) {
-      e.preventDefault();
-      currentUser = name;
-      goToPin();
-    }, {passive:false});
     btn.addEventListener('click', function() {
       currentUser = name;
       goToPin();
