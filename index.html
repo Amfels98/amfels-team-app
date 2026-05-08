@@ -407,7 +407,10 @@ function buildPicker() {
     var btn = document.createElement('button');
     btn.className = 'nbtn';
     btn.innerHTML = '<span class="n-av">' + EMOJ[i] + '</span><span class="n-nm">' + esc(name) + '</span>';
-    btn.addEventListener('click', (function(n) { return function() { showPinScreen(n); }; })(name));
+    btn.addEventListener('click', (function(n) { return function() {
+      if (n === me) { el('picker').classList.add('hidden'); return; }
+      showPinScreen(n);
+    }; })(name));
     grid.appendChild(btn);
   });
 }
