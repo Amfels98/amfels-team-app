@@ -271,6 +271,45 @@
     .photo-circle { width:88px; height:88px; border-radius:50%; background:var(--bg3); border:2px dashed rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; font-size:2.2rem; cursor:pointer; overflow:hidden; flex-shrink:0; }
     .photo-circle img { width:100%; height:100%; object-fit:cover; }
     .uavatar { width:22px; height:22px; border-radius:50%; object-fit:cover; }
+
+    /* ── SCHICHTPLAN ── */
+    .schicht-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.9rem; }
+    .schicht-week { font-size:0.82rem; font-weight:600; }
+    .schicht-nav-btn { background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:0.38rem 0.8rem; font-size:0.78rem; color:var(--dim); cursor:pointer; font-family:'Inter',sans-serif; touch-action:manipulation; }
+    .schicht-day { background:var(--bg2); border:1px solid var(--border); border-radius:14px; margin-bottom:0.5rem; overflow:hidden; }
+    .schicht-day-hdr { padding:0.5rem 0.9rem; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); }
+    .schicht-day-name { font-size:0.82rem; font-weight:700; }
+    .schicht-day-date { font-size:0.68rem; color:var(--dim); }
+    .schicht-day.today .schicht-day-hdr { background:rgba(184,146,74,0.08); }
+    .schicht-day.today .schicht-day-name { color:var(--gold); }
+    .schicht-slot { padding:0.45rem 0.9rem; display:flex; align-items:center; gap:0.5rem; border-bottom:1px solid rgba(255,255,255,0.035); min-height:38px; }
+    .schicht-slot:last-child { border-bottom:none; }
+    .schicht-slot-label { font-size:0.6rem; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:0.06em; min-width:48px; line-height:1.4; }
+    .schicht-slot-members { display:flex; gap:0.3rem; flex-wrap:wrap; flex:1; align-items:center; }
+    .schicht-chip { font-size:0.7rem; background:var(--bg4); border:1px solid var(--border); border-radius:20px; padding:0.2rem 0.55rem; color:var(--text); display:inline-flex; align-items:center; gap:0.25rem; }
+    .schicht-chip .rm { color:rgba(255,255,255,0.3); font-size:0.75rem; cursor:pointer; padding:0 0.05rem; touch-action:manipulation; line-height:1; }
+    .schicht-chip .rm:hover { color:var(--red); }
+    .schicht-add { background:none; border:1px dashed rgba(255,255,255,0.1); border-radius:20px; padding:0.2rem 0.55rem; font-size:0.68rem; color:var(--dim); cursor:pointer; font-family:'Inter',sans-serif; touch-action:manipulation; }
+
+    /* ── CHAT ── */
+    .chat-screen { display:flex; flex-direction:column; height:100%; }
+    .chat-messages { flex:1; padding-bottom:0.5rem; }
+    .chat-msg { margin-bottom:0.75rem; }
+    .chat-bubble { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:0.6rem 0.8rem; max-width:82%; display:inline-block; }
+    .chat-msg-mine .chat-bubble { background:rgba(184,146,74,0.11); border-color:rgba(184,146,74,0.22); }
+    .chat-bubble-text { font-size:0.88rem; line-height:1.5; word-break:break-word; white-space:pre-wrap; }
+    .chat-meta { font-size:0.6rem; color:var(--dim); margin-top:0.3rem; }
+    .chat-pin-badge { font-size:0.58rem; color:var(--gold); margin-bottom:0.15rem; font-weight:600; }
+    .chat-pinned-bubble { background:rgba(184,146,74,0.07) !important; border-color:rgba(184,146,74,0.2) !important; }
+    .chat-compose { display:flex; gap:0.5rem; align-items:flex-end; padding-top:0.75rem; border-top:1px solid var(--border); margin-top:0.5rem; }
+    .chat-input { flex:1; background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:0.65rem 0.85rem; font-family:'Inter',sans-serif; font-size:0.88rem; color:var(--text); resize:none; outline:none; max-height:110px; overflow-y:auto; line-height:1.4; }
+    .chat-input:focus { border-color:rgba(184,146,74,0.4); }
+    .chat-send { background:var(--gold); color:#000; border:none; border-radius:11px; padding:0.65rem 1rem; font-size:1rem; cursor:pointer; touch-action:manipulation; flex-shrink:0; font-weight:700; }
+    .chat-empty { text-align:center; padding:3rem 0 1rem; color:var(--dim); font-size:0.82rem; }
+
+    /* 6-tab nav tweak */
+    .ni { font-size:0.48rem; padding:0.5rem 0.1rem; }
+    .ni-icon { font-size:1rem; }
   </style>
 </head>
 <body>
@@ -400,6 +439,12 @@
 
     <!-- AUFGABEN -->
     <div class="screen" id="s-aufgaben">
+      <div class="frow" style="margin-bottom:0.75rem">
+        <button class="fc on" id="atab-aufgaben" ontouchstart="switchAufgabenTab('aufgaben',this);event.preventDefault()" onclick="switchAufgabenTab('aufgaben',this)">✓ Aufgaben</button>
+        <button class="fc" id="atab-dauerhaft" ontouchstart="switchAufgabenTab('dauerhaft',this);event.preventDefault()" onclick="switchAufgabenTab('dauerhaft',this)">🔄 Täglich</button>
+      </div>
+      <!-- Einmalige Aufgaben -->
+      <div id="aufgaben-sub-aufgaben">
       <div class="sh"><span class="st">Aufgaben</span><button class="plus" onclick="openM('task')">+</button></div>
       <div class="brow" id="bereichFilter">
         <button class="bbtn on-alle" onclick="setBF('alle',this)">🍽️ Alle</button>
@@ -416,19 +461,41 @@
       </div>
       <div class="arow"><button class="gbtn" onclick="clearDone()">Erledigte löschen</button></div>
       <div id="taskList"></div>
+      </div><!-- /aufgaben-sub-aufgaben -->
+      <!-- Täglich sub-tab -->
+      <div id="aufgaben-sub-dauerhaft" style="display:none">
+        <div class="sh"><span class="st">Daueraufgaben</span><button class="plus" onclick="openM('rec')">+</button></div>
+        <p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.85rem;line-height:1.65;">Wiederkehrende Aufgaben mit automatischer Erinnerung.</p>
+        <div id="muellAdminBtn" style="display:none;margin-bottom:0.85rem">
+          <button onclick="openMuellScanner()" ontouchstart="openMuellScanner();event.preventDefault()" style="width:100%;background:rgba(76,175,125,0.08);border:1.5px dashed rgba(76,175,125,0.35);border-radius:14px;padding:0.85rem;display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-family:Inter,sans-serif;color:var(--green);touch-action:manipulation">
+            <span style="font-size:1.5rem">📷</span>
+            <div style="text-align:left"><div style="font-size:0.85rem;font-weight:600">Müllkalender fotografieren</div><div style="font-size:0.68rem;opacity:0.7;margin-top:0.15rem">App erkennt Termine automatisch</div></div>
+          </button>
+        </div>
+        <div id="recList"></div>
+      </div>
+    </div><!-- /s-aufgaben -->
+
+    <!-- SCHICHTPLAN -->
+    <div class="screen" id="s-schicht">
+      <div class="schicht-nav">
+        <button class="schicht-nav-btn" ontouchstart="shiftWeekNav(-1);event.preventDefault()" onclick="shiftWeekNav(-1)">← Zurück</button>
+        <div class="schicht-week" id="shiftWeekLabel">–</div>
+        <button class="schicht-nav-btn" ontouchstart="shiftWeekNav(1);event.preventDefault()" onclick="shiftWeekNav(1)">Vor →</button>
+      </div>
+      <div id="schichtList"></div>
     </div>
 
-    <!-- DAUERAUFGABEN -->
-    <div class="screen" id="s-dauerhaft">
-      <div class="sh"><span class="st">Daueraufgaben</span><button class="plus" onclick="openM('rec')">+</button></div>
-      <p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.85rem;line-height:1.65;">Wiederkehrende Aufgaben mit automatischer Erinnerung zur eingestellten Uhrzeit.</p>
-      <div id="muellAdminBtn" style="display:none;margin-bottom:0.85rem">
-        <button onclick="openMuellScanner()" style="width:100%;background:rgba(76,175,125,0.08);border:1.5px dashed rgba(76,175,125,0.35);border-radius:14px;padding:0.85rem;display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-family:Inter,sans-serif;color:var(--green)">
-          <span style="font-size:1.5rem">📷</span>
-          <div style="text-align:left"><div style="font-size:0.85rem;font-weight:600">Müllkalender fotografieren</div><div style="font-size:0.68rem;opacity:0.7;margin-top:0.15rem">App erkennt Termine automatisch</div></div>
-        </button>
+    <!-- CHAT -->
+    <div class="screen" id="s-chat">
+      <div class="chat-screen">
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-compose">
+          <textarea class="chat-input" id="chatInput" placeholder="Nachricht…" rows="1"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+          <button class="chat-send" ontouchstart="sendChat();event.preventDefault()" onclick="sendChat()">↑</button>
+        </div>
       </div>
-      <div id="recList"></div>
     </div>
 
     <!-- BESTELLLISTE -->
@@ -479,11 +546,12 @@
   </div>
 
   <nav class="bnav">
-    <button class="ni on" onclick="switchTab('dash',this)" id="nav-dash"><span class="ni-icon">🏠</span><span>Start</span></button>
-    <button class="ni" onclick="switchTab('aufgaben',this)" id="nav-aufgaben"><span class="ni-icon">✓</span><span>Aufgaben</span><span class="nbadge" id="badge-a" style="display:none"></span></button>
-    <button class="ni" onclick="switchTab('dauerhaft',this)" id="nav-dauerhaft"><span class="ni-icon">🔄</span><span>Täglich</span></button>
-    <button class="ni" onclick="switchTab('bestellen',this)" id="nav-bestellen"><span class="ni-icon">📦</span><span>Bestellen</span><span class="nbadge" id="badge-b" style="display:none"></span></button>
-    <button class="ni" onclick="switchTab('wiki',this)" id="nav-wiki"><span class="ni-icon">📚</span><span>Wiki</span></button>
+    <button class="ni on" ontouchstart="switchTab('dash',this);event.preventDefault()" onclick="switchTab('dash',this)" id="nav-dash"><span class="ni-icon">🏠</span><span>Start</span></button>
+    <button class="ni" ontouchstart="switchTab('schicht',this);event.preventDefault()" onclick="switchTab('schicht',this)" id="nav-schicht"><span class="ni-icon">📅</span><span>Schicht</span></button>
+    <button class="ni" ontouchstart="switchTab('aufgaben',this);event.preventDefault()" onclick="switchTab('aufgaben',this)" id="nav-aufgaben"><span class="ni-icon">✓</span><span>Aufgaben</span><span class="nbadge" id="badge-a" style="display:none"></span></button>
+    <button class="ni" ontouchstart="switchTab('chat',this);event.preventDefault()" onclick="switchTab('chat',this)" id="nav-chat"><span class="ni-icon">💬</span><span>Chat</span><span class="nbadge" id="badge-chat" style="display:none"></span></button>
+    <button class="ni" ontouchstart="switchTab('bestellen',this);event.preventDefault()" onclick="switchTab('bestellen',this)" id="nav-bestellen"><span class="ni-icon">📦</span><span>Bestellen</span><span class="nbadge" id="badge-b" style="display:none"></span></button>
+    <button class="ni" ontouchstart="switchTab('wiki',this);event.preventDefault()" onclick="switchTab('wiki',this)" id="nav-wiki"><span class="ni-icon">📚</span><span>Wiki</span></button>
   </nav>
 </div>
 
@@ -1361,9 +1429,20 @@ function switchTab(tab, el) {
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('s-'+tab).classList.add('on');
   el.classList.add('on');
-  const labels = {dash:'Übersicht',aufgaben:'Aufgaben',dauerhaft:'Daueraufgaben',bestellen:'Bestellliste',wiki:'Wiki'};
-  document.getElementById('hdrSub').textContent = labels[tab];
+  const labels = {dash:'Übersicht',schicht:'Schichtplan',aufgaben:'Aufgaben',chat:'Team-Chat',bestellen:'Bestellliste',wiki:'Wiki'};
+  document.getElementById('hdrSub').textContent = labels[tab] || tab;
+  if (tab === 'schicht') { renderSchicht(); loadSchicht(getWeekKey(shiftWeek)); }
+  if (tab === 'chat') { loadChat(); }
   render();
+}
+
+function switchAufgabenTab(sub, el) {
+  document.querySelectorAll('[id^="atab-"]').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('aufgaben-sub-aufgaben').style.display = sub === 'aufgaben' ? 'block' : 'none';
+  document.getElementById('aufgaben-sub-dauerhaft').style.display = sub === 'dauerhaft' ? 'block' : 'none';
+  const muellBtn = document.getElementById('muellAdminBtn');
+  if (muellBtn) muellBtn.style.display = (sub === 'dauerhaft' && currentUser === ADMIN) ? 'block' : 'none';
 }
 
 // ── MODALS ──
@@ -2717,6 +2796,209 @@ function renderDash(){
 
 function render(){renderDash();renderTasks();renderRec();renderOrders();renderLieferanten();renderPdfs();renderWiki();}
 
+// ── SCHICHTPLAN ──
+let shiftWeek = 0;
+let schichtData = {};
+const SHIFT_LABELS = {frueh:'Früh',mittag:'Mittag',abend:'Abend'};
+const SHIFT_TIMES  = {frueh:'8–14',mittag:'12–17',abend:'17–23'};
+const DAY_KEYS_DE  = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+
+function getWeekKey(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() + (offset||0) * 7);
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const w = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  return `${d.getFullYear()}-W${String(w).padStart(2,'0')}`;
+}
+
+function getWeekDates(offset) {
+  const d = new Date();
+  const dow = d.getDay();
+  const diff = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + diff + (offset||0) * 7);
+  return Array.from({length:7}, (_,i) => { const x = new Date(d); x.setDate(d.getDate()+i); return x; });
+}
+
+async function loadSchicht(weekKey) {
+  if (!DB_URL) { renderSchicht(); return; }
+  try {
+    const res = await fetch(`${DB_URL}/schichten/${weekKey}.json`, {cache:'no-store'});
+    const data = await res.json();
+    schichtData[weekKey] = data || {};
+  } catch { schichtData[weekKey] = {}; }
+  renderSchicht();
+}
+
+function shiftWeekNav(dir) {
+  shiftWeek += dir;
+  renderSchicht();
+  loadSchicht(getWeekKey(shiftWeek));
+}
+
+async function saveSchicht(weekKey) {
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/schichten/${weekKey}.json`, {
+    method:'PUT', body:JSON.stringify(schichtData[weekKey]||{}),
+    headers:{'Content-Type':'application/json'}
+  }).catch(()=>{});
+}
+
+async function addToSchicht(weekKey, dayKey, shiftKey, name) {
+  if (!schichtData[weekKey]) schichtData[weekKey] = {};
+  const day = schichtData[weekKey][dayKey] = schichtData[weekKey][dayKey] || {frueh:[],mittag:[],abend:[]};
+  if (!Array.isArray(day[shiftKey])) day[shiftKey] = [];
+  if (!day[shiftKey].includes(name)) { day[shiftKey].push(name); await saveSchicht(weekKey); }
+  renderSchicht();
+  if (document.querySelector('[style*=fixed]')) document.querySelector('[style*=fixed]').remove();
+}
+
+async function removeFromSchicht(weekKey, dayKey, shiftKey, name) {
+  const arr = schichtData[weekKey]?.[dayKey]?.[shiftKey];
+  if (!arr) return;
+  schichtData[weekKey][dayKey][shiftKey] = arr.filter(n => n !== name);
+  await saveSchicht(weekKey);
+  renderSchicht();
+}
+
+function addToSchichtPrompt(weekKey, dayKey, shiftKey) {
+  const existing = schichtData[weekKey]?.[dayKey]?.[shiftKey] || [];
+  const available = TEAM.filter(n => !existing.includes(n));
+  if (!available.length) { toast('Alle bereits eingetragen'); return; }
+  if (currentUser !== ADMIN) {
+    if (!available.includes(currentUser)) { toast('Du bist bereits eingetragen'); return; }
+    addToSchicht(weekKey, dayKey, shiftKey, currentUser); return;
+  }
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:3000;display:flex;align-items:flex-end;justify-content:center;padding:0.5rem';
+  const btns = available.map(name =>
+    `<button ontouchstart="addToSchicht('${weekKey}','${dayKey}','${shiftKey}','${name}');event.preventDefault()" onclick="addToSchicht('${weekKey}','${dayKey}','${shiftKey}','${name}')" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.85rem;font-family:Inter,sans-serif;font-size:0.9rem;color:var(--text);cursor:pointer;margin-bottom:0.4rem;touch-action:manipulation;text-align:left">${name}</button>`
+  ).join('');
+  overlay.innerHTML = `<div style="background:var(--bg2);border-radius:18px 18px 0 0;padding:1.2rem 1rem max(2rem,env(safe-area-inset-bottom));width:100%;max-width:400px"><p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.9rem;text-align:center;text-transform:uppercase;letter-spacing:0.1em">Person hinzufügen</p>${btns}<button ontouchstart="this.closest('[style*=fixed]').remove();event.preventDefault()" onclick="this.closest('[style*=fixed]').remove()" style="width:100%;background:none;border:1px solid var(--border);border-radius:12px;padding:0.75rem;font-family:Inter,sans-serif;font-size:0.85rem;color:var(--dim);cursor:pointer;touch-action:manipulation">Abbrechen</button></div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function renderSchicht() {
+  const weekKey = getWeekKey(shiftWeek);
+  const days = getWeekDates(shiftWeek);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const lbl = document.getElementById('shiftWeekLabel');
+  if (!lbl) return;
+  lbl.textContent = days[0].toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}) + ' – ' + days[6].toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});
+  const list = document.getElementById('schichtList');
+  if (!list) return;
+  const wData = schichtData[weekKey] || {};
+  list.innerHTML = '';
+  days.forEach((date, i) => {
+    const dayKey = DAY_KEYS_DE[i];
+    const isToday = date.getTime() === today.getTime();
+    const dayData = wData[dayKey] || {};
+    const div = document.createElement('div');
+    div.className = 'schicht-day' + (isToday ? ' today' : '');
+    div.innerHTML = `<div class="schicht-day-hdr"><span class="schicht-day-name">${dayKey}</span><span class="schicht-day-date">${date.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</span></div>`;
+    ['frueh','mittag','abend'].forEach(sk => {
+      const members = Array.isArray(dayData[sk]) ? dayData[sk] : [];
+      const chips = members.map(name => {
+        const canRm = currentUser === ADMIN || currentUser === name;
+        return `<span class="schicht-chip">${name}${canRm ? `<span class="rm" ontouchstart="removeFromSchicht('${weekKey}','${dayKey}','${sk}','${name}');event.preventDefault()" onclick="removeFromSchicht('${weekKey}','${dayKey}','${sk}','${name}')">×</span>` : ''}</span>`;
+      }).join('');
+      const addBtn = `<button class="schicht-add" ontouchstart="addToSchichtPrompt('${weekKey}','${dayKey}','${sk}');event.preventDefault()" onclick="addToSchichtPrompt('${weekKey}','${dayKey}','${sk}')">+ Person</button>`;
+      const slot = document.createElement('div');
+      slot.className = 'schicht-slot';
+      slot.innerHTML = `<span class="schicht-slot-label">${SHIFT_LABELS[sk]}<br><span style="font-weight:400;font-size:0.54rem">${SHIFT_TIMES[sk]}</span></span><div class="schicht-slot-members">${chips}${addBtn}</div>`;
+      div.appendChild(slot);
+    });
+    list.appendChild(div);
+  });
+}
+
+// ── CHAT ──
+let chatMessages = [];
+let chatPolling = null;
+let chatLastCount = 0;
+
+async function loadChat() {
+  if (!DB_URL) { renderChat(); return; }
+  try {
+    const res = await fetch(`${DB_URL}/chat.json`, {cache:'no-store'});
+    const data = await res.json();
+    chatMessages = data ? Object.values(data).sort((a,b) => (a.ts||0)-(b.ts||0)).slice(-80) : [];
+    const newCount = chatMessages.length;
+    if (newCount > chatLastCount && chatLastCount > 0) {
+      const badge = document.getElementById('badge-chat');
+      const s = document.getElementById('s-chat');
+      if (!s.classList.contains('on')) { badge.textContent = newCount - chatLastCount; badge.style.display = 'flex'; }
+    }
+    chatLastCount = newCount;
+    renderChat();
+  } catch {}
+}
+
+function startChatPolling() {
+  if (chatPolling) clearInterval(chatPolling);
+  chatPolling = setInterval(loadChat, 7000);
+}
+
+async function sendChat() {
+  const inp = document.getElementById('chatInput');
+  const text = (inp.value || '').trim();
+  if (!text || !currentUser) return;
+  inp.value = '';
+  inp.style.height = 'auto';
+  const msg = {id:Date.now(), ts:Date.now(), text, by:currentUser, at:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})};
+  chatMessages.push(msg);
+  chatLastCount = chatMessages.length;
+  renderChat();
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/chat/${msg.id}.json`, {method:'PUT', body:JSON.stringify(msg), headers:{'Content-Type':'application/json'}}).catch(()=>{});
+}
+
+async function deleteChat(id) {
+  chatMessages = chatMessages.filter(m => m.id !== id);
+  renderChat();
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/chat/${id}.json`, {method:'DELETE'}).catch(()=>{});
+}
+
+async function pinChat(id) {
+  const msg = chatMessages.find(m => m.id === id);
+  if (!msg) return;
+  msg.pinned = !msg.pinned;
+  renderChat();
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/chat/${id}.json`, {method:'PATCH', body:JSON.stringify({pinned:msg.pinned}), headers:{'Content-Type':'application/json'}}).catch(()=>{});
+}
+
+function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderChat() {
+  const c = document.getElementById('chatMessages');
+  if (!c) return;
+  const pinned = chatMessages.filter(m => m.pinned);
+  const regular = chatMessages.filter(m => !m.pinned);
+  const all = [...pinned, ...regular];
+  if (!all.length) { c.innerHTML = '<div class="chat-empty">Noch keine Nachrichten ✦<br>Schreib was!</div>'; return; }
+  c.innerHTML = all.map(msg => {
+    const mine = msg.by === currentUser;
+    const isAdmin = currentUser === ADMIN;
+    return `<div class="chat-msg${mine?' chat-msg-mine':''}" style="${mine?'text-align:right':''}">
+      ${!mine?`<div style="font-size:0.62rem;color:var(--gold);margin-bottom:0.18rem;font-weight:600">${escapeHtml(msg.by)}</div>`:''}
+      ${msg.pinned?'<div class="chat-pin-badge">📌 Angepinnt</div>':''}
+      <div class="chat-bubble${msg.pinned?' chat-pinned-bubble':''}" style="${mine?'display:inline-block':''}">${msg.pinned?`<div style="font-size:0.58rem;color:var(--gold);margin-bottom:0.15rem">📌 Angepinnt</div>`:''}
+        <div class="chat-bubble-text">${escapeHtml(msg.text)}</div>
+      </div>
+      <div class="chat-meta" style="${mine?'text-align:right':''}">
+        ${escapeHtml(msg.at||'')}
+        ${(mine||isAdmin)?`<span ontouchstart="deleteChat(${msg.id});event.preventDefault()" onclick="deleteChat(${msg.id})" style="margin-left:0.45rem;cursor:pointer;touch-action:manipulation">🗑</span>`:''}
+        ${isAdmin?`<span ontouchstart="pinChat(${msg.id});event.preventDefault()" onclick="pinChat(${msg.id})" style="margin-left:0.25rem;cursor:pointer;touch-action:manipulation">${msg.pinned?'📌':'📍'}</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  c.scrollTop = c.scrollHeight;
+  const badge = document.getElementById('badge-chat');
+  if (badge && document.getElementById('s-chat').classList.contains('on')) { badge.style.display='none'; badge.textContent=''; }
+}
+
 // ── INIT ──
 renderNameGrid();  // Sofort mit bekannten Namen rendern
 loadProfiles();    // Fotos + neue Mitglieder aus Firebase nachladen
@@ -2738,6 +3020,9 @@ if(currentUser){
   buildAllChips();startClock();startNotif();checkNotifPerm();
   loadData();
   startSync();
+  loadChat();
+  startChatPolling();
+  loadSchicht(getWeekKey(0));
 }
 
 ['tTitle','rTitle','oItem','rzName','alTitel'].forEach(id=>{
