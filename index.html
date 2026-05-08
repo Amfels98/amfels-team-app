@@ -142,6 +142,20 @@
     .oqty { background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:0.28rem 0.5rem; font-size:0.8rem; font-weight:600; color:var(--gold); min-width:38px; text-align:center; flex-shrink:0; }
     .otitle { font-size:0.88rem; font-weight:500; margin-bottom:0.18rem; }
 
+    /* ── EINSTELLUNGEN ── */
+    .settings-section { background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:0.1rem 0.85rem; margin-bottom:0.85rem; overflow:hidden; }
+    .settings-title { font-size:0.62rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--dim); padding:0.75rem 0 0.3rem; }
+    .settings-row { display:flex; align-items:center; gap:0.6rem; padding:0.7rem 0; border-bottom:1px solid var(--border); cursor:pointer; -webkit-tap-highlight-color:rgba(0,0,0,0); }
+    .settings-row:last-child { border-bottom:none; }
+    .settings-row-label { flex:1; font-size:0.88rem; }
+    .settings-row-arrow { color:var(--dim); font-size:0.9rem; flex-shrink:0; }
+    .stoggle { position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0; }
+    .stoggle input { opacity:0; width:0; height:0; }
+    .stoggle-sl { position:absolute; cursor:pointer; inset:0; background:var(--bg4); border-radius:24px; transition:0.2s; }
+    .stoggle-sl::before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:0.2s; }
+    .stoggle input:checked + .stoggle-sl { background:var(--green); }
+    .stoggle input:checked + .stoggle-sl::before { transform:translateX(18px); }
+
     /* ── WIKI (REZEPTE + ANLEITUNGEN) ── */
     .wiki-tabs { display:flex; gap:0.45rem; margin-bottom:0.85rem; }
     .wtab { flex:1; background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:0.6rem; font-size:0.78rem; font-weight:500; color:var(--dim); cursor:pointer; text-align:center; font-family:'Inter',sans-serif; transition:all 0.18s; }
@@ -450,7 +464,7 @@
     <div class="hdr-r">
       <span class="hdr-time" id="hdrTime"></span>
       <button ontouchstart="openSearch();event.preventDefault()" onclick="openSearch()" style="background:none;border:none;font-size:1.15rem;color:var(--dim);cursor:pointer;padding:0.2rem;line-height:1;-webkit-tap-highlight-color:rgba(0,0,0,0);touch-action:manipulation;" title="Suchen">🔍</button>
-      <div id="adminBtn" style="display:none"><div class="uchip" onclick="openAdmin()" style="border-color:rgba(184,146,74,0.4);color:var(--gold)">⚙ Admin</div></div>
+      <button ontouchstart="openSettings();event.preventDefault()" onclick="openSettings()" style="background:none;border:none;font-size:1.15rem;color:var(--dim);cursor:pointer;padding:0.2rem;line-height:1;-webkit-tap-highlight-color:rgba(0,0,0,0);touch-action:manipulation;" title="Einstellungen">⚙️</button>
       <div class="uchip" onclick="logout()" style="gap:0.45rem"><span id="uAvatar"><div class="udot"></div></span><span id="uLabel">––</span></div>
     </div>
   </div>
@@ -1419,7 +1433,6 @@ function doLogin() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('uLabel').textContent = currentUser;
-  document.getElementById('adminBtn').style.display = currentUser === ADMIN ? 'block' : 'none';
   const muellBtn = document.getElementById('muellAdminBtn');
   if (muellBtn) muellBtn.style.display = currentUser === ADMIN ? 'block' : 'none';
   const p = profiles[currentUser] || {};
@@ -2848,6 +2861,221 @@ async function doDirectAdd() {
   } catch { toast('Fehler beim Anlegen'); }
 }
 
+// ── EINSTELLUNGEN ──
+function openSettings(){
+  const isAdmin=currentUser===ADMIN;
+  const overlay=document.createElement('div');
+  overlay.id='settingsOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:950;display:flex;flex-direction:column;';
+
+  const darkMode=localStorage.getItem('af_dark')!=='false';
+  const notifEnabled=localStorage.getItem('af_notif_enabled')!=='false';
+  const soundEnabled=localStorage.getItem('af_sound_enabled')!=='false';
+
+  overlay.innerHTML=`
+    <div style="background:var(--bg2);border-bottom:1px solid var(--border);padding:max(0.9rem,env(safe-area-inset-top)) 1.2rem 0.75rem;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:1rem;font-weight:600">Einstellungen</span>
+      <button ontouchstart="document.getElementById('settingsOverlay').remove();event.preventDefault()" onclick="document.getElementById('settingsOverlay').remove()"
+        style="background:none;border:none;font-size:1.4rem;color:var(--dim);cursor:pointer;touch-action:manipulation;">×</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:1rem;">
+
+      <!-- MEIN PROFIL -->
+      <div class="settings-section">
+        <div class="settings-title">👤 Mein Profil</div>
+        <div class="settings-row" onclick="document.getElementById('settingsOverlay').remove();showProfileSetup()">
+          <div class="settings-row-label">Profil bearbeiten</div>
+          <span class="settings-row-arrow">›</span>
+        </div>
+        <div class="settings-row" id="setChangePinRow" onclick="openChangePinFlow()">
+          <div class="settings-row-label">PIN ändern</div>
+          <span class="settings-row-arrow">›</span>
+        </div>
+        <div class="settings-row" onclick="exportMyData()">
+          <div class="settings-row-label">Meine Daten exportieren</div>
+          <div style="font-size:0.68rem;color:var(--dim)">DSGVO-konformer Download</div>
+          <span class="settings-row-arrow">›</span>
+        </div>
+      </div>
+
+      <!-- BENACHRICHTIGUNGEN -->
+      <div class="settings-section">
+        <div class="settings-title">🔔 Benachrichtigungen</div>
+        <div class="settings-row" style="justify-content:space-between;">
+          <div class="settings-row-label">Benachrichtigungen</div>
+          <label class="stoggle"><input type="checkbox" id="stNotif" ${notifEnabled?'checked':''} onchange="localStorage.setItem('af_notif_enabled',this.checked)"><span class="stoggle-sl"></span></label>
+        </div>
+        <div class="settings-row" style="justify-content:space-between;">
+          <div class="settings-row-label">Ton-Effekte</div>
+          <label class="stoggle"><input type="checkbox" id="stSound" ${soundEnabled?'checked':''} onchange="localStorage.setItem('af_sound_enabled',this.checked)"><span class="stoggle-sl"></span></label>
+        </div>
+      </div>
+
+      ${isAdmin?`
+      <!-- ADMIN -->
+      <div class="settings-section">
+        <div class="settings-title" style="color:var(--gold)">⚙️ Administration</div>
+        <div class="settings-row" onclick="document.getElementById('settingsOverlay').remove();openAdmin()">
+          <div class="settings-row-label">Team verwalten</div>
+          <div style="font-size:0.68rem;color:var(--dim)">${TEAM.length} Mitarbeiter</div>
+          <span class="settings-row-arrow">›</span>
+        </div>
+        <div class="settings-row" onclick="exportAllData()">
+          <div class="settings-row-label">Alle Daten exportieren</div>
+          <div style="font-size:0.68rem;color:var(--dim)">JSON-Backup</div>
+          <span class="settings-row-arrow">›</span>
+        </div>
+        <div class="settings-row" onclick="clearOldData()">
+          <div class="settings-row-label" style="color:var(--red)">Alte Daten bereinigen</div>
+          <div style="font-size:0.68rem;color:var(--dim)">Chat + Protokoll &gt;90 Tage</div>
+          <span class="settings-row-arrow">›</span>
+        </div>
+        <div class="settings-row" onclick="document.getElementById('settingsOverlay').remove();showFBSetup()">
+          <div class="settings-row-label">Firebase-URL konfigurieren</div>
+          <span class="settings-row-arrow">›</span>
+        </div>
+      </div>`:''}
+
+      <!-- APP INFO -->
+      <div class="settings-section">
+        <div class="settings-title">ℹ️ App-Info</div>
+        <div class="settings-row" style="cursor:default">
+          <div class="settings-row-label">Version</div>
+          <div style="font-size:0.78rem;color:var(--dim)">1.0 · 2026</div>
+        </div>
+        <div class="settings-row" style="cursor:default">
+          <div class="settings-row-label">Restaurant</div>
+          <div style="font-size:0.78rem;color:var(--dim)">Am Fels, Loope</div>
+        </div>
+        <div class="settings-row" onclick="showInstallTip()">
+          <div class="settings-row-label">App installieren (PWA)</div>
+          <div style="font-size:0.68rem;color:var(--dim)">iPhone & Android</div>
+          <span class="settings-row-arrow">›</span>
+        </div>
+        <div class="settings-row" onclick="showDsgvo()">
+          <div class="settings-row-label">Datenschutz (DSGVO)</div>
+          <span class="settings-row-arrow">›</span>
+        </div>
+      </div>
+
+      <!-- ABMELDEN -->
+      <button ontouchstart="document.getElementById('settingsOverlay').remove();logout();event.preventDefault()" onclick="document.getElementById('settingsOverlay').remove();logout()"
+        style="width:100%;background:none;border:1px solid rgba(224,82,82,0.35);border-radius:14px;padding:0.85rem;font-family:Inter,sans-serif;font-size:0.88rem;color:var(--red);cursor:pointer;margin-top:0.5rem;font-weight:500;touch-action:manipulation;">
+        Abmelden
+      </button>
+      <div style="height:env(safe-area-inset-bottom,1rem)"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function openChangePinFlow(){
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:960;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;';
+  overlay.innerHTML=`
+    <div style="background:var(--bg2);border-radius:20px;padding:1.5rem;width:100%;max-width:320px;">
+      <div style="font-size:1rem;font-weight:600;margin-bottom:0.4rem">PIN ändern</div>
+      <div style="font-size:0.78rem;color:var(--dim);margin-bottom:1.2rem">Neuen 4-stelligen PIN wählen</div>
+      <input id="newPinInput" type="password" inputmode="numeric" maxlength="4" placeholder="Neuer PIN (4 Ziffern)"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:0.75rem;font-size:1.1rem;text-align:center;letter-spacing:0.5rem;color:var(--text);font-family:Inter,sans-serif;outline:none;margin-bottom:0.75rem;">
+      <input id="newPinConfirm" type="password" inputmode="numeric" maxlength="4" placeholder="PIN bestätigen"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:0.75rem;font-size:1.1rem;text-align:center;letter-spacing:0.5rem;color:var(--text);font-family:Inter,sans-serif;outline:none;margin-bottom:1rem;">
+      <div style="display:flex;gap:0.5rem;">
+        <button onclick="this.closest('[style*=fixed]').remove()" style="flex:1;background:none;border:1px solid var(--border);border-radius:10px;padding:0.75rem;font-family:Inter,sans-serif;font-size:0.85rem;color:var(--dim);cursor:pointer;">Abbrechen</button>
+        <button onclick="doChangePin()" style="flex:2;background:var(--gold);color:#000;border:none;border-radius:10px;padding:0.75rem;font-family:Inter,sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;">PIN speichern</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>{const el=document.getElementById('newPinInput');if(el)el.focus();},80);
+}
+
+async function doChangePin(){
+  const p1=document.getElementById('newPinInput');
+  const p2=document.getElementById('newPinConfirm');
+  if(!p1||!p2)return;
+  const pin1=p1.value.trim(),pin2=p2.value.trim();
+  if(!/^\d{4}$/.test(pin1)){toast('PIN muss genau 4 Ziffern sein');return;}
+  if(pin1!==pin2){toast('PINs stimmen nicht überein');p2.style.borderColor='var(--red)';return;}
+  try{
+    await fetch(`${DB_URL}/pins/${encodeURIComponent(currentUser)}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(pin1)});
+    toast('✓ PIN wurde geändert');
+    document.querySelectorAll('[style*="position:fixed"]').forEach(el=>{if(el.id!=='app'&&el.id!=='loginScreen')el.remove();});
+  }catch(e){toast('Fehler – bitte erneut versuchen');}
+}
+
+function exportMyData(){
+  const data={
+    user:currentUser,
+    exportDate:new Date().toISOString(),
+    tasks:(g('af_tasks')||[]).filter(t=>t.assign===currentUser||t.by===currentUser),
+    chat:(g('af_chat')||[]).filter(m=>m.by===currentUser),
+    trinkgeld:(g('af_trinkgeld')||[]).filter(t=>t.by===currentUser),
+    uebergabe:(g('af_uebergabe')||[]).filter(u=>u.by===currentUser),
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`amfels-${currentUser}-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();toast('Daten exportiert');
+}
+
+function exportAllData(){
+  if(currentUser!==ADMIN)return;
+  const allKeys=['af_tasks','af_rec','af_orders','af_lieferanten','af_rezepte','af_anleitungen','af_chat','af_uebergabe','af_trinkgeld','af_inventar'];
+  const data={exportDate:new Date().toISOString()};
+  allKeys.forEach(k=>{data[k]=g(k)||[];});
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`amfels-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();toast('Backup-Export erstellt');
+}
+
+function clearOldData(){
+  if(currentUser!==ADMIN)return;
+  if(!confirm('Alle Chat-Nachrichten und Übergabeprotokolle älter als 90 Tage löschen?'))return;
+  const cutoff=Date.now()-90*24*60*60*1000;
+  const chat=(g('af_chat')||[]).filter(m=>m.ts>cutoff);
+  const ue=(g('af_uebergabe')||[]).filter(u=>u.ts>cutoff);
+  s('af_chat',chat);s('af_uebergabe',ue);
+  toast('✓ Alte Daten bereinigt');
+}
+
+function showInstallTip(){
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:960;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;';
+  overlay.innerHTML=`
+    <div style="background:var(--bg2);border-radius:20px;padding:1.5rem;width:100%;max-width:340px;">
+      <div style="font-size:1rem;font-weight:600;margin-bottom:1rem">📱 App installieren</div>
+      <div style="font-size:0.82rem;font-weight:600;color:var(--gold);margin-bottom:0.35rem">iPhone / iPad (Safari)</div>
+      <div style="font-size:0.8rem;color:var(--dim);line-height:1.6;margin-bottom:1rem">1. Seite in Safari öffnen<br>2. Unten auf <strong style="color:var(--text)">Teilen ↑</strong> tippen<br>3. <strong style="color:var(--text)">„Zum Home-Bildschirm"</strong> wählen<br>4. Bestätigen → fertig!</div>
+      <div style="font-size:0.82rem;font-weight:600;color:var(--gold);margin-bottom:0.35rem">Android (Chrome)</div>
+      <div style="font-size:0.8rem;color:var(--dim);line-height:1.6;margin-bottom:1.25rem">1. Seite in Chrome öffnen<br>2. Oben rechts <strong style="color:var(--text)">⋮ Menü</strong> tippen<br>3. <strong style="color:var(--text)">„Zum Startbildschirm"</strong> wählen</div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:12px;padding:0.85rem;font-family:Inter,sans-serif;font-size:0.88rem;font-weight:700;cursor:pointer;">Verstanden</button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function showDsgvo(){
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:960;display:flex;flex-direction:column;';
+  overlay.innerHTML=`
+    <div style="background:var(--bg2);border-bottom:1px solid var(--border);padding:max(0.9rem,env(safe-area-inset-top)) 1.2rem 0.75rem;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-weight:600">Datenschutz</span>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:1.4rem;color:var(--dim);cursor:pointer;">×</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:1.2rem;font-size:0.82rem;line-height:1.7;color:var(--dim);">
+      <p style="font-weight:600;color:var(--text);margin-bottom:0.5rem">Datenschutzerklärung – Am Fels Team-App</p>
+      <p>Diese App dient der internen Teamkommunikation des Restaurants Am Fels in Engelskirchen-Loope.</p>
+      <p style="margin-top:0.75rem;font-weight:500;color:var(--text)">Gespeicherte Daten</p>
+      <p>Name, PIN (unverschlüsselt), Schichtdaten, Chat-Nachrichten, Aufgaben, Inventar, HACCP-Protokolle, Trinkgeldeinträge.</p>
+      <p style="margin-top:0.75rem;font-weight:500;color:var(--text)">Speicherort</p>
+      <p>Daten werden in Firebase Realtime Database (Google, EU-Region Frankfurt) und im Browser-LocalStorage gespeichert.</p>
+      <p style="margin-top:0.75rem;font-weight:500;color:var(--text)">Ihre Rechte</p>
+      <p>Sie können Ihre Daten jederzeit über „Meine Daten exportieren" herunterladen. Zur Datenlöschung wenden Sie sich an die Restaurantleitung.</p>
+      <p style="margin-top:0.75rem;font-weight:500;color:var(--text)">Kontakt</p>
+      <p>Restaurant Am Fels · restaurant.amfels@web.de</p>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
 // ── FIREBASE SETUP ──
 function showFBSetup(){
   document.getElementById('fbUrlInput').value = DB_URL || '';
@@ -3755,7 +3983,6 @@ if(currentUser){
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('uLabel').textContent=currentUser;
-  document.getElementById('adminBtn').style.display = currentUser===ADMIN ? 'block' : 'none';
   const muellBtnI = document.getElementById('muellAdminBtn');
   if (muellBtnI) muellBtnI.style.display = currentUser===ADMIN ? 'block' : 'none';
   // Avatar aus gecachten Profilen setzen (wird nach loadProfiles aktualisiert)
