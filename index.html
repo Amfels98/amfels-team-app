@@ -2151,12 +2151,10 @@ let haccpData = {};
 let haccpFireCache = {};
 
 async function loadHaccp(){
+  if(!DB_URL){renderHaccp();return;}
   try{
-    const r=await fetch(FB+'/haccp.json');
-    if(r.ok){
-      const d=await r.json();
-      haccpFireCache=d||{};
-    }
+    const r=await fetch(DB_URL+'/haccp.json');
+    if(r.ok){const d=await r.json();haccpFireCache=d||{};}
   }catch(e){}
   renderHaccp();
 }
@@ -2285,7 +2283,7 @@ async function submitHaccp(schicht){
   haccpFireCache[today][schicht]._by=currentUser;
   haccpFireCache[today][schicht]._ts=Date.now();
   try{
-    await fetch(FB+'/haccp/'+today+'/'+schicht+'.json',{method:'PUT',body:JSON.stringify(haccpFireCache[today][schicht])});
+    await fetch(DB_URL+'/haccp/'+today+'/'+schicht+'.json',{method:'PUT',body:JSON.stringify(haccpFireCache[today][schicht])});
     toast('✓ HACCP '+schicht+' gespeichert');
   }catch(e){toast('Offline – lokal gespeichert');}
   renderHaccp();
@@ -3517,12 +3515,13 @@ const REINIGUNG_TEMPLATES = [
 let reinigungData = {};
 
 async function loadReinigung(){
+  if(!DB_URL){return;}
   const today=new Date().toISOString().slice(0,10);
   const week=getWeekKey(0);
   try{
-    const r=await fetch(FB+'/reinigung/'+today+'.json');
+    const r=await fetch(DB_URL+'/reinigung/'+today+'.json');
     if(r.ok){const d=await r.json();if(d)reinigungData[today]=d;}
-    const rw=await fetch(FB+'/reinigung/'+week+'.json');
+    const rw=await fetch(DB_URL+'/reinigung/'+week+'.json');
     if(rw.ok){const d=await rw.json();if(d)reinigungData[week]=d;}
   }catch(e){}
   if(document.getElementById('aufgaben-sub-reinigung')?.style.display==='block') renderReinigung();
@@ -3602,7 +3601,7 @@ async function toggleReinItem(tmplId,key,idx,checked){
   clearTimeout(window._reinTimer[tmplId]);
   window._reinTimer[tmplId]=setTimeout(async()=>{
     try{
-      await fetch(FB+'/reinigung/'+key+'.json',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({[tmplId]:reinigungData[key][tmplId],[tmplId+'_by']:currentUser,[tmplId+'_ts']:Date.now()})});
+      await fetch(DB_URL+'/reinigung/'+key+'.json',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({[tmplId]:reinigungData[key][tmplId],[tmplId+'_by']:currentUser,[tmplId+'_ts']:Date.now()})});
     }catch(e){}
   },1500);
 }
