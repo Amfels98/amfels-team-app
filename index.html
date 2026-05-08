@@ -286,18 +286,18 @@
   <div id="stepName" class="ls-step active">
     <p class="ls-label">Wer bist du?</p>
     <div class="ngrid" id="nameGrid">
-      <button class="nbtn" onclick="selectName('Leon')"><span class="av">👑</span><span class="nm">Leon</span></button>
-      <button class="nbtn" onclick="selectName('Sasho')"><span class="av">👨‍🍳</span><span class="nm">Sasho</span></button>
-      <button class="nbtn" onclick="selectName('Patrik')"><span class="av">🍺</span><span class="nm">Patrik</span></button>
-      <button class="nbtn" onclick="selectName('Tea')"><span class="av">👩‍🍳</span><span class="nm">Tea</span></button>
-      <button class="nbtn" onclick="selectName('Daniel')"><span class="av">🍳</span><span class="nm">Daniel</span></button>
+      <button class="nbtn" data-name="Leon" onclick="selectName('Leon')" ontouchstart="selectName('Leon');event.preventDefault()"><span class="av">👑</span><span class="nm">Leon</span></button>
+      <button class="nbtn" data-name="Sasho" onclick="selectName('Sasho')" ontouchstart="selectName('Sasho');event.preventDefault()"><span class="av">👨‍🍳</span><span class="nm">Sasho</span></button>
+      <button class="nbtn" data-name="Patrik" onclick="selectName('Patrik')" ontouchstart="selectName('Patrik');event.preventDefault()"><span class="av">🍺</span><span class="nm">Patrik</span></button>
+      <button class="nbtn" data-name="Tea" onclick="selectName('Tea')" ontouchstart="selectName('Tea');event.preventDefault()"><span class="av">👩‍🍳</span><span class="nm">Tea</span></button>
+      <button class="nbtn" data-name="Daniel" onclick="selectName('Daniel')" ontouchstart="selectName('Daniel');event.preventDefault()"><span class="av">🍳</span><span class="nm">Daniel</span></button>
     </div>
-    <button class="ls-invite-btn" onclick="showStep('stepInvite')">Neu hier? Einladungscode eingeben →</button>
+    <button class="ls-invite-btn" onclick="showStep('stepInvite')" ontouchstart="showStep('stepInvite');event.preventDefault()">Neu hier? Einladungscode eingeben →</button>
   </div>
 
   <!-- Schritt 2: PIN (Keypad) -->
   <div id="stepPin" class="ls-step">
-    <button class="ls-back" onclick="backToName()">← Zurück</button>
+    <button class="ls-back" onclick="backToName()" ontouchstart="backToName();event.preventDefault()">← Zurück</button>
     <div id="pinUserLabel" class="ls-pin-user"></div>
     <p class="ls-pin-sub" id="pinLabel">PIN eingeben</p>
     <div class="pin-dots">
@@ -309,18 +309,18 @@
     <p id="pinError"></p>
     <input id="pinInput" type="password" inputmode="numeric" maxlength="4" autocomplete="off" style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px" />
     <div class="pin-keypad" id="pinKeypad">
-      <button class="pk" onclick="pkPress('1')">1</button>
-      <button class="pk" onclick="pkPress('2')">2</button>
-      <button class="pk" onclick="pkPress('3')">3</button>
-      <button class="pk" onclick="pkPress('4')">4</button>
-      <button class="pk" onclick="pkPress('5')">5</button>
-      <button class="pk" onclick="pkPress('6')">6</button>
-      <button class="pk" onclick="pkPress('7')">7</button>
-      <button class="pk" onclick="pkPress('8')">8</button>
-      <button class="pk" onclick="pkPress('9')">9</button>
+      <button class="pk" onclick="pkPress('1')" ontouchstart="pkPress('1');event.preventDefault()">1</button>
+      <button class="pk" onclick="pkPress('2')" ontouchstart="pkPress('2');event.preventDefault()">2</button>
+      <button class="pk" onclick="pkPress('3')" ontouchstart="pkPress('3');event.preventDefault()">3</button>
+      <button class="pk" onclick="pkPress('4')" ontouchstart="pkPress('4');event.preventDefault()">4</button>
+      <button class="pk" onclick="pkPress('5')" ontouchstart="pkPress('5');event.preventDefault()">5</button>
+      <button class="pk" onclick="pkPress('6')" ontouchstart="pkPress('6');event.preventDefault()">6</button>
+      <button class="pk" onclick="pkPress('7')" ontouchstart="pkPress('7');event.preventDefault()">7</button>
+      <button class="pk" onclick="pkPress('8')" ontouchstart="pkPress('8');event.preventDefault()">8</button>
+      <button class="pk" onclick="pkPress('9')" ontouchstart="pkPress('9');event.preventDefault()">9</button>
       <button class="pk" onclick="pkPress('')" style="opacity:0;pointer-events:none"></button>
-      <button class="pk" onclick="pkPress('0')">0</button>
-      <button class="pk del" onclick="pkDel()">⌫</button>
+      <button class="pk" onclick="pkPress('0')" ontouchstart="pkPress('0');event.preventDefault()">0</button>
+      <button class="pk del" onclick="pkDel()" ontouchstart="pkDel();event.preventDefault()">⌫</button>
     </div>
   </div>
 
@@ -859,8 +859,8 @@ async function loadProfiles() {
 function renderNameGrid() {
   const grid = document.getElementById('nameGrid');
   if (!grid) return;
-  grid.innerHTML = '';
   if (!TEAM.length) {
+    grid.innerHTML = '';
     const firstBtn = document.createElement('button');
     firstBtn.className = 'nbtn';
     firstBtn.style.cssText = 'grid-column:1/-1;';
@@ -870,20 +870,27 @@ function renderNameGrid() {
     return;
   }
   const EMOJI = ['👨‍🍳','🧑‍🍳','🍺','👩‍🍳','🍳','🧆','🥗','🥩'];
+  // Update existing buttons in-place (preserves event handlers on hardcoded HTML buttons)
   TEAM.forEach((name, i) => {
     const p = profiles[name] || {};
     const bc = BCOLORS[p.bereich] || BCOLORS.alle;
     const bl = BLABELS[p.bereich] || '';
-    const btn = document.createElement('button');
-    btn.className = 'nbtn';
+    let btn = grid.querySelector(`[data-name="${name}"]`);
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.className = 'nbtn';
+      btn.setAttribute('data-name', name);
+      btn.ontouchstart = function(e) { e.preventDefault(); currentUser = name; goToPin(); };
+      btn.onclick = function() { currentUser = name; goToPin(); };
+      grid.appendChild(btn);
+    }
     btn.innerHTML = p.photo
-      ? `<img class="nbtn-img" src="${p.photo}" style="border:2.5px solid ${bc}">${name}${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}`
+      ? `<img class="nbtn-img" src="${p.photo}" style="border:2.5px solid ${bc}"><span class="nm">${name}</span>${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}`
       : `<span class="av" style="border:2px solid ${bc}">${EMOJI[i % EMOJI.length]}</span><span class="nm">${name}</span>${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}`;
-    btn.addEventListener('click', function() {
-      currentUser = name;
-      goToPin();
-    });
-    grid.appendChild(btn);
+  });
+  // Remove buttons for names no longer in TEAM
+  grid.querySelectorAll('[data-name]').forEach(btn => {
+    if (!TEAM.includes(btn.getAttribute('data-name'))) btn.remove();
   });
 }
 
