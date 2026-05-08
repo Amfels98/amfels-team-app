@@ -431,7 +431,9 @@
     <p style="font-size:0.68rem;color:var(--dim);margin:0.6rem 0 1.2rem;text-align:center">Tippe auf das Bild für ein Foto</p>
     <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhoto(this)" />
     <p class="llab">Dein Bereich</p>
-    <div class="chips" id="profileBereichChips" style="width:100%;margin-bottom:1.5rem"></div>
+    <div class="chips" id="profileBereichChips" style="width:100%;margin-bottom:1rem"></div>
+    <p class="llab">Geburtstag (optional)</p>
+    <input class="fi" id="profileBirthday" type="date" style="width:100%;margin-bottom:1.5rem;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.75rem;font-family:Inter,sans-serif;font-size:0.88rem;color:var(--text);outline:none" />
     <button class="lbtn" onclick="saveProfile()">Fertig &amp; Einloggen</button>
     <button onclick="skipProfile()" style="margin-top:0.75rem;background:none;border:none;color:var(--dim);font-size:0.78rem;cursor:pointer;font-family:Inter,sans-serif;">Überspringen</button>
   </div>
@@ -817,6 +819,7 @@
 <div class="overlay" id="modal-admin" onclick="closeOut(event,'admin')">
   <div class="modal">
     <div class="mhdr">⚙ Admin <button class="mx" onclick="closeM('admin')">✕</button></div>
+    <button class="sbtn" style="background:rgba(184,146,74,0.1);border:1.5px solid rgba(184,146,74,0.3);color:var(--gold);margin-bottom:1rem" ontouchstart="closeM('admin');openNachrichtModal();event.preventDefault()" onclick="closeM('admin');openNachrichtModal()">📢 Ansage / Nachricht senden</button>
     <p class="fl" style="margin-bottom:0.85rem">Mitarbeiter-PINs verwalten</p>
     <div id="adminUserList"></div>
     <div style="border-top:1px solid var(--border);margin:1rem 0 0.85rem"></div>
@@ -1041,6 +1044,8 @@ function showProfileSetup() {
   const p = profiles[currentUser] || {};
   profileBereich = p.bereich || 'kueche';
   profilePhotoData = p.photo || null;
+  const bdEl = document.getElementById('profileBirthday');
+  if (bdEl) bdEl.value = p.geburtstag || '';
   const prev = document.getElementById('photoPreview');
   if (profilePhotoData) {
     prev.style.border = 'none';
@@ -1101,7 +1106,8 @@ async function saveProfile() {
     toast('Positions-Anfrage wurde an Chef gesendet');
   }
 
-  const profile = { bereich: approvedBereich, pendingBereich, photo };
+  const birthday = document.getElementById('profileBirthday')?.value || null;
+  const profile = { bereich: approvedBereich, pendingBereich, photo, ...(birthday ? {geburtstag: birthday} : {}) };
   profiles[currentUser] = profile;
   try {
     await fetch(`${DB_URL}/profiles/${currentUser}.json`, {
@@ -3169,6 +3175,104 @@ function submitUebergabe() {
   toast('Übergabe gespeichert ✓');
 }
 
+// ── NACHRICHTEN (Chef → Team) ──
+let nachrichten = [];
+
+async function loadNachrichten() {
+  if (!DB_URL) return;
+  try {
+    const res = await fetch(`${DB_URL}/nachrichten.json`, {cache:'no-store'});
+    const data = await res.json();
+    nachrichten = data ? Object.values(data).sort((a,b)=>(b.ts||0)-(a.ts||0)) : [];
+    renderNachrichten();
+  } catch {}
+}
+
+function renderNachrichten() {
+  const bar = document.getElementById('notifBar');
+  if (!bar) return;
+  const unread = nachrichten.filter(n => {
+    if (n.to !== 'alle' && n.to !== currentUser) return false;
+    return !(n.gelesen||[]).includes(currentUser);
+  });
+  if (!unread.length) { if (!bar.querySelector('.nbar-nachricht')) return; /* don't clear other banners */ }
+  const existing = bar.querySelectorAll('.nbar-nachricht');
+  existing.forEach(e=>e.remove());
+  unread.slice(0, 3).forEach(n => {
+    const div = document.createElement('div');
+    div.className = 'nbar nbar-nachricht';
+    div.style.cssText='background:rgba(91,141,238,0.1);border-color:rgba(91,141,238,0.25);margin-bottom:0.65rem';
+    div.innerHTML=`<div class="nbar-t">📢 <strong>Ansage von ${escapeHtml(n.from||'Chef')}:</strong> ${escapeHtml(n.text)}</div><button class="nbar-btn" style="background:var(--blue)" ontouchstart="markNachrichtGelesen(${n.id});event.preventDefault()" onclick="markNachrichtGelesen(${n.id})">Gelesen ✓</button>`;
+    bar.prepend(div);
+  });
+}
+
+async function markNachrichtGelesen(id) {
+  const n = nachrichten.find(x=>x.id===id);
+  if (!n) return;
+  if (!n.gelesen) n.gelesen = [];
+  if (!n.gelesen.includes(currentUser)) n.gelesen.push(currentUser);
+  renderNachrichten();
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/nachrichten/${id}/gelesen.json`,{method:'PUT',body:JSON.stringify(n.gelesen),headers:{'Content-Type':'application/json'}}).catch(()=>{});
+}
+
+function openNachrichtModal() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:3000;display:flex;align-items:flex-end;justify-content:center;padding:0.5rem';
+  const memberOpts = ['alle',...TEAM].map(n=>`<option value="${n}">${n==='alle'?'👥 Alle Mitarbeiter':n}</option>`).join('');
+  overlay.innerHTML=`<div style="background:var(--bg2);border-radius:18px 18px 0 0;padding:1.3rem 1rem max(2rem,env(safe-area-inset-bottom));width:100%;max-width:440px">
+    <p style="font-size:0.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:1rem">Ansage / Nachricht senden</p>
+    <p style="font-size:0.65rem;color:var(--dim);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.08em">An</p>
+    <select id="nMsg-to" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.75rem;font-family:Inter,sans-serif;font-size:0.88rem;color:var(--text);outline:none;margin-bottom:0.8rem;-webkit-appearance:none">${memberOpts}</select>
+    <p style="font-size:0.65rem;color:var(--dim);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.08em">Nachricht</p>
+    <textarea id="nMsg-text" placeholder="z.B. Heute Abend bitte Toiletten extra sauber machen!" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.75rem;font-family:Inter,sans-serif;font-size:0.88rem;color:var(--text);resize:none;outline:none;min-height:100px;margin-bottom:1rem"></textarea>
+    <button ontouchstart="sendNachricht();event.preventDefault()" onclick="sendNachricht()" style="width:100%;background:var(--blue);color:#fff;border:none;border-radius:13px;padding:0.9rem;font-family:Inter,sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;touch-action:manipulation">Nachricht senden</button>
+    <button ontouchstart="this.closest('[style*=fixed]').remove();event.preventDefault()" onclick="this.closest('[style*=fixed]').remove()" style="width:100%;background:none;border:none;color:var(--dim);font-family:Inter,sans-serif;font-size:0.82rem;cursor:pointer;padding-top:0.8rem;touch-action:manipulation">Abbrechen</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  setTimeout(()=>overlay.querySelector('#nMsg-text')?.focus(),200);
+}
+
+async function sendNachricht() {
+  const text = document.getElementById('nMsg-text')?.value.trim();
+  const to = document.getElementById('nMsg-to')?.value || 'alle';
+  if (!text) { toast('Bitte Text eingeben'); return; }
+  const msg = {id:Date.now(),ts:Date.now(),text,from:currentUser,to,gelesen:[currentUser],at:new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})};
+  nachrichten.unshift(msg);
+  renderNachrichten();
+  document.querySelector('[style*="position:fixed"][style*="z-index:3000"]')?.remove();
+  toast('Nachricht gesendet ✓');
+  if (!DB_URL) return;
+  fetch(`${DB_URL}/nachrichten/${msg.id}.json`,{method:'PUT',body:JSON.stringify(msg),headers:{'Content-Type':'application/json'}}).catch(()=>{});
+}
+
+// ── GEBURTSTAGE ──
+function checkBirthdays() {
+  const today = new Date();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  const todayMD = `${mm}-${dd}`;
+  const soon = new Date(today); soon.setDate(today.getDate()+7);
+  const soonMD = `${String(soon.getMonth()+1).padStart(2,'0')}-${String(soon.getDate()).padStart(2,'0')}`;
+  const el = document.getElementById('dFeiertage');
+  if (!el) return;
+  // Remove existing birthday banners
+  el.querySelectorAll('.bd-banner').forEach(e=>e.remove());
+  Object.entries(profiles).forEach(([name, p]) => {
+    if (!p.geburtstag) return;
+    const bMD = p.geburtstag.slice(5); // YYYY-MM-DD → MM-DD
+    if (bMD === todayMD) {
+      const d = document.createElement('div');
+      d.className='nbar bd-banner';
+      d.style.cssText='background:rgba(184,146,74,0.1);border-color:rgba(184,146,74,0.3);margin-bottom:0.65rem';
+      d.innerHTML=`<div class="nbar-t">🎂 <strong>Heute hat ${escapeHtml(name)} Geburtstag!</strong> Herzlichen Glückwunsch 🎉</div>`;
+      el.prepend(d);
+    }
+  });
+}
+
 // ── INVENTAR ──
 let inventar = [];
 let invFilter = 'alle';
@@ -3302,6 +3406,8 @@ if(currentUser){
   loadSchicht(getWeekKey(0));
   loadUebergabe();
   loadInventar();
+  loadNachrichten();
+  checkBirthdays();
 }
 
 ['tTitle','rTitle','oItem','rzName','alTitel'].forEach(id=>{
