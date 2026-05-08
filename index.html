@@ -478,6 +478,7 @@
     <!-- DASHBOARD -->
     <div class="screen on" id="s-dash">
       <div id="notifBar"></div>
+      <div id="welcomeCard" style="margin-bottom:0.75rem"></div>
       <div id="freigabeCard" style="display:none;margin-bottom:0.65rem"></div>
       <div id="fbBanner"></div>
       <div class="sgrid">
@@ -3338,9 +3339,41 @@ function renderActivity(){
   `).join('');
 }
 
+function renderWelcomeCard(){
+  const el=document.getElementById('welcomeCard');
+  if(!el||!currentUser)return;
+  const hour=new Date().getHours();
+  const greeting=hour<12?'Guten Morgen':hour<17?'Guten Tag':'Guten Abend';
+  // Find next shift for current user this week
+  const weekKey=getWeekKey(shiftWeek);
+  const wData=schichtData[weekKey]||{};
+  const today=new Date();today.setHours(0,0,0,0);
+  const days=getWeekDates(shiftWeek);
+  const SHIFT_TIMES_SHORT={frueh:'8–14',mittag:'12–17',abend:'17–23'};
+  let nextShift=null;
+  days.forEach((date,i)=>{
+    if(date<today)return;
+    const dayKey=DAY_KEYS_DE[i];
+    const dayData=wData[dayKey]||{};
+    ['frueh','mittag','abend'].forEach(sk=>{
+      const members=Array.isArray(dayData[sk])?dayData[sk]:[];
+      if(members.includes(currentUser)&&!nextShift){
+        const isToday=date.getTime()===today.getTime();
+        nextShift={label:isToday?'Heute':''+dayKey+' '+date.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}),schicht:SHIFT_LABELS[sk],time:SHIFT_TIMES_SHORT[sk]};
+      }
+    });
+  });
+  el.innerHTML=`<div style="background:linear-gradient(135deg,rgba(184,146,74,0.1),rgba(184,146,74,0.04));border:1px solid rgba(184,146,74,0.2);border-radius:16px;padding:0.9rem 1rem;">
+    <div style="font-size:0.65rem;color:var(--gold);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.2rem">${greeting}</div>
+    <div style="font-size:1.05rem;font-weight:600">${currentUser} 👋</div>
+    ${nextShift?`<div style="font-size:0.72rem;color:var(--dim);margin-top:0.35rem">Nächste Schicht: <strong style="color:var(--text)">${nextShift.label} · ${nextShift.schicht}</strong> (${nextShift.time} Uhr)</div>`:'<div style="font-size:0.72rem;color:var(--dim);margin-top:0.35rem">Diese Woche noch keine Schicht eingeplant.</div>'}
+  </div>`;
+}
+
 function renderDash(){
   renderFeiertage();
   renderActivity();
+  renderWelcomeCard();
   updateNotifBadge();
   const tasks=g('af_tasks'); const orders=g('af_orders'); const recs=g('af_rec');
   const today=new Date().toLocaleDateString('de-DE'); const day=new Date().getDay();
