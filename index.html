@@ -305,6 +305,7 @@
         <div class="stat"><div class="stat-n" id="statOrders">–</div><div class="stat-l">Bestellungen</div></div>
       </div>
       <div id="dashCal"></div>
+      <div id="dashTasks"></div>
       <div id="dashMsg"></div>
     </div>
 
@@ -741,6 +742,7 @@ function loadDashExtras() {
   dbGet('/muell',                         function(err, data) { mullData = data || {}; tryRender(); });
   function renderExtras() {
     msg.innerHTML = '';
+    renderDashTasks();
     /* Mini Calendar */
     renderDashCal();
     /* Müll Reminders */
@@ -824,6 +826,44 @@ function buildMehr() {
 }
 
 /* ── AUFGABEN ── */
+function renderDashTasks() {
+  var container = el('dashTasks');
+  if (!container) return;
+  container.innerHTML = '';
+  var today = todayKey();
+  var overdue  = tasks.filter(function(t) { return !t.done && t.due && t.due < today; });
+  var dueToday = tasks.filter(function(t) { return !t.done && t.due === today; });
+  if (!overdue.length && !dueToday.length) return;
+  function makeRow(t, isOverdue) {
+    var div = document.createElement('div');
+    div.className = 'task' + (t.priority === 'dringend' ? ' dringend' : '') + (isOverdue ? ' overdue' : '');
+    div.style.marginBottom = '0.4rem';
+    div.innerHTML =
+      '<div class="t-check"></div>' +
+      '<div class="t-body"><div class="t-title">' + esc(t.title) + '</div>' +
+        '<div class="t-meta">' +
+          (t.priority === 'dringend' ? '<span class="prio-badge prio-dringend">Dringend</span>' : '') +
+          esc(t.assign || 'Alle') +
+        '</div>' +
+      '</div>';
+    div.querySelector('.t-check').addEventListener('click', function() { toggleTask(t.id); });
+    return div;
+  }
+  if (overdue.length) {
+    var oHdr = document.createElement('p');
+    oHdr.style.cssText = 'font-size:0.6rem;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem';
+    oHdr.textContent = '⚠ Überfällig';
+    container.appendChild(oHdr);
+    overdue.forEach(function(t) { container.appendChild(makeRow(t, true)); });
+  }
+  if (dueToday.length) {
+    var tHdr = document.createElement('p');
+    tHdr.style.cssText = 'font-size:0.6rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin:' + (overdue.length ? '0.75rem 0 0.4rem' : '0 0 0.4rem');
+    tHdr.textContent = 'Heute fällig';
+    container.appendChild(tHdr);
+    dueToday.forEach(function(t) { container.appendChild(makeRow(t, false)); });
+  }
+}
 function loadTasks() {
   dbGet('/tasks', function(err, data) {
     tasks = [];
@@ -831,7 +871,7 @@ function loadTasks() {
       Object.keys(data).forEach(function(k) { var t = data[k]; t.id = k; tasks.push(t); });
       tasks.sort(function(a,b) { return (b.ts||0)-(a.ts||0); });
     }
-    renderTasks(); updateDash(); renderDashCal();
+    renderTasks(); updateDash(); renderDashCal(); renderDashTasks();
   });
 }
 function renderTasks() {
@@ -879,7 +919,7 @@ function toggleTask(id) {
   if (!t) return;
   t.done = !t.done;
   dbPut('/tasks/' + id, t);
-  renderTasks(); updateDash();
+  renderTasks(); updateDash(); renderDashTasks(); renderDashCal();
 }
 function deleteTask(id) {
   tasks = tasks.filter(function(t) { return t.id !== id; });
