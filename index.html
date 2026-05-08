@@ -137,6 +137,13 @@
     .wiki-title { font-size: 0.88rem; font-weight: 500; }
     .wiki-sub { font-size: 0.68rem; color: var(--dim); margin-top: 0.1rem; }
 
+    /* ── CARD ── */
+    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; }
+
+    /* ── SHIFTS TODAY ── */
+    .sd.today { border-color: rgba(184,146,74,0.35); }
+    .sd.today .sd-name { color: var(--gold-l); }
+
     /* ── INVENTAR ── */
     .inv-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.75rem; }
     .inv-name { flex: 1; font-size: 0.88rem; }
@@ -157,6 +164,23 @@
     .nbtn:active { background: rgba(184,146,74,0.2); border-color: var(--gold); }
     .n-av { font-size: 1.5rem; }
     .n-nm { font-size: 0.82rem; font-weight: 600; }
+
+    /* ── CALENDAR ── */
+    .cal { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+    .cal th { font-size: 0.62rem; color: var(--dim); text-align: center; padding: 0.3rem 0; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+    .cal td { text-align: center; padding: 0.2rem; }
+    .cal-day { width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.82rem; cursor: pointer; position: relative; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .cal-day:active { background: var(--bg3); }
+    .cal-day.today { border: 1.5px solid var(--gold); color: var(--gold); font-weight: 600; }
+    .cal-day.holiday { color: var(--red); }
+    .cal-day.has-urlaub { background: rgba(184,146,74,0.18); border-radius: 0; }
+    .cal-day.urlaub-start { border-radius: 50% 0 0 50%; background: rgba(184,146,74,0.25); }
+    .cal-day.urlaub-end   { border-radius: 0 50% 50% 0; background: rgba(184,146,74,0.25); }
+    .cal-day.urlaub-single { border-radius: 50%; background: rgba(184,146,74,0.35); }
+    .urlaub-entry { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 0.65rem 1rem; margin-bottom: 0.4rem; }
+    .urlaub-name { font-size: 0.78rem; font-weight: 500; }
+    .urlaub-range { font-size: 0.68rem; color: var(--dim); margin-top: 0.1rem; }
+    .urlaub-countdown { font-size: 0.65rem; color: var(--gold); margin-top: 0.1rem; }
 
     /* ── PIN SCREEN ── */
     #pinScreen { position: fixed; inset: 0; background: var(--bg); z-index: 950; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
@@ -394,6 +418,7 @@ function loginAs(name) {
   el('pinScreen').classList.add('hidden');
   el('uLabel').textContent = name;
   updateDash();
+  loadDashExtras();
   loadTasks();
   loadOrders();
   loadChat();
@@ -558,7 +583,7 @@ function switchTab(tab) {
   var lbl = {dash:'Übersicht', aufgaben:'Aufgaben', chat:'Chat', schicht:'Schichtplan', mehr:'Mehr'};
   el('hdrSub').textContent = lbl[tab] || '';
   if (isChat) { el('chatMsgs').scrollTop = el('chatMsgs').scrollHeight; }
-  if (tab === 'dash') { updateDash(); }
+  if (tab === 'dash') { updateDash(); loadDashExtras(); }
 }
 
 /* ── DASHBOARD ── */
@@ -572,6 +597,63 @@ function updateDash() {
   el('statOrders').textContent = orders.length;
 }
 
+/* ── DASHBOARD EXTRAS ── */
+function loadDashExtras() {
+  var msg = el('dashMsg');
+  msg.innerHTML = '';
+  var wk = weekKey(0);
+  var today = todayKey();
+  var todayDE = todayDayDE();
+  var loaded = 0;
+  var shiftToday = {};
+  var haccpToday = {};
+  var uvToday = null;
+  function tryRender() { loaded++; if (loaded >= 3) renderExtras(); }
+  dbGet('/schicht/' + wk + '/' + todayDE, function(err, data) { shiftToday = data || {}; tryRender(); });
+  dbGet('/haccp/' + today,                function(err, data) { haccpToday = data || {}; tryRender(); });
+  dbGet('/uebergabe/' + today,            function(err, data) { uvToday = data; tryRender(); });
+  function renderExtras() {
+    msg.innerHTML = '';
+    /* Heute im Dienst */
+    var shiftCard = document.createElement('div');
+    shiftCard.className = 'card';
+    var anyShift = false;
+    var shiftRows = '';
+    SCHICHTEN.forEach(function(s) {
+      var members = shiftToday[s.k] || [];
+      if (members.length) {
+        anyShift = true;
+        shiftRows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;border-top:1px solid var(--border);font-size:0.82rem">' +
+          '<span>' + s.l + ' <span style="font-size:0.6rem;background:var(--bg4);border-radius:4px;padding:0.05rem 0.35rem;color:var(--dim)">' + s.t + '</span></span>' +
+          '<span style="color:var(--dim);font-size:0.78rem">' + members.map(esc).join(', ') + '</span></div>';
+      }
+    });
+    shiftCard.innerHTML = '<div style="font-size:0.6rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem">Heute · ' + todayDE + '</div>' +
+      (anyShift ? shiftRows : '<p style="font-size:0.82rem;color:var(--dim)">Noch kein Schichtplan eingetragen</p>');
+    msg.appendChild(shiftCard);
+    /* HACCP */
+    var hDone = Object.keys(haccpToday).filter(function(k) { return haccpToday[k] && haccpToday[k].checked; }).length;
+    var hColor = hDone === HACCP.length ? 'var(--green)' : hDone > 0 ? 'var(--orange)' : 'var(--red)';
+    var hCard = document.createElement('div');
+    hCard.className = 'card';
+    hCard.innerHTML = '<div style="font-size:0.6rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem">HACCP Heute</div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between">' +
+        '<span style="font-size:0.82rem;color:var(--dim)">Lebensmittelkontrollen</span>' +
+        '<span style="font-weight:600;color:' + hColor + '">' + hDone + ' / ' + HACCP.length + '</span>' +
+      '</div>';
+    msg.appendChild(hCard);
+    /* Übergabe */
+    if (uvToday && uvToday.text) {
+      var uvCard = document.createElement('div');
+      uvCard.className = 'card';
+      var preview = uvToday.text.substring(0, 100) + (uvToday.text.length > 100 ? '…' : '');
+      uvCard.innerHTML = '<div style="font-size:0.6rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem">Übergabe heute · ' + esc(uvToday.by||'?') + '</div>' +
+        '<div style="font-size:0.82rem;color:var(--dim);line-height:1.5;white-space:pre-wrap">' + esc(preview) + '</div>';
+      msg.appendChild(uvCard);
+    }
+  }
+}
+
 /* ── MEHR TILES ── */
 var MEHR_ITEMS = [
   {icon:'🛒', label:'Bestellen',  fn:'showBestellen'},
@@ -581,6 +663,7 @@ var MEHR_ITEMS = [
   {icon:'💰', label:'Trinkgeld',  fn:'showTrinkgeld'},
   {icon:'📦', label:'Inventar',   fn:'showInventar'},
   {icon:'📖', label:'Wiki',       fn:'showWiki'},
+  {icon:'🏖️', label:'Urlaub',    fn:'showUrlaub'},
 ];
 function buildMehr() {
   var grid = el('mehrGrid');
@@ -707,6 +790,20 @@ function weekKey(off) {
   var mon = new Date(now); mon.setDate(now.getDate() - day + 1 + off*7);
   return mon.getFullYear() + '-W' + String(isoWeek(mon)).padStart(2,'0');
 }
+function getWeekDates(off) {
+  var now = new Date(); var day = now.getDay() || 7;
+  var mon = new Date(now); mon.setDate(now.getDate() - day + 1 + off*7);
+  var dates = [];
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(mon); d.setDate(mon.getDate() + i);
+    dates.push(d);
+  }
+  return dates;
+}
+function todayDayDE() {
+  var d = new Date().getDay();
+  return DAYS_DE[d === 0 ? 6 : d - 1];
+}
 function loadShift() {
   var key = weekKey(shiftOff);
   el('shLabel').textContent = 'KW ' + key.split('-W')[1];
@@ -714,8 +811,14 @@ function loadShift() {
 }
 function renderShift() {
   var html = ''; var key = weekKey(shiftOff);
-  DAYS_DE.forEach(function(day) {
+  var dates = getWeekDates(shiftOff);
+  var todayStr = todayKey();
+  DAYS_DE.forEach(function(day, idx) {
     var dd = shiftDb[day] || {};
+    var date = dates[idx];
+    var dateStr = date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
+    var isToday = dateStr === todayStr;
+    var dateLabel = String(date.getDate()) + '.' + String(date.getMonth()+1) + '.';
     var rows = '';
     SCHICHTEN.forEach(function(s) {
       var members = dd[s.k] || [];
@@ -724,7 +827,10 @@ function renderShift() {
         '<span>' + s.l + ' <span class="sd-badge">' + s.t + '</span></span>' +
         '<span class="sd-names">' + names + '</span></div>';
     });
-    html += '<div class="sd"><div class="sd-name">' + day + '</div>' + rows + '</div>';
+    html += '<div class="sd' + (isToday ? ' today' : '') + '">' +
+      '<div class="sd-name">' + day + ' <span style="font-weight:300;opacity:0.55;font-size:0.65rem">' + dateLabel + '</span>' +
+      (isToday ? ' <span style="font-size:0.5rem;background:var(--gold);color:#000;border-radius:4px;padding:0.05rem 0.3rem;vertical-align:middle;margin-left:0.2rem">heute</span>' : '') +
+      '</div>' + rows + '</div>';
   });
   el('shiftGrid').innerHTML = html;
   el('shiftGrid').querySelectorAll('.sd-row').forEach(function(row) {
@@ -913,51 +1019,60 @@ var REINIG = [
   {id:'boden_service', label:'Boden Service',      freq:'täglich'},
   {id:'wcs',           label:'Toiletten',          freq:'täglich'},
   {id:'bar_theke',     label:'Theke / Bar',        freq:'täglich'},
+  {id:'muell',         label:'Müll leeren',        freq:'täglich'},
   {id:'kuehlschraenke',label:'Kühlschränke innen', freq:'wöchentlich'},
   {id:'fritteuse',     label:'Fritteuse',          freq:'wöchentlich'},
   {id:'herd_ofen',     label:'Herd / Ofen',        freq:'wöchentlich'},
   {id:'fenster',       label:'Fenster',            freq:'wöchentlich'},
-  {id:'muell',         label:'Müll leeren',        freq:'täglich'},
 ];
 function showReinigung() {
-  var body = makeOv('Reinigung – ' + todayKey());
   var today = todayKey();
-  dbGet('/reinigung/' + today, function(err, data) {
-    data = data || {};
-    ['täglich','wöchentlich'].forEach(function(freq) {
-      var section = REINIG.filter(function(r) { return r.freq === freq; });
-      var hdr = document.createElement('p');
-      hdr.style.cssText = 'font-size:0.65rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.08em;margin:0.75rem 0 0.4rem';
-      hdr.textContent = freq;
-      body.appendChild(hdr);
-      section.forEach(function(item) {
-        var entry = data[item.id] || {};
-        var checked = !!entry.checked;
-        var div = document.createElement('div');
-        div.className = 'cl-item' + (checked ? ' checked' : '');
-        div.innerHTML =
-          '<div class="cl-box">' + (checked ? '✓' : '') + '</div>' +
-          '<div class="cl-text"><div class="cl-label">' + esc(item.label) + '</div>' +
-            (checked && entry.by ? '<div class="cl-who">✓ ' + esc(entry.by) + ' ' + fmtTime(entry.ts||0) + '</div>' : '') +
-          '</div>';
-        div.addEventListener('click', function() {
-          var isNow = !entry.checked;
-          entry.checked = isNow; entry.by = me; entry.ts = Date.now();
-          data[item.id] = entry;
-          dbPut('/reinigung/' + today + '/' + item.id, entry);
-          div.className = 'cl-item' + (isNow ? ' checked' : '');
-          div.querySelector('.cl-box').textContent = isNow ? '✓' : '';
-          div.querySelector('.cl-label').style.textDecoration = isNow ? 'line-through' : '';
-          var whoEl = div.querySelector('.cl-who');
-          if (isNow) {
-            if (!whoEl) { whoEl = document.createElement('div'); whoEl.className = 'cl-who'; div.querySelector('.cl-text').appendChild(whoEl); }
-            whoEl.textContent = '✓ ' + me + ' ' + fmtTime(Date.now());
-          } else { if (whoEl) whoEl.remove(); }
-        });
-        body.appendChild(div);
+  var wk = weekKey(0);
+  var body = makeOv('Reinigung – ' + today);
+  var loaded = 0;
+  var dailyData = {};
+  var weeklyData = {};
+  function onLoaded() {
+    loaded++;
+    if (loaded < 2) return;
+    renderSection('täglich',     dailyData,  '/reinigung/d/' + today + '/');
+    renderSection('wöchentlich', weeklyData, '/reinigung/w/' + wk + '/');
+  }
+  dbGet('/reinigung/d/' + today, function(err, data) { dailyData  = data || {}; onLoaded(); });
+  dbGet('/reinigung/w/' + wk,    function(err, data) { weeklyData = data || {}; onLoaded(); });
+  function renderSection(freq, data, basePath) {
+    var section = REINIG.filter(function(r) { return r.freq === freq; });
+    var hdr = document.createElement('p');
+    hdr.style.cssText = 'font-size:0.65rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.08em;margin:0.75rem 0 0.4rem';
+    hdr.textContent = freq;
+    body.appendChild(hdr);
+    section.forEach(function(item) {
+      var entry = data[item.id] || {};
+      var checked = !!entry.checked;
+      var div = document.createElement('div');
+      div.className = 'cl-item' + (checked ? ' checked' : '');
+      div.innerHTML =
+        '<div class="cl-box">' + (checked ? '✓' : '') + '</div>' +
+        '<div class="cl-text"><div class="cl-label">' + esc(item.label) + '</div>' +
+          (checked && entry.by ? '<div class="cl-who">✓ ' + esc(entry.by) + ' ' + fmtTime(entry.ts||0) + '</div>' : '') +
+        '</div>';
+      div.addEventListener('click', function() {
+        var isNow = !entry.checked;
+        entry.checked = isNow; entry.by = me; entry.ts = Date.now();
+        data[item.id] = entry;
+        dbPut(basePath + item.id, entry);
+        div.className = 'cl-item' + (isNow ? ' checked' : '');
+        div.querySelector('.cl-box').textContent = isNow ? '✓' : '';
+        div.querySelector('.cl-label').style.textDecoration = isNow ? 'line-through' : '';
+        var whoEl = div.querySelector('.cl-who');
+        if (isNow) {
+          if (!whoEl) { whoEl = document.createElement('div'); whoEl.className = 'cl-who'; div.querySelector('.cl-text').appendChild(whoEl); }
+          whoEl.textContent = '✓ ' + me + ' ' + fmtTime(Date.now());
+        } else { if (whoEl) whoEl.remove(); }
       });
+      body.appendChild(div);
     });
-  });
+  }
 }
 
 /* ── TRINKGELD ── */
@@ -1142,6 +1257,269 @@ function showWiki() {
   loadWiki();
 }
 
+/* ── URLAUB & KALENDER ── */
+var AT_HOLIDAYS = {
+  '01-01':'Neujahr', '01-06':'Heilige Drei Könige', '05-01':'Staatsfeiertag',
+  '08-15':'Maria Himmelfahrt', '10-26':'Nationalfeiertag', '11-01':'Allerheiligen',
+  '12-08':'Maria Empfängnis', '12-25':'1. Weihnachtstag', '12-26':'2. Weihnachtstag'
+};
+function easterDate(y) {
+  var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+  var g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
+  var l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+  var mo=Math.floor((h+l-7*m+114)/31),dy=(h+l-7*m+114)%31+1;
+  return new Date(y,mo-1,dy);
+}
+function getMovableHolidays(y) {
+  var e = easterDate(y);
+  function add(d,n) { var x=new Date(d); x.setDate(x.getDate()+n); return (String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')); }
+  var h = {};
+  h[add(e,-2)]='Karfreitag'; h[add(e,0)]='Ostersonntag'; h[add(e,1)]='Ostermontag';
+  h[add(e,39)]='Christi Himmelfahrt'; h[add(e,49)]='Pfingstsonntag'; h[add(e,50)]='Pfingstmontag';
+  h[add(e,60)]='Fronleichnam';
+  return h;
+}
+function isHoliday(date) {
+  var mo = String(date.getMonth()+1).padStart(2,'0');
+  var dy = String(date.getDate()).padStart(2,'0');
+  var key = mo + '-' + dy;
+  var movable = getMovableHolidays(date.getFullYear());
+  return AT_HOLIDAYS[key] || movable[key] || null;
+}
+function dateToKey(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function keyToDate(s) {
+  var p = s.split('-'); return new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+}
+function countdownText(from) {
+  var now = new Date(); now.setHours(0,0,0,0);
+  var diff = Math.floor((from - now) / 86400000);
+  if (diff < 0) return 'bereits begonnen';
+  if (diff === 0) return 'beginnt heute!';
+  return 'in ' + diff + ' Tag' + (diff===1?'':'en');
+}
+function showUrlaub() {
+  var body = makeOv('Urlaub & Kalender');
+  var calViewYear  = new Date().getFullYear();
+  var calViewMonth = new Date().getMonth();
+  var urlaubData   = {};
+
+  function render() {
+    body.innerHTML = '';
+    /* ── Neuer Eintrag Button ── */
+    var addBtn = document.createElement('button');
+    addBtn.className = 'btn-g';
+    addBtn.style.cssText = 'width:100%;margin-bottom:0.75rem';
+    addBtn.textContent = '+ Urlaub eintragen';
+    addBtn.addEventListener('click', function() { showAddUrlaub(); });
+    body.appendChild(addBtn);
+    /* ── Kalender ── */
+    renderCalendar();
+    /* ── Urlaubsliste ── */
+    renderList();
+  }
+
+  function renderCalendar() {
+    var oldCal = body.querySelector('.cal-wrap');
+    if (oldCal) oldCal.parentNode.removeChild(oldCal);
+    var wrap = document.createElement('div');
+    wrap.className = 'cal-wrap';
+    /* nav */
+    var nav = document.createElement('div');
+    nav.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem';
+    var mNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    var lbl = document.createElement('span');
+    lbl.style.cssText = 'font-size:0.88rem;font-weight:600';
+    lbl.textContent = mNames[calViewMonth] + ' ' + calViewYear;
+    var prev = document.createElement('button'); prev.className='btn-d'; prev.style.cssText='padding:0.2rem 0.6rem;font-size:0.9rem'; prev.textContent='‹';
+    var next = document.createElement('button'); next.className='btn-d'; next.style.cssText='padding:0.2rem 0.6rem;font-size:0.9rem'; next.textContent='›';
+    prev.addEventListener('click', function() {
+      calViewMonth--; if (calViewMonth < 0) { calViewMonth=11; calViewYear--; }
+      renderCalendar();
+    });
+    next.addEventListener('click', function() {
+      calViewMonth++; if (calViewMonth > 11) { calViewMonth=0; calViewYear++; }
+      renderCalendar();
+    });
+    nav.appendChild(prev); nav.appendChild(lbl); nav.appendChild(next);
+    wrap.appendChild(nav);
+    /* table */
+    var table = document.createElement('table');
+    table.className = 'cal';
+    var thead = '<thead><tr><th>Mo</th><th>Di</th><th>Mi</th><th>Do</th><th>Fr</th><th>Sa</th><th>So</th></tr></thead>';
+    table.innerHTML = thead;
+    var tbody = document.createElement('tbody');
+    var firstDay = new Date(calViewYear, calViewMonth, 1).getDay();
+    firstDay = (firstDay === 0) ? 6 : firstDay - 1;
+    var daysInMonth = new Date(calViewYear, calViewMonth+1, 0).getDate();
+    var todayStr = todayKey();
+    /* build set of urlaub days */
+    var urlaubDays = {};
+    Object.keys(urlaubData).forEach(function(k) {
+      var u = urlaubData[k];
+      if (!u.from || !u.to) return;
+      var cur = keyToDate(u.from); var end = keyToDate(u.to);
+      while (cur <= end) {
+        var dk = dateToKey(cur);
+        if (!urlaubDays[dk]) urlaubDays[dk] = [];
+        urlaubDays[dk].push(u);
+        cur.setDate(cur.getDate()+1);
+      }
+    });
+    var day = 1; var tr;
+    for (var cell = 0; cell < 42; cell++) {
+      if (cell % 7 === 0) { tr = document.createElement('tr'); tbody.appendChild(tr); }
+      var td = document.createElement('td');
+      if (cell < firstDay || day > daysInMonth) { tr.appendChild(td); continue; }
+      var dateObj = new Date(calViewYear, calViewMonth, day);
+      var dk = dateToKey(dateObj);
+      var holiday = isHoliday(dateObj);
+      var isToday = dk === todayStr;
+      var uArr = urlaubDays[dk] || [];
+      var cls = 'cal-day';
+      if (isToday) cls += ' today';
+      if (holiday) cls += ' holiday';
+      if (uArr.length) {
+        var u0 = uArr[0];
+        if (dk === u0.from && dk === u0.to) cls += ' urlaub-single';
+        else if (dk === u0.from) cls += ' urlaub-start';
+        else if (dk === u0.to)   cls += ' urlaub-end';
+        else                      cls += ' has-urlaub';
+      }
+      var span = document.createElement('span');
+      span.className = cls;
+      span.title = holiday || '';
+      span.textContent = day;
+      if (holiday) {
+        td.title = holiday;
+      }
+      td.appendChild(span);
+      tr.appendChild(td);
+      day++;
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    /* holiday legend */
+    var movable = getMovableHolidays(calViewYear);
+    var monthHolidays = [];
+    for (var hk in AT_HOLIDAYS) {
+      var hmo = parseInt(hk.split('-')[0]) - 1;
+      if (hmo === calViewMonth) monthHolidays.push({name: AT_HOLIDAYS[hk], key: hk});
+    }
+    for (var hk2 in movable) {
+      var hd = keyToDate(calViewYear + '-' + hk2);
+      if (hd.getMonth() === calViewMonth) monthHolidays.push({name: movable[hk2], key: hk2});
+    }
+    if (monthHolidays.length) {
+      var leg = document.createElement('div');
+      leg.style.cssText = 'margin-bottom:0.75rem';
+      monthHolidays.forEach(function(h) {
+        var p = document.createElement('p');
+        p.style.cssText = 'font-size:0.68rem;color:var(--red);margin-bottom:0.2rem';
+        var parts = h.key.split('-');
+        p.textContent = parts[1] + '.' + parts[0] + '. – ' + h.name;
+        leg.appendChild(p);
+      });
+      wrap.appendChild(leg);
+    }
+    /* insert before list */
+    var list = body.querySelector('.urlaub-list');
+    if (list) body.insertBefore(wrap, list); else body.appendChild(wrap);
+  }
+
+  function renderList() {
+    var old = body.querySelector('.urlaub-list');
+    if (old) old.parentNode.removeChild(old);
+    var listWrap = document.createElement('div');
+    listWrap.className = 'urlaub-list';
+    var hdr = document.createElement('p');
+    hdr.style.cssText = 'font-size:0.65rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem';
+    hdr.textContent = 'Eingetragene Urlaube';
+    listWrap.appendChild(hdr);
+    var entries = Object.keys(urlaubData).map(function(k) { var u = urlaubData[k]; u.id = k; return u; });
+    entries.sort(function(a,b) { return (a.from||'') < (b.from||'') ? -1 : 1; });
+    var now = new Date(); now.setHours(0,0,0,0);
+    var upcoming = entries.filter(function(u) { return u.to && keyToDate(u.to) >= now; });
+    var past     = entries.filter(function(u) { return u.to && keyToDate(u.to) < now; });
+    if (!entries.length) { listWrap.innerHTML += '<p class="empty">Noch keine Urlaube eingetragen</p>'; }
+    function renderEntry(u) {
+      var div = document.createElement('div');
+      div.className = 'urlaub-entry';
+      var fromD = u.from ? keyToDate(u.from) : null;
+      var toD   = u.to   ? keyToDate(u.to)   : null;
+      var days = (fromD && toD) ? Math.floor((toD - fromD)/86400000) + 1 : 0;
+      var rangeText = u.from && u.to ? (u.from === u.to ? u.from : u.from + ' – ' + u.to + ' (' + days + ' Tage)') : '?';
+      var countdown = (fromD && fromD >= now) ? countdownText(fromD) : (toD && toD >= now ? 'läuft gerade' : '');
+      div.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
+          '<div>' +
+            '<div class="urlaub-name">' + esc(u.who||'?') + (u.note ? ' · <span style="font-weight:400;color:var(--dim)">' + esc(u.note) + '</span>' : '') + '</div>' +
+            '<div class="urlaub-range">' + esc(rangeText) + '</div>' +
+            (countdown ? '<div class="urlaub-countdown">' + esc(countdown) + '</div>' : '') +
+          '</div>' +
+          (u.who === me || me === ADMIN ? '<button class="del">✕</button>' : '') +
+        '</div>';
+      var delBtn = div.querySelector('.del');
+      if (delBtn) {
+        delBtn.addEventListener('click', function() {
+          dbDel('/urlaub/' + u.id, function() { loadUrlaub(); });
+        });
+      }
+      listWrap.appendChild(div);
+    }
+    upcoming.forEach(renderEntry);
+    if (past.length) {
+      var pastHdr = document.createElement('p');
+      pastHdr.style.cssText = 'font-size:0.62rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.04em;margin:0.75rem 0 0.4rem';
+      pastHdr.textContent = 'Vergangen';
+      listWrap.appendChild(pastHdr);
+      past.slice(0,5).forEach(renderEntry);
+    }
+    body.appendChild(listWrap);
+  }
+
+  function loadUrlaub() {
+    dbGet('/urlaub', function(err, data) {
+      urlaubData = {};
+      if (data && !err) {
+        Object.keys(data).forEach(function(k) { urlaubData[k] = data[k]; urlaubData[k].id = k; });
+      }
+      render();
+    });
+  }
+
+  function showAddUrlaub() {
+    var ob = makeOv('Urlaub eintragen');
+    ob.innerHTML =
+      '<div class="fg"><label class="fl">Für wen</label><select class="inp" id="uvWho">' +
+        TEAM.map(function(n) { return '<option value="' + esc(n) + '"' + (n===me?' selected':'') + '>' + esc(n) + '</option>'; }).join('') +
+      '</select></div>' +
+      '<div class="fg"><label class="fl">Von</label><input class="inp" type="date" id="uvFrom" value="' + todayKey() + '"></div>' +
+      '<div class="fg"><label class="fl">Bis</label><input class="inp" type="date" id="uvTo" value="' + todayKey() + '"></div>' +
+      '<div class="fg"><label class="fl">Notiz (optional)</label><input class="inp" id="uvNote" placeholder="z.B. Urlaub Kroatien"></div>' +
+      '<button class="btn-g" style="width:100%" id="uvSave">Speichern</button>';
+    ob.querySelector('#uvSave').addEventListener('click', function() {
+      var who  = ob.querySelector('#uvWho').value;
+      var from = ob.querySelector('#uvFrom').value;
+      var to   = ob.querySelector('#uvTo').value;
+      var note = ob.querySelector('#uvNote').value.trim();
+      if (!from || !to) { toast('Bitte Datum auswählen'); return; }
+      if (from > to) { toast('Von muss vor Bis liegen'); return; }
+      dbPost('/urlaub', {who:who, from:from, to:to, note:note, by:me, ts:Date.now()}, function(err, key) {
+        if (key) {
+          urlaubData[key] = {who:who, from:from, to:to, note:note, by:me, ts:Date.now(), id:key};
+        }
+        document.body.removeChild(ob.parentNode);
+        loadUrlaub();
+        toast('✓ Urlaub eingetragen');
+      });
+    });
+  }
+
+  loadUrlaub();
+}
+
 /* ── BIND EVENTS ── */
 function bind() {
   TABS.forEach(function(tab) {
@@ -1187,6 +1565,7 @@ setInterval(tick, 30000);
 if (me) { el('uLabel').textContent = me; } else { showPicker(); }
 
 updateDash();
+loadDashExtras();
 loadTasks();
 loadOrders();
 loadChat();
