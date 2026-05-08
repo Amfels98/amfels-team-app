@@ -263,6 +263,15 @@
     .mr-when { font-size:0.62rem; color:var(--dim); text-transform:uppercase; letter-spacing:0.04em; }
     .mr-type { font-size:0.88rem; font-weight:500; margin-top:0.05rem; }
 
+    /* ── KI CHAT ── */
+    .ki-chat { display:flex; flex-direction:column; gap:0.5rem; max-height:52vh; overflow-y:auto; padding:0.4rem 0; }
+    .ki-msg { max-width:86%; padding:0.5rem 0.8rem; border-radius:14px; font-size:0.84rem; line-height:1.45; white-space:pre-wrap; word-break:break-word; }
+    .ki-msg.user { align-self:flex-end; background:var(--gold); color:#000; border-bottom-right-radius:4px; }
+    .ki-msg.ai { align-self:flex-start; background:var(--bg2); border:1px solid var(--border); border-bottom-left-radius:4px; }
+    .ki-msg.ai.loading { color:var(--dim); font-style:italic; }
+    .ki-input-row { display:flex; gap:0.5rem; margin-top:0.6rem; }
+    .ki-input-row .inp { flex:1; }
+
     /* ── TOAST ── */
     #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 0.55rem 1.1rem; font-size: 0.78rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 9999; white-space: nowrap; }
   </style>
@@ -916,6 +925,7 @@ var MEHR_ITEMS = [
   {icon:'📖', label:'Wiki',       fn:'showWiki'},
   {icon:'🏖️', label:'Urlaub',    fn:'showUrlaub'},
   {icon:'🗑️', label:'Müll',      fn:'showMuellkalender'},
+  {icon:'🤖', label:'KI',         fn:'showKI'},
 ];
 function buildMehr() {
   var grid = el('mehrGrid');
@@ -1289,15 +1299,51 @@ function showDayPanel(dateStr) {
     hDiv.textContent = '🎉 ' + holiday; card.appendChild(hDiv);
   }
 
-  /* Müll */
-  if (dayMull.length) {
-    dayMull.forEach(function(t) {
+  /* Müll existing */
+  var mullList = document.createElement('div'); mullList.id = 'dpMullList'; card.appendChild(mullList);
+  function renderMullList() {
+    mullList.innerHTML = '';
+    var dm = (buildMullDays(mullData, d.getFullYear(), d.getMonth()))[dateStr] || [];
+    dm.forEach(function(t) {
       var row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;margin-bottom:0.35rem';
+      row.style.cssText = 'display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;margin-bottom:0.3rem';
       row.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:' + mullColor(t) + ';flex-shrink:0"></span>' + mullIcon(t) + ' ' + esc(t);
-      card.appendChild(row);
+      mullList.appendChild(row);
     });
   }
+  renderMullList();
+
+  /* Müll quick-add */
+  var mullAddBtn = document.createElement('button');
+  mullAddBtn.className = 'btn-d'; mullAddBtn.style.cssText = 'width:100%;margin-bottom:0.4rem;font-size:0.78rem';
+  mullAddBtn.textContent = '+ Müll Abholung eintragen';
+  card.appendChild(mullAddBtn);
+  var mullForm = document.createElement('div'); mullForm.style.cssText = 'display:none;margin-bottom:0.5rem';
+  mullForm.innerHTML =
+    '<div style="display:flex;gap:0.5rem;align-items:center">' +
+      '<select class="inp" id="dpMullType" style="flex:1">' +
+        MULL_TYPES.map(function(t) { return '<option value="' + esc(t.key) + '">' + t.icon + ' ' + esc(t.key) + '</option>'; }).join('') +
+      '</select>' +
+      '<select class="inp" id="dpMullRepeat" style="flex:1">' +
+        '<option value="none">Einmalig</option><option value="weekly">Wöchentl.</option><option value="biweekly">2-wöchentl.</option><option value="fourweekly">4-wöchentl.</option><option value="monthly">Monatlich</option>' +
+      '</select>' +
+    '</div>' +
+    '<div class="row2" style="margin-top:0.4rem"><button class="btn-g" id="dpMullSave">Eintragen</button><button class="btn-d" id="dpMullCancel">Abbrechen</button></div>';
+  card.appendChild(mullForm);
+  mullAddBtn.addEventListener('click', function() { mullAddBtn.style.display = 'none'; mullForm.style.display = ''; });
+  mullForm.querySelector('#dpMullCancel').addEventListener('click', function() { mullForm.style.display = 'none'; mullAddBtn.style.display = ''; });
+  mullForm.querySelector('#dpMullSave').addEventListener('click', function() {
+    var type   = mullForm.querySelector('#dpMullType').value;
+    var repeat = mullForm.querySelector('#dpMullRepeat').value;
+    var entry  = {type:type, date:dateStr, repeat:repeat, by:me, ts:Date.now()};
+    dbPost('/muell', entry, function(err, key) {
+      if (key) { mullData[key] = entry; mullData[key].id = key; }
+      mullForm.style.display = 'none'; mullAddBtn.style.display = '';
+      renderMullList(); renderDashCal();
+      loadDashExtras();
+      toast('✓ Müll eingetragen');
+    });
+  });
 
   /* Tasks */
   var tList = document.createElement('div'); card.appendChild(tList);
@@ -1936,6 +1982,119 @@ function showMuellkalender() {
     });
   }
   render();
+}
+
+/* ── KI ASSISTENT ── */
+var KI_KEY_STORE = 'af_ki_key';
+function showKI() {
+  var body = makeOv('🤖 KI Assistent');
+  var kiMessages = [];
+
+  function getKey() { return localStorage.getItem(KI_KEY_STORE) || ''; }
+
+  function addMsg(role, text, isLoading) {
+    var chat = el('kiChat'); if (!chat) return;
+    var div = document.createElement('div');
+    div.className = 'ki-msg ' + role + (isLoading ? ' loading' : '');
+    div.id = isLoading ? 'kiLoader' : '';
+    div.textContent = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+    return div;
+  }
+
+  function sendMsg() {
+    var inp = el('kiInp'); if (!inp) return;
+    var text = inp.value.trim(); if (!text) return;
+    inp.value = '';
+    addMsg('user', text);
+    kiMessages.push({role:'user', parts:[{text:text}]});
+
+    addMsg('ai', 'Schreibt…', true);
+
+    var sysPrompt = 'Du bist der KI-Assistent für das Restaurant Am Fels in Österreich. Antworte auf Deutsch. ' +
+      'Team: Leon (Admin), Sasho, Patrik, Tea, Daniel. Aktuell eingeloggt: ' + (me || 'Unbekannt') + '. ' +
+      'Offene Aufgaben: ' + tasks.filter(function(t) { return !t.done; }).map(function(t) { return t.title; }).slice(0,5).join(', ') + '. ' +
+      'Hilf bei Fragen zu Rezepten, Schichtplanung, Reinigung, Aufgaben, Inventar und allem was das Restaurant betrifft. Sei freundlich und präzise.';
+
+    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + getKey(), {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        system_instruction: {parts:[{text:sysPrompt}]},
+        contents: kiMessages
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var loader = el('kiLoader'); if (loader) loader.parentNode.removeChild(loader);
+      var reply = '';
+      if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+        reply = data.candidates[0].content.parts[0].text;
+      } else if (data.error) {
+        reply = 'Fehler: ' + (data.error.message || 'API Fehler');
+        if (data.error.status === 'INVALID_ARGUMENT' || data.error.code === 400) {
+          reply = 'Ungültiger API Key. Bitte oben ändern.';
+        }
+      } else {
+        reply = 'Keine Antwort erhalten.';
+      }
+      kiMessages.push({role:'model', parts:[{text:reply}]});
+      addMsg('ai', reply);
+    })
+    .catch(function() {
+      var loader = el('kiLoader'); if (loader) loader.parentNode.removeChild(loader);
+      addMsg('ai', 'Verbindungsfehler. Internetverbindung oder API Key prüfen.');
+    });
+  }
+
+  function renderKI() {
+    body.innerHTML = '';
+    var key = getKey();
+    if (!key) {
+      var setupDiv = document.createElement('div');
+      setupDiv.innerHTML =
+        '<p style="font-size:0.82rem;color:var(--dim);margin-bottom:0.75rem;line-height:1.5">' +
+          'Für den KI Assistenten brauchst du einen kostenlosen Google Gemini API Key.<br>' +
+          '<b>ai.google.dev</b> → "Get API key" → kopieren' +
+        '</p>' +
+        '<div class="fg"><label class="fl">Gemini API Key</label><input class="inp" id="kiKeyInp" placeholder="AIzaSy..." autocomplete="off"></div>' +
+        '<button class="btn-g" style="width:100%" id="kiKeySave">Speichern & Starten</button>';
+      body.appendChild(setupDiv);
+      body.querySelector('#kiKeySave').addEventListener('click', function() {
+        var k = body.querySelector('#kiKeyInp').value.trim();
+        if (!k) { toast('API Key eingeben'); return; }
+        localStorage.setItem(KI_KEY_STORE, k);
+        renderKI();
+      });
+      return;
+    }
+
+    var topRow = document.createElement('div');
+    topRow.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:0.4rem';
+    var changeKeyBtn = document.createElement('button');
+    changeKeyBtn.className = 'btn-d'; changeKeyBtn.style.fontSize = '0.72rem';
+    changeKeyBtn.textContent = '🔑 API Key ändern';
+    changeKeyBtn.addEventListener('click', function() { localStorage.removeItem(KI_KEY_STORE); renderKI(); });
+    topRow.appendChild(changeKeyBtn);
+    body.appendChild(topRow);
+
+    var chatEl = document.createElement('div'); chatEl.className = 'ki-chat'; chatEl.id = 'kiChat';
+    body.appendChild(chatEl);
+    addMsg('ai', 'Hallo! Ich bin der KI Assistent für Am Fels. Was kann ich für dich tun? 👋');
+
+    var inputRow = document.createElement('div'); inputRow.className = 'ki-input-row';
+    var inp = document.createElement('input'); inp.className = 'inp'; inp.id = 'kiInp';
+    inp.placeholder = 'Frag mich etwas…';
+    var sendBtn = document.createElement('button'); sendBtn.className = 'btn-g'; sendBtn.textContent = '→';
+    inputRow.appendChild(inp); inputRow.appendChild(sendBtn);
+    body.appendChild(inputRow);
+
+    sendBtn.addEventListener('click', sendMsg);
+    inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') sendMsg(); });
+  }
+
+  renderKI();
 }
 
 /* ── WIKI ── */
