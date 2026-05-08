@@ -2203,13 +2203,26 @@ function showMuellkalender() {
     /* ── KI TEXT EXTRACTION (last resort) ── */
     function extractWithKI(calText, addr, sel) {
       setStep(3, '🤖 KI analysiert…');
+      var streetRaw = addr.split(',')[0].trim();
+      var streetName = streetRaw.replace(/\s*\d+[a-zA-Z]?$/, '').trim();
+      var houseNr = (streetRaw.match(/\d+[a-zA-Z]?$/) || [''])[0];
       var prompt =
-        'Abfallkalender (Deutschland/Österreich). Adresse: ' + addr + '.\n' +
-        'Gesucht: Abholtermine für Müllarten: ' + sel.join(', ') + '.\n' +
-        'Antworte NUR mit JSON-Array:\n[{"type":"Restmüll","date":"2026-01-05","repeat":"none"},...]\n' +
-        'Erlaubte Typen: ' + sel.join('|') + '. Datum: YYYY-MM-DD. Jahr: ' + new Date().getFullYear() + '.\n' +
-        'repeat: none|weekly|biweekly|fourweekly — wenn Muster erkennbar: nur 1. Termin + "repeatEnd":"YYYY-MM-DD"\n' +
-        'Straße/Adresse nicht im Kalender vorhanden → antworte nur: NICHT_GEFUNDEN\n\nKalendertext:\n' + calText.slice(0, 15000);
+        'Du analysierst einen deutschen Abfallkalender.\n' +
+        'Meine Straße: "' + streetName + '"' + (houseNr ? ', Hausnummer ' + houseNr : '') + '\n' +
+        'Vollständige Adresse: ' + addr + '\n' +
+        'Müllarten die ich suche: ' + sel.join(', ') + '\n\n' +
+        'VORGEHEN:\n' +
+        '1. Finde meine Straße im Text. Abkürzungen beachten (z.B. "Str." = "Straße").\n' +
+        '   Wenn der Kalender Tour-/Bezirksnummern verwendet: finde welche Tour meine Straße hat.\n' +
+        '2. Extrahiere NUR die Abholtermine für MEINE Straße/Tour.\n' +
+        '3. Wandle alle Daten in YYYY-MM-DD um (z.B. "5.1." → "' + new Date().getFullYear() + '-01-05").\n\n' +
+        'AUSGABE: NUR dieses JSON-Array (keine Erklärung):\n' +
+        '[{"type":"Restmüll","date":"2026-01-05","repeat":"none"},...]\n' +
+        'Erlaubte Typen: ' + sel.join(' | ') + '\n' +
+        'repeat: none | weekly | biweekly | fourweekly\n' +
+        'Bei regelmäßigem Muster: nur 1. Termin + "repeatEnd":"YYYY-MM-DD"\n' +
+        'Straße nicht im Kalender: antworte nur NICHT_GEFUNDEN\n\n' +
+        'KALENDERTEXT:\n' + calText.slice(0, 15000);
       fetch('https://text.pollinations.ai/', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body:JSON.stringify({messages:[{role:'system',content:'JSON-only extractor.'},{role:'user',content:prompt}],model:'openai',private:true})
