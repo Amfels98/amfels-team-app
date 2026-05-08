@@ -606,23 +606,42 @@ function showPinScreen(name) {
   var pins = getPins();
   pinTarget     = name;
   pinBuffer     = '';
-  pinSetupMode  = !pins[name];
   pinSetupFirst = '';
   var idx = TEAM.indexOf(name);
   el('pinAv').textContent = EMOJ[idx] || '?';
   el('pinNm').textContent = name;
-  el('pinHint').textContent = pinSetupMode ? 'Neuen PIN festlegen (4 Stellen)' : 'PIN eingeben';
-  el('pinHint').className = 'pin-hint';
-  if (pinSetupMode) {
-    el('pinStep').classList.remove('hidden');
-    el('ps0').className = 'pin-step-dot on';
-    el('ps1').className = 'pin-step-dot';
-  } else {
-    el('pinStep').classList.add('hidden');
-  }
-  updatePinDots();
   el('picker').classList.add('hidden');
   el('pinScreen').classList.remove('hidden');
+  updatePinDots();
+
+  if (pins[name]) {
+    pinSetupMode = false;
+    el('pinHint').textContent = 'PIN eingeben';
+    el('pinHint').className = 'pin-hint';
+    el('pinStep').classList.add('hidden');
+  } else {
+    // localStorage may have been cleared (iOS Safari ~7d TTL) — check Firebase first
+    pinSetupMode = false;
+    el('pinHint').textContent = '…';
+    el('pinHint').className = 'pin-hint';
+    el('pinStep').classList.add('hidden');
+    dbGet('/pins/' + name, function(err, fbPin) {
+      if (!err && fbPin) {
+        var p = getPins(); p[name] = fbPin; savePins(p);
+        pinSetupMode = false;
+        el('pinHint').textContent = 'PIN eingeben';
+        el('pinHint').className = 'pin-hint';
+        el('pinStep').classList.add('hidden');
+      } else {
+        pinSetupMode = true;
+        el('pinHint').textContent = 'Neuen PIN festlegen (4 Stellen)';
+        el('pinHint').className = 'pin-hint';
+        el('pinStep').classList.remove('hidden');
+        el('ps0').className = 'pin-step-dot on';
+        el('ps1').className = 'pin-step-dot';
+      }
+    });
+  }
 }
 
 function updatePinDots() {
@@ -659,6 +678,7 @@ function checkPinInput() {
     } else {
       if (pinBuffer === pinChangeFirst) {
         pins[me] = pinBuffer; savePins(pins);
+        dbPut('/pins/' + me, pinBuffer);
         pinChangeMode = false;
         el('pinScreen').classList.add('hidden');
         el('pinStep').classList.add('hidden');
@@ -685,6 +705,7 @@ function checkPinInput() {
       var pins = getPins();
       pins[pinTarget] = pinBuffer;
       savePins(pins);
+      dbPut('/pins/' + pinTarget, pinBuffer);
       loginAs(pinTarget);
     } else {
       pinSetupFirst = '';
@@ -2286,6 +2307,7 @@ function bind() {
     el('umOverlay').classList.add('hidden');
   });
   el('pinBack').addEventListener('click', function() {
+    pinChangeMode = false; pinChangeStep = 0; pinChangeFirst = '';
     el('pinScreen').classList.add('hidden');
     el('picker').classList.remove('hidden');
   });
@@ -2323,6 +2345,15 @@ setInterval(tick, 30000);
 window.addEventListener('online',  function() { el('offlineBanner').classList.add('hidden'); });
 window.addEventListener('offline', function() { el('offlineBanner').classList.remove('hidden'); });
 if (!navigator.onLine) { el('offlineBanner').classList.remove('hidden'); }
+
+// Sync PINs from Firebase into localStorage cache (guards against iOS ~7d localStorage wipe)
+dbGet('/pins', function(err, dbPins) {
+  if (!err && dbPins && typeof dbPins === 'object') {
+    var local = getPins();
+    Object.keys(dbPins).forEach(function(k) { local[k] = dbPins[k]; });
+    savePins(local);
+  }
+});
 
 if (me) {
   var meIdx = TEAM.indexOf(me);
