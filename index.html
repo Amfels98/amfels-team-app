@@ -1935,7 +1935,7 @@ function showMuellkalender() {
     /* ── ADDRESS AUTOCOMPLETE ── */
     var savedAddr = localStorage.getItem('af_mull_addr') || '';
     var addrWrap = document.createElement('div'); addrWrap.className = 'fg'; addrWrap.style.position = 'relative';
-    addrWrap.innerHTML = '<label class="fl">Meine Straße (Straße Nr., PLZ Ort)</label><input class="inp" id="mkiAddr" placeholder="z.B. Hauptstraße 5, 51766 Engelskirchen" autocomplete="off" value="' + esc(savedAddr) + '">';
+    addrWrap.innerHTML = '<label class="fl">Meine Adresse (Straße Nr., PLZ Ort)</label><input class="inp" id="mkiAddr" placeholder="z.B. Hauptstraße 5, 51766 Engelskirchen" autocomplete="off" value="' + esc(savedAddr) + '">';
     body.appendChild(addrWrap);
 
     var acList = document.createElement('div');
@@ -1991,10 +1991,29 @@ function showMuellkalender() {
     });
     typesDiv.appendChild(typesRow); body.appendChild(typesDiv);
 
-    /* ── LINK INPUT (primär) ── */
-    var linkDiv = document.createElement('div'); linkDiv.className = 'fg';
-    linkDiv.innerHTML = '<label class="fl">PDF- oder ICS-Link des Abfallkalenders</label><input class="inp" id="mkiUrl" placeholder="https://...abfallkalender-2026.pdf" autocomplete="off" style="margin-bottom:0.4rem"><button class="btn-g" style="width:100%" id="mkiLoad">📥 Kalender laden & Straße auswählen</button>';
-    body.appendChild(linkDiv);
+    /* ── DATEI AUSWÄHLEN (primär) ── */
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file'; fileInput.accept = '.pdf,.ics'; fileInput.style.display = 'none';
+    body.appendChild(fileInput);
+
+    var fileBtn = document.createElement('button');
+    fileBtn.className = 'btn-g'; fileBtn.style.cssText = 'width:100%;margin-top:0.65rem';
+    fileBtn.textContent = '📂 PDF-Datei auswählen & scannen';
+    body.appendChild(fileBtn);
+    fileBtn.addEventListener('click', function() { fileInput.click(); });
+
+    /* ── ICS-LINK (sekundär, für direkte ICS-URLs) ── */
+    var icsToggle = document.createElement('button');
+    icsToggle.className = 'btn-d'; icsToggle.style.cssText = 'width:100%;margin-top:0.35rem;font-size:0.74rem';
+    icsToggle.textContent = '🔗 Stattdessen ICS-Kalender-Link laden';
+    body.appendChild(icsToggle);
+    var icsPanel = document.createElement('div'); icsPanel.style.cssText = 'display:none;margin-top:0.35rem';
+    icsPanel.innerHTML = '<input class="inp" id="mkiIcsUrl" placeholder="https://gemeinde.de/kalender.ics" autocomplete="off" style="margin-bottom:0.35rem"><button class="btn-g" style="width:100%" id="mkiIcsLoad">📥 ICS laden</button>';
+    body.appendChild(icsPanel);
+    icsToggle.addEventListener('click', function() {
+      icsPanel.style.display = icsPanel.style.display === 'none' ? '' : 'none';
+      if (icsPanel.style.display !== 'none') { var i = icsPanel.querySelector('#mkiIcsUrl'); if (i) i.focus(); }
+    });
 
     var resultEl = document.createElement('div'); resultEl.style.marginTop = '0.7rem';
     body.appendChild(resultEl);
@@ -2003,11 +2022,9 @@ function showMuellkalender() {
     function getSelectedTypes() {
       var t = []; typesRow.querySelectorAll('.chip.on').forEach(function(c) { t.push(c.getAttribute('data-mtype')); }); return t;
     }
-
     function setStatus(msg) {
       resultEl.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center;font-size:0.82rem;color:var(--dim)">' + msg + '</div>';
     }
-
     function showFail(msg) {
       resultEl.innerHTML='<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:10px;padding:0.65rem 0.85rem;font-size:0.8rem"><div style="font-weight:600;margin-bottom:0.2rem">Fehler</div><div style="color:var(--dim);white-space:pre-line">'+esc(msg)+'</div></div>';
     }
@@ -2061,7 +2078,7 @@ function showMuellkalender() {
       return groupRepeat(raw);
     }
 
-    /* ── PDF LOADING ── */
+    /* ── PDF.JS ── */
     function loadPDFJS(cb) {
       if (window.pdfjsLib) { cb(); return; }
       var s = document.createElement('script');
@@ -2072,54 +2089,6 @@ function showMuellkalender() {
       };
       s.onerror = function() { cb(new Error('load')); };
       document.head.appendChild(s);
-    }
-    function fetchBinary(url) {
-      var proxies = [
-        'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-        'https://corsproxy.io/?' + encodeURIComponent(url),
-        'https://thingproxy.freeboard.io/fetch/' + url
-      ];
-      function tryNext(i) {
-        if (i >= proxies.length) return Promise.reject(new Error('all failed'));
-        return fetch(proxies[i])
-          .then(function(r) { return r.arrayBuffer(); })
-          .then(function(buf) {
-            var m = new Uint8Array(buf.slice(0, 4));
-            if (String.fromCharCode(m[0],m[1],m[2],m[3]) !== '%PDF') throw new Error('not pdf');
-            return buf;
-          })
-          .catch(function() { return tryNext(i + 1); });
-      }
-      return tryNext(0);
-    }
-    function fetchText(url) {
-      return fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url))
-        .then(function(r) { if (!r.ok) throw new Error(); return r.text(); })
-        .catch(function() {
-          return fetch('https://corsproxy.io/?' + encodeURIComponent(url)).then(function(r) { return r.text(); });
-        });
-    }
-
-    /* ── MANUAL PASTE FALLBACK (shown when proxy fails) ── */
-    function showPasteFallback(url, addr, sel) {
-      var wrap = document.createElement('div');
-      wrap.style.cssText = 'background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:0.85rem';
-      wrap.innerHTML =
-        '<div style="font-weight:600;font-size:0.85rem;margin-bottom:0.3rem">📄 PDF manuell einlesen</div>' +
-        '<div style="font-size:0.72rem;color:var(--dim);line-height:1.7;margin-bottom:0.6rem">' +
-        '1. PDF öffnen<br>2. Alles markieren (Strg+A)<br>3. Kopieren (Strg+C)<br>4. Hier einfügen' +
-        '</div>' +
-        '<a href="' + esc(url) + '" target="_blank" rel="noopener" style="display:block;padding:0.6rem;text-align:center;background:var(--gold);color:#000;border-radius:10px;text-decoration:none;font-weight:600;font-size:0.84rem;margin-bottom:0.55rem">📄 PDF öffnen →</a>' +
-        '<textarea id="mkiPasteText" class="inp" style="height:110px;resize:vertical;margin-bottom:0.4rem" placeholder="Hier PDF-Text einfügen…"></textarea>' +
-        '<button class="btn-g" style="width:100%" id="mkiPasteRun">🔍 Straße auswählen & Termine erkennen</button>';
-      resultEl.innerHTML = ''; resultEl.appendChild(wrap);
-      wrap.querySelector('#mkiPasteRun').addEventListener('click', function() {
-        var txt = wrap.querySelector('#mkiPasteText').value.trim();
-        if (!txt) { toast('Text einfügen'); return; }
-        if (!addr) { toast('Adresse eingeben'); return; }
-        if (!sel.length) { toast('Müllart auswählen'); return; }
-        findStreetsAndPick(txt, addr, sel);
-      });
     }
 
     /* ── AUTO-IMPORT ── */
@@ -2155,23 +2124,32 @@ function showMuellkalender() {
       });
     }
 
-    /* ── KI: EXTRACT DATES FOR A SPECIFIC STREET/TOUR ── */
-    function extractDatesForStreet(calText, streetLabel, sel) {
-      setStatus('🤖 KI sucht Termine für ' + streetLabel + '…<br><span style="font-size:0.68rem;opacity:.6">kann 15–30 Sek. dauern</span>');
+    /* ── KI EXTRAKTION (nutzt Adresse von oben) ── */
+    function extractWithKI(calText, addr, sel) {
+      setStatus('🤖 KI analysiert Kalender…<br><span style="font-size:0.68rem;opacity:.6">kann 15–30 Sek. dauern</span>');
+      var streetRaw = addr.split(',')[0].trim();
+      var streetName = streetRaw.replace(/\s*\d+[a-zA-Z]?$/, '').trim();
+      var houseNr = (streetRaw.match(/\d+[a-zA-Z]?$/) || [''])[0];
       var yr = new Date().getFullYear();
       var prompt =
         'Du bist ein Datenextraktor für deutsche Abfallkalender.\n\n' +
-        'MEINE STRASSE / TOUR: "' + streetLabel + '"\n' +
+        'MEINE ADRESSE: ' + addr + '\n' +
+        'MEINE STRASSE: "' + streetName + '"' + (houseNr ? ' Nr. ' + houseNr : '') + '\n' +
         'GESUCHTE MÜLLARTEN: ' + sel.join(', ') + '\n\n' +
         'ANLEITUNG:\n' +
-        'Suche im Kalendertext alle Abholdaten für die Straße/Tour "' + streetLabel + '".\n' +
-        'Daten stehen oft als "5.1." oder "05.01." → umrechnen in ' + yr + '-01-05\n\n' +
-        'JSON AUSGABE (NUR das Array, keine Erklärung):\n' +
+        'Schritt 1 – STRASSE FINDEN:\n' +
+        '  Suche "' + streetName + '" im Kalendertext. Beachte Abkürzungen (Str., -str., -straße).\n' +
+        '  Viele Kalender verwenden TOUR- oder BEZIRKSNUMMERN (z.B. "Tour 3", "Bezirk A").\n' +
+        '  Wenn deine Straße einer Tour/Bezirksnummer zugeordnet ist: MERKE diese Nummer.\n\n' +
+        'Schritt 2 – TERMINE EXTRAHIEREN:\n' +
+        '  Suche alle Abholdaten für deine Straße / deine Tour-Nummer.\n' +
+        '  Daten stehen oft als "5.1." oder "05.01." → umrechnen in ' + yr + '-01-05\n\n' +
+        'Schritt 3 – JSON AUSGABE (NUR das Array, keine Erklärung):\n' +
         '[{"type":"Restmüll","date":"' + yr + '-01-05"},{"type":"Biomüll","date":"' + yr + '-01-12"},...]\n\n' +
         'REGELN:\n' +
         '- Nur Typen: ' + sel.join(' | ') + '\n' +
         '- Datum immer YYYY-MM-DD, Jahr ' + yr + '\n' +
-        '- Nichts gefunden → antworte NUR: NICHT_GEFUNDEN\n\n' +
+        '- Straße/Tour nicht gefunden → antworte NUR: NICHT_GEFUNDEN\n\n' +
         'KALENDERTEXT:\n' + calText.slice(0, 22000);
       fetch('https://text.pollinations.ai/', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -2180,7 +2158,7 @@ function showMuellkalender() {
       .then(function(r){return r.text();})
       .then(function(raw) {
         raw=(raw||'').trim();
-        if (raw.indexOf('NICHT_GEFUNDEN')>=0) { showFail('Keine Termine für "'+streetLabel+'" gefunden.'); return; }
+        if (raw.indexOf('NICHT_GEFUNDEN')>=0) { showFail('Straße "'+streetName+'" nicht im Kalender gefunden.\nAdresse prüfen oder Schreibweise kontrollieren.'); return; }
         var mm = raw.match(/\[[\s\S]*\]/);
         if (!mm) { showFail('Keine Termine erkannt.'); return; }
         var parsed; try{parsed=JSON.parse(mm[0]);}catch(e){showFail('Fehler beim Verarbeiten.');return;}
@@ -2191,61 +2169,65 @@ function showMuellkalender() {
       .catch(function(){showFail('Verbindungsfehler.');});
     }
 
-    /* ── KI: FIND ALL STREETS IN CALENDAR, THEN LET USER PICK ── */
-    function findStreetsAndPick(calText, addr, sel) {
-      setStatus('🤖 Straßen werden erkannt…<br><span style="font-size:0.68rem;opacity:.6">kann 10–20 Sek. dauern</span>');
-      var streetRaw = addr.split(',')[0].trim();
-      var streetName = streetRaw.replace(/\s*\d+[a-zA-Z]?$/, '').trim();
-      var prompt =
-        'Liste alle Straßennamen (und deren Tour-/Bezirksnummer falls vorhanden) aus folgendem deutschen Abfallkalender.\n' +
-        'Antworte NUR mit einem JSON-Array: [{"street":"Hauptstraße","tour":"3"},{"street":"Bergweg","tour":"1"},...]\n' +
-        'Keine Tour-Nummer vorhanden → tour: ""\n' +
-        'NUR das JSON-Array ausgeben, keine Erklärung.\n\n' +
-        'KALENDERTEXT:\n' + calText.slice(0, 18000);
-      fetch('https://text.pollinations.ai/', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({messages:[{role:'system',content:'Du extrahierst Straßennamen aus Abfallkalendern. Antworte ausschließlich mit einem JSON-Array.'},{role:'user',content:prompt}],model:'openai',private:true})
-      })
-      .then(function(r){return r.text();})
-      .then(function(raw) {
-        var mm = raw.match(/\[[\s\S]*\]/);
-        if (!mm) { extractDatesForStreet(calText, streetName, sel); return; }
-        var streets; try{streets=JSON.parse(mm[0]);}catch(e){extractDatesForStreet(calText, streetName, sel);return;}
-        if (!streets.length) { extractDatesForStreet(calText, streetName, sel); return; }
-        /* Show street picker */
-        var wrap = document.createElement('div');
-        wrap.style.cssText = 'background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:0.85rem';
-        var hdr = document.createElement('div');
-        hdr.style.cssText = 'font-size:0.84rem;font-weight:600;margin-bottom:0.55rem';
-        hdr.textContent = 'Wähle deine Straße:';
-        wrap.appendChild(hdr);
-        var hint = document.createElement('div');
-        hint.style.cssText = 'font-size:0.7rem;color:var(--dim);margin-bottom:0.5rem';
-        hint.textContent = streets.length + ' Straßen im Kalender gefunden';
-        wrap.appendChild(hint);
-        var list = document.createElement('div');
-        list.style.cssText = 'max-height:260px;overflow-y:auto';
-        streets.forEach(function(s) {
-          var label = s.street + (s.tour ? '  (Tour ' + s.tour + ')' : '');
-          var row = document.createElement('button');
-          row.className = 'btn-d';
-          row.style.cssText = 'width:100%;margin-bottom:0.25rem;text-align:left;font-size:0.8rem;padding:0.55rem 0.75rem';
-          row.textContent = label;
-          row.addEventListener('click', function() {
-            var key = s.tour ? s.street + ' Tour ' + s.tour : s.street;
-            extractDatesForStreet(calText, key, sel);
-          });
-          list.appendChild(row);
-        });
-        wrap.appendChild(list);
-        resultEl.innerHTML=''; resultEl.appendChild(wrap);
-      })
-      .catch(function(){extractDatesForStreet(calText, streetName, sel);});
+    /* ── PDF LESEN (lokal, kein Proxy) ── */
+    function readPDFBuffer(arrayBuf, addr, sel) {
+      setStatus('📄 PDF wird gelesen…');
+      window.pdfjsLib.getDocument({data: arrayBuf}).promise
+        .then(function(pdf) {
+          setStatus('📄 ' + pdf.numPages + ' Seiten werden ausgelesen…');
+          var ps = [];
+          for (var i = 1; i <= pdf.numPages; i++) {
+            (function(n) {
+              ps.push(pdf.getPage(n).then(function(p) {
+                return p.getTextContent().then(function(c) {
+                  return c.items.map(function(it) { return it.str; }).join(' ');
+                });
+              }));
+            })(i);
+          }
+          return Promise.all(ps).then(function(pages) { return pages.join('\n'); });
+        })
+        .then(function(text) {
+          if (!text || text.trim().length < 50) { showFail('PDF konnte nicht gelesen werden (kein Text erkannt).'); return; }
+          extractWithKI(text, addr, sel);
+        })
+        .catch(function() { showFail('Fehler beim Lesen der PDF.'); });
     }
 
-    /* ── MAIN LOAD BUTTON ── */
-    linkDiv.querySelector('#mkiLoad').addEventListener('click', function() {
-      var urlVal = linkDiv.querySelector('#mkiUrl').value.trim();
+    /* ── DATEI GELADEN ── */
+    fileInput.addEventListener('change', function() {
+      var file = fileInput.files[0];
+      if (!file) return;
+      var addr = addrInput.value.trim();
+      var sel = getSelectedTypes();
+      if (!addr) { toast('Adresse eingeben'); return; }
+      if (!sel.length) { toast('Müllart auswählen'); return; }
+      localStorage.setItem('af_mull_addr', addr);
+      localStorage.setItem('af_mull_types', JSON.stringify(sel));
+
+      if (file.name.toLowerCase().indexOf('.ics') >= 0) {
+        var rdr = new FileReader();
+        rdr.onload = function(ev) {
+          var events = parseICS(ev.target.result, sel);
+          if (events.length) { autoImport(events); } else { showFail('Keine passenden Termine in der ICS-Datei.'); }
+        };
+        rdr.readAsText(file);
+        return;
+      }
+
+      /* PDF */
+      setStatus('⏳ PDF.js wird geladen…');
+      loadPDFJS(function(err) {
+        if (err) { showFail('PDF.js konnte nicht geladen werden. Internetverbindung prüfen.'); return; }
+        var rdr = new FileReader();
+        rdr.onload = function(ev) { readPDFBuffer(ev.target.result, addr, sel); };
+        rdr.readAsArrayBuffer(file);
+      });
+    });
+
+    /* ── ICS LINK LADEN ── */
+    icsPanel.querySelector('#mkiIcsLoad').addEventListener('click', function() {
+      var urlVal = icsPanel.querySelector('#mkiIcsUrl').value.trim();
       var addr = addrInput.value.trim();
       var sel = getSelectedTypes();
       if (!urlVal) { toast('Link eingeben'); return; }
@@ -2253,57 +2235,19 @@ function showMuellkalender() {
       if (!sel.length) { toast('Müllart auswählen'); return; }
       localStorage.setItem('af_mull_addr', addr);
       localStorage.setItem('af_mull_types', JSON.stringify(sel));
-
-      var ul = urlVal.toLowerCase();
-
-      /* ICS flow */
-      if (ul.indexOf('.ics') >= 0 || ul.indexOf('ical') >= 0) {
-        setStatus('⏳ Kalender wird geladen…');
-        fetchText(urlVal)
-          .then(function(content) {
-            if (content.indexOf('BEGIN:VCALENDAR') >= 0) {
-              var events = parseICS(content, sel);
-              if (events.length) { autoImport(events); } else { showFail('Keine passenden Termine im Kalender gefunden.'); }
-            } else {
-              showFail('Kein gültiger ICS-Kalender. Bitte PDF-Link verwenden.');
-            }
-          })
-          .catch(function() { showFail('Kalender konnte nicht geladen werden.'); });
-        return;
-      }
-
-      /* PDF flow */
-      setStatus('⏳ PDF.js wird geladen…');
-      var giveUp = setTimeout(function() { showPasteFallback(urlVal, addr, sel); }, 35000);
-      loadPDFJS(function(err) {
-        if (err) { clearTimeout(giveUp); showPasteFallback(urlVal, addr, sel); return; }
-        setStatus('⏳ PDF wird heruntergeladen…<br><span style="font-size:0.68rem;opacity:.6">kann 5–20 Sek. dauern</span>');
-        fetchBinary(urlVal)
-          .then(function(buf) {
-            setStatus('📄 PDF wird gelesen…');
-            return window.pdfjsLib.getDocument({data: buf}).promise;
-          })
-          .then(function(pdf) {
-            setStatus('📄 ' + pdf.numPages + ' Seiten werden ausgelesen…');
-            var ps = [];
-            for (var i = 1; i <= pdf.numPages; i++) {
-              (function(n) {
-                ps.push(pdf.getPage(n).then(function(p) {
-                  return p.getTextContent().then(function(c) {
-                    return c.items.map(function(it) { return it.str; }).join(' ');
-                  });
-                }));
-              })(i);
-            }
-            return Promise.all(ps).then(function(pages) { return pages.join('\n'); });
-          })
-          .then(function(text) {
-            clearTimeout(giveUp);
-            if (!text || text.trim().length < 100) { showPasteFallback(urlVal, addr, sel); return; }
-            findStreetsAndPick(text, addr, sel);
-          })
-          .catch(function() { clearTimeout(giveUp); showPasteFallback(urlVal, addr, sel); });
-      });
+      setStatus('⏳ ICS wird geladen…');
+      fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(urlVal))
+        .then(function(r) { return r.text(); })
+        .catch(function() { return fetch('https://corsproxy.io/?' + encodeURIComponent(urlVal)).then(function(r) { return r.text(); }); })
+        .then(function(content) {
+          if (content.indexOf('BEGIN:VCALENDAR') >= 0) {
+            var events = parseICS(content, sel);
+            if (events.length) { autoImport(events); } else { showFail('Keine passenden Termine im Kalender.'); }
+          } else {
+            showFail('Kein gültiger ICS-Kalender unter diesem Link.');
+          }
+        })
+        .catch(function() { showFail('Link konnte nicht geladen werden.'); });
     });
   }
 
