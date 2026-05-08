@@ -41,9 +41,10 @@
 
     /* ── BOTTOM NAV ── */
     .bnav { background: var(--bg2); border-top: 1px solid var(--border); display: flex; padding-bottom: env(safe-area-inset-bottom); flex-shrink: 0; }
-    .ni { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 0.55rem 0.2rem; color: var(--dim); font-size: 0.52rem; letter-spacing: 0.03em; text-transform: uppercase; gap: 0.18rem; border: none; background: none; font-family: 'Inter', sans-serif; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .ni { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 0.55rem 0.2rem; color: var(--dim); font-size: 0.52rem; letter-spacing: 0.03em; text-transform: uppercase; gap: 0.18rem; border: none; background: none; font-family: 'Inter', sans-serif; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; position: relative; }
     .ni.on { color: var(--gold); }
     .ni-icon { font-size: 1.1rem; line-height: 1; }
+    .ni-badge { position:absolute; top:0.28rem; right:calc(50% - 1.1rem); background:var(--red); color:#fff; font-size:0.48rem; font-weight:700; border-radius:8px; padding:0.06rem 0.28rem; min-width:14px; text-align:center; line-height:1.6; pointer-events:none; }
 
     /* ── COMMON UI ── */
     .sh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; }
@@ -113,6 +114,8 @@
     .dw-emoji { font-size: 2.2rem; margin-bottom: 0.35rem; }
     .dw-name  { font-size: 1.3rem; font-weight: 300; letter-spacing: -0.02em; margin-bottom: 0.2rem; }
     .dw-date  { font-size: 0.72rem; color: var(--dim); }
+    .dw-shift { font-size: 0.72rem; color: var(--gold); margin-top: 0.15rem; min-height: 1em; }
+    .offline-banner { background: rgba(224,82,82,0.15); border-bottom: 1px solid rgba(224,82,82,0.3); padding: 0.35rem 1rem; font-size: 0.72rem; color: var(--red); text-align: center; flex-shrink: 0; }
     .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 0.7rem 0; }
     .stat { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 0.85rem; text-align: center; }
     .stat-n { font-size: 1.55rem; font-weight: 300; color: var(--gold); }
@@ -280,6 +283,9 @@
     </div>
   </div>
 
+  <!-- Offline Banner -->
+  <div id="offlineBanner" class="offline-banner hidden">⚠ Keine Internetverbindung</div>
+
   <!-- User Menu -->
   <div id="umOverlay" class="hidden"></div>
   <div id="userMenu" class="hidden">
@@ -288,6 +294,7 @@
       <div><div class="um-name" id="umName"></div><div class="um-role" id="umRole"></div></div>
     </div>
     <button class="um-btn" id="umSwitch">🔄 Benutzer wechseln</button>
+    <button class="um-btn" id="umPinChange">🔑 PIN ändern</button>
     <button class="um-btn danger" id="umLogout">← Abmelden</button>
   </div>
 
@@ -300,6 +307,7 @@
         <div class="dw-emoji" id="dEmoji">👋</div>
         <div class="dw-name"  id="dName">Hallo!</div>
         <div class="dw-date"  id="dDate"></div>
+        <div class="dw-shift" id="dShift"></div>
       </div>
       <div class="stats">
         <div class="stat"><div class="stat-n" id="statOpen">–</div><div class="stat-l">Aufgaben offen</div></div>
@@ -339,6 +347,7 @@
           <button class="btn-d" id="shPrev" style="padding:0.3rem 0.75rem;font-size:1rem">‹</button>
           <span id="shLabel" style="font-size:0.75rem;color:var(--dim);min-width:50px;text-align:center"></span>
           <button class="btn-d" id="shNext" style="padding:0.3rem 0.75rem;font-size:1rem">›</button>
+          <button class="btn-d" id="shCopy" style="padding:0.3rem 0.65rem;font-size:0.7rem;color:var(--gold);border-color:rgba(184,146,74,0.4)" title="Woche kopieren">⧉</button>
         </div>
       </div>
       <div id="shiftGrid"></div>
@@ -418,9 +427,13 @@ var chat       = [];
 var inventar   = [];
 var trinkgeld  = [];
 var mullData     = {};
-var dashCalYear  = new Date().getFullYear();
-var dashCalMonth = new Date().getMonth();
-var shiftOff   = 0;
+var dashCalYear    = new Date().getFullYear();
+var dashCalMonth   = new Date().getMonth();
+var shiftOff       = 0;
+var pinChangeMode  = false;
+var pinChangeStep  = 0;
+var pinChangeFirst = '';
+var CHAT_LAST_SEEN = 'af_chat_seen';
 var shiftDb    = {};
 var taskFilter = 'alle';
 var chatPollT  = null;
@@ -538,6 +551,26 @@ function showUserMenu() {
   el('userMenu').classList.remove('hidden');
   el('umOverlay').classList.remove('hidden');
 }
+function showPinChange() {
+  if (!me) return;
+  el('userMenu').classList.add('hidden');
+  el('umOverlay').classList.add('hidden');
+  var pins = getPins();
+  pinChangeMode  = true;
+  pinChangeStep  = pins[me] ? 0 : 1;
+  pinChangeFirst = '';
+  pinTarget = me; pinBuffer = ''; pinSetupMode = false; pinSetupFirst = '';
+  var idx = TEAM.indexOf(me);
+  el('pinAv').textContent = EMOJ[idx] || '?';
+  el('pinNm').textContent = me;
+  var hints = ['Aktuellen PIN eingeben', 'Neuen PIN eingeben (4 Stellen)', 'Neuen PIN bestätigen'];
+  el('pinHint').textContent = hints[pinChangeStep];
+  el('pinHint').className = 'pin-hint';
+  el('pinStep').classList.remove('hidden');
+  el('ps0').className = 'pin-step-dot on'; el('ps1').className = 'pin-step-dot';
+  updatePinDots();
+  el('pinScreen').classList.remove('hidden');
+}
 function logoutUser() {
   me = '';
   localStorage.removeItem('af_user');
@@ -611,6 +644,33 @@ function pinKeyPress(k) {
 }
 
 function checkPinInput() {
+  if (pinChangeMode) {
+    var pins = getPins();
+    var hints = ['Aktuellen PIN eingeben', 'Neuen PIN eingeben (4 Stellen)', 'Neuen PIN bestätigen'];
+    if (pinChangeStep === 0) {
+      if (pinBuffer === pins[me]) {
+        pinChangeStep = 1; pinBuffer = ''; updatePinDots();
+        el('pinHint').textContent = hints[1]; el('pinHint').className = 'pin-hint';
+        el('ps0').className = 'pin-step-dot'; el('ps1').className = 'pin-step-dot on';
+      } else { pinWrong('Falscher PIN'); }
+    } else if (pinChangeStep === 1) {
+      pinChangeFirst = pinBuffer; pinChangeStep = 2; pinBuffer = ''; updatePinDots();
+      el('pinHint').textContent = hints[2]; el('pinHint').className = 'pin-hint';
+    } else {
+      if (pinBuffer === pinChangeFirst) {
+        pins[me] = pinBuffer; savePins(pins);
+        pinChangeMode = false;
+        el('pinScreen').classList.add('hidden');
+        el('pinStep').classList.add('hidden');
+        toast('✓ PIN geändert');
+      } else {
+        pinChangeStep = 1; pinChangeFirst = '';
+        pinWrong('PINs stimmen nicht überein');
+        setTimeout(function() { el('pinHint').textContent = hints[1]; el('pinHint').className = 'pin-hint'; }, 650);
+      }
+    }
+    return;
+  }
   if (pinSetupMode) {
     if (!pinSetupFirst) {
       pinSetupFirst = pinBuffer;
@@ -711,7 +771,11 @@ function switchTab(tab) {
   });
   var lbl = {dash:'Übersicht', aufgaben:'Aufgaben', chat:'Chat', schicht:'Schichtplan', mehr:'Mehr'};
   el('hdrSub').textContent = lbl[tab] || '';
-  if (isChat) { el('chatMsgs').scrollTop = el('chatMsgs').scrollHeight; }
+  if (isChat) {
+    el('chatMsgs').scrollTop = el('chatMsgs').scrollHeight;
+    localStorage.setItem(CHAT_LAST_SEEN, String(Date.now()));
+    setBadge('nav-chat', 0);
+  }
   if (tab === 'dash') { updateDash(); loadDashExtras(); }
 }
 
@@ -761,6 +825,21 @@ function loadDashExtras() {
         '<div style="width:8px;height:8px;border-radius:50%;background:' + mullColor(r.type) + ';flex-shrink:0"></div>';
       msg.appendChild(div);
     });
+    /* My shift in greeting */
+    var myShifts = [];
+    SCHICHTEN.forEach(function(s) { if (me && (shiftToday[s.k]||[]).indexOf(me) >= 0) myShifts.push(s.l + ' ' + s.t); });
+    var dShiftEl = el('dShift');
+    if (dShiftEl) dShiftEl.textContent = myShifts.length ? '📋 Heute: ' + myShifts.join(', ') : '';
+    /* Last chat message */
+    if (chat.length) {
+      var lastMsg = chat[chat.length - 1];
+      var chatCard = document.createElement('div'); chatCard.className = 'card'; chatCard.style.cursor = 'pointer';
+      chatCard.innerHTML =
+        '<div style="font-size:0.6rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem">💬 ' + esc(lastMsg.user||'?') + ' · ' + fmtTime(lastMsg.ts||0) + '</div>' +
+        '<div style="font-size:0.82rem;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(lastMsg.text||'') + '</div>';
+      chatCard.addEventListener('click', function() { switchTab('chat'); });
+      msg.appendChild(chatCard);
+    }
     /* Heute im Dienst */
     var shiftCard = document.createElement('div');
     shiftCard.className = 'card';
@@ -791,12 +870,18 @@ function loadDashExtras() {
     msg.appendChild(hCard);
     /* Übergabe */
     if (uvToday && uvToday.text) {
-      var uvCard = document.createElement('div');
-      uvCard.className = 'card';
+      var uvCard = document.createElement('div'); uvCard.className = 'card';
       var preview = uvToday.text.substring(0, 100) + (uvToday.text.length > 100 ? '…' : '');
       uvCard.innerHTML = '<div style="font-size:0.6rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem">Übergabe heute · ' + esc(uvToday.by||'?') + '</div>' +
-        '<div style="font-size:0.82rem;color:var(--dim);line-height:1.5;white-space:pre-wrap">' + esc(preview) + '</div>';
+        '<div style="font-size:0.82rem;color:var(--dim);line-height:1.5;white-space:pre-wrap">' + esc(preview) + '</div>' +
+        '<div id="uvReaders" style="font-size:0.6rem;color:var(--dim);margin-top:0.35rem">Gelesen von…</div>';
       msg.appendChild(uvCard);
+      dbGet('/uebergabe_read/' + today, function(err, rdata) {
+        var readEl = el('uvReaders'); if (!readEl) return;
+        if (!rdata || err) { readEl.textContent = 'Noch niemand gelesen'; return; }
+        var readers = Object.keys(rdata);
+        readEl.textContent = 'Gelesen: ' + readers.join(', ');
+      });
     }
   }
 }
@@ -873,7 +958,7 @@ function loadTasks() {
       Object.keys(data).forEach(function(k) { var t = data[k]; t.id = k; tasks.push(t); });
       tasks.sort(function(a,b) { return (b.ts||0)-(a.ts||0); });
     }
-    renderTasks(); updateDash(); renderDashCal(); renderDashTasks();
+    renderTasks(); updateDash(); renderDashCal(); renderDashTasks(); updateNavBadges();
   });
 }
 function renderTasks() {
@@ -921,7 +1006,7 @@ function toggleTask(id) {
   if (!t) return;
   t.done = !t.done;
   dbPut('/tasks/' + id, t);
-  renderTasks(); updateDash(); renderDashTasks(); renderDashCal();
+  renderTasks(); updateDash(); renderDashTasks(); renderDashCal(); updateNavBadges();
 }
 function deleteTask(id) {
   tasks = tasks.filter(function(t) { return t.id !== id; });
@@ -952,7 +1037,7 @@ function loadChat() {
       Object.keys(data).forEach(function(k) { var m = data[k]; m.id = k; chat.push(m); });
       chat.sort(function(a,b) { return (a.ts||0)-(b.ts||0); });
     }
-    renderChat();
+    renderChat(); updateNavBadges();
   });
 }
 function renderChat() {
@@ -1270,6 +1355,19 @@ function todayDayDE() {
   var d = new Date().getDay();
   return DAYS_DE[d === 0 ? 6 : d - 1];
 }
+function copyShiftWeek() {
+  if (!Object.keys(shiftDb).length) { toast('Aktuelle Woche ist leer'); return; }
+  var dstKey = weekKey(shiftOff + 1);
+  var count = 0;
+  Object.keys(shiftDb).forEach(function(day) {
+    Object.keys(shiftDb[day] || {}).forEach(function(shift) {
+      var members = shiftDb[day][shift];
+      if (members && members.length) { dbPut('/schicht/' + dstKey + '/' + day + '/' + shift, members); count++; }
+    });
+  });
+  toast('✓ Auf nächste Woche kopiert (' + count + ' Schichten)');
+  shiftOff++; loadShift();
+}
 function loadShift() {
   var key = weekKey(shiftOff);
   el('shLabel').textContent = 'KW ' + key.split('-W')[1];
@@ -1419,6 +1517,7 @@ function showUebergabe() {
     '<div class="fg"><textarea class="inp" id="uText" placeholder="Was gibt es zu übergeben? Besonderheiten, offene Aufgaben, Hinweise…" style="min-height:140px"></textarea></div>' +
     '<button class="btn-g" style="width:100%" id="uSave">Speichern</button>' +
     '<div id="uHistory" style="margin-top:1.5rem"></div>';
+  if (me) { dbPut('/uebergabe_read/' + today + '/' + me, {ts:Date.now()}); }
   dbGet('/uebergabe', function(err, data) {
     if (data && data[today] && data[today].text) {
       body.querySelector('#uText').value = data[today].text;
@@ -1621,6 +1720,29 @@ function showTrinkgeld() {
       }
       renderSplit();
       list.appendChild(splitDiv);
+      /* Monthly summary */
+      var months = {};
+      entries.forEach(function(e) {
+        if (!e.date) return;
+        var mo = e.date.substring(0, 7);
+        months[mo] = (months[mo] || 0) + (e.amount || 0);
+      });
+      var moKeys = Object.keys(months).sort().reverse();
+      if (moKeys.length > 1) {
+        var mNames2 = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+        var moHdr = document.createElement('p');
+        moHdr.style.cssText = 'font-size:0.65rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin:0.75rem 0 0.4rem';
+        moHdr.textContent = 'Monatsübersicht'; list.appendChild(moHdr);
+        moKeys.slice(0, 6).forEach(function(mo) {
+          var parts = mo.split('-');
+          var div = document.createElement('div'); div.className = 'tg-entry';
+          div.innerHTML = '<div class="tg-date">' + mNames2[parseInt(parts[1])-1] + ' ' + parts[0] + '</div><div class="tg-amount">' + months[mo].toFixed(2) + ' €</div>';
+          list.appendChild(div);
+        });
+        var moSep = document.createElement('p');
+        moSep.style.cssText = 'font-size:0.65rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin:0.75rem 0 0.4rem';
+        moSep.textContent = 'Alle Einträge'; list.appendChild(moSep);
+      }
       entries.slice(0,20).forEach(function(e) {
         var div = document.createElement('div');
         div.className = 'tg-entry';
@@ -1672,6 +1794,7 @@ function showInventar() {
           '<button class="qty-btn" data-op="-">−</button>' +
           '<div class="inv-qty" style="color:' + qtyColor + '">' + esc(item.qty||0) + '</div>' +
           '<button class="qty-btn" data-op="+">+</button>' +
+          (isLow ? '<button class="qty-btn inv-reorder" title="Zur Bestellliste" style="color:var(--red);font-size:0.75rem">🛒</button>' : '') +
           '<button class="del">✕</button>';
         div.querySelectorAll('.qty-btn').forEach(function(btn) {
           btn.addEventListener('click', function() {
@@ -1681,6 +1804,14 @@ function showInventar() {
             dbPut('/inventar/' + k, item, function() { loadInv(); });
           });
         });
+        var reorderBtn = div.querySelector('.inv-reorder');
+        if (reorderBtn) {
+          reorderBtn.addEventListener('click', function() {
+            dbPost('/orders', {name:item.name, qty:'nachbestellen', by:me, ts:Date.now()}, function() {
+              toast('✓ ' + item.name + ' → Bestellliste'); loadOrders();
+            });
+          });
+        }
         div.querySelector('.del').addEventListener('click', function() { dbDel('/inventar/' + k, loadInv); });
         list.appendChild(div);
       });
@@ -2125,6 +2256,21 @@ function showUrlaub() {
   loadUrlaub();
 }
 
+/* ── NAV BADGES ── */
+function setBadge(navId, count) {
+  var btn = el(navId); if (!btn) return;
+  var b = btn.querySelector('.ni-badge');
+  if (count > 0) {
+    if (!b) { b = document.createElement('span'); b.className = 'ni-badge'; btn.appendChild(b); }
+    b.textContent = count > 99 ? '99+' : count;
+  } else { if (b) b.parentNode.removeChild(b); }
+}
+function updateNavBadges() {
+  setBadge('nav-aufgaben', tasks.filter(function(t) { return !t.done; }).length);
+  var lastSeen = parseInt(localStorage.getItem(CHAT_LAST_SEEN) || '0');
+  setBadge('nav-chat', chat.filter(function(m) { return (m.ts||0) > lastSeen && m.user !== me; }).length);
+}
+
 /* ── BIND EVENTS ── */
 function bind() {
   TABS.forEach(function(tab) {
@@ -2133,6 +2279,7 @@ function bind() {
   });
   el('userChip').addEventListener('click', function() { if (me) showUserMenu(); else showPicker(); });
   el('umSwitch').addEventListener('click', showPicker);
+  el('umPinChange').addEventListener('click', showPinChange);
   el('umLogout').addEventListener('click', logoutUser);
   el('umOverlay').addEventListener('click', function() {
     el('userMenu').classList.add('hidden');
@@ -2159,6 +2306,7 @@ function bind() {
 
   el('shPrev').addEventListener('click', function() { shiftOff--; loadShift(); });
   el('shNext').addEventListener('click', function() { shiftOff++; loadShift(); });
+  el('shCopy').addEventListener('click', copyShiftWeek);
 
   var sel = el('taskAssign');
   sel.innerHTML = '<option value="Alle">Alle</option>' +
@@ -2172,6 +2320,9 @@ buildPinPad();
 bind();
 tick();
 setInterval(tick, 30000);
+window.addEventListener('online',  function() { el('offlineBanner').classList.add('hidden'); });
+window.addEventListener('offline', function() { el('offlineBanner').classList.remove('hidden'); });
+if (!navigator.onLine) { el('offlineBanner').classList.remove('hidden'); }
 
 if (me) {
   var meIdx = TEAM.indexOf(me);
