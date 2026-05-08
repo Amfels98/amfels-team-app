@@ -2344,10 +2344,6 @@ tick();
 setInterval(tick, 30000);
 window.addEventListener('online',  function() { el('offlineBanner').classList.add('hidden'); });
 window.addEventListener('offline', function() { el('offlineBanner').classList.remove('hidden'); });
-// navigator.onLine is unreliable in PWA/iOS standalone — verify with real fetch
-fetch(DB + '/.json?shallow=true&limitToFirst=1', {cache:'no-store'})
-  .then(function() { el('offlineBanner').classList.add('hidden'); })
-  .catch(function() { el('offlineBanner').classList.remove('hidden'); });
 
 // Sync PINs from Firebase into localStorage cache (guards against iOS ~7d localStorage wipe)
 dbGet('/pins', function(err, dbPins) {

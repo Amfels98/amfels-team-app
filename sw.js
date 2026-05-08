@@ -1,4 +1,4 @@
-const CACHE = 'amfels-v4';
+const CACHE = 'amfels-v5';
 const OFFLINE_URLS = ['/'];
 
 self.addEventListener('install', e => {
