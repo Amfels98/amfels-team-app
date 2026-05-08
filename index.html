@@ -1031,9 +1031,8 @@ function renderNameGrid() {
       btn.setAttribute('data-name', name);
       grid.appendChild(btn);
     }
-    // Always (re-)assign handlers so both hardcoded HTML buttons and new ones work
-    btn.ontouchstart = function(e) { e.preventDefault(); currentUser = name; goToPin(); };
-    btn.onclick = function() { currentUser = name; goToPin(); };
+    btn.ontouchstart = function(e) { e.preventDefault(); currentUser = name; doLogin(); };
+    btn.onclick = function() { currentUser = name; doLogin(); };
     btn.innerHTML = p.photo
       ? `<img class="nbtn-img" src="${p.photo}" style="border:2.5px solid ${bc}"><span class="nm">${name}</span>${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}`
       : `<span class="av" style="border:2px solid ${bc}">${EMOJI[i % EMOJI.length]}</span><span class="nm">${name}</span>${bl ? `<span class="nbtn-badge" style="background:${bc}22;color:${bc}">${bl}</span>` : ''}`;
@@ -4497,17 +4496,6 @@ async function submitInv() {
 }
 
 // ── INIT ──
-// Session timeout (8h)
-(function(){
-  const loginTime = parseInt(localStorage.getItem('af_loginTime') || '0');
-  if (currentUser && loginTime && Date.now() - loginTime > 8 * 3600 * 1000) {
-    localStorage.removeItem('af_user');
-    localStorage.removeItem('af_loginTime');
-    setCookie('af_user', '', 0);
-    currentUser = null;
-  }
-})();
-
 renderNameGrid();  // Sofort mit bekannten Namen rendern
 loadProfiles();    // Fotos + neue Mitglieder aus Firebase nachladen
 if(currentUser){
