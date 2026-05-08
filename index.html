@@ -4042,6 +4042,7 @@ function openUebergabeModal() {
       <button class="fc" id="ues-abend" ontouchstart="setUeSchicht('abend');event.preventDefault()" onclick="setUeSchicht('abend')">🌙 Abend</button>
     </div>
     <p style="font-size:0.65rem;color:var(--dim);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.08em">Notizen</p>
+    <button ontouchstart="autoFillUebergabe();event.preventDefault()" onclick="autoFillUebergabe()" style="width:100%;background:rgba(184,146,74,0.08);border:1px dashed rgba(184,146,74,0.35);border-radius:10px;padding:0.55rem;font-family:Inter,sans-serif;font-size:0.75rem;color:var(--gold);cursor:pointer;margin-bottom:0.5rem;touch-action:manipulation">✨ Auto-Bericht erstellen</button>
     <textarea id="ue-text" placeholder="Was ist passiert? Besonderheiten, Hinweise…" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:0.75rem;font-family:Inter,sans-serif;font-size:0.88rem;color:var(--text);resize:none;outline:none;min-height:90px;margin-bottom:0.9rem"></textarea>
     <p style="font-size:0.65rem;color:var(--dim);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.08em">Checkliste (optional)</p>
     <div id="ue-items-list"></div>
@@ -4052,6 +4053,31 @@ function openUebergabeModal() {
   document.body.appendChild(overlay);
   overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
   window._ueSchicht = 'frueh';
+}
+
+function autoFillUebergabe(){
+  const today=new Date().toLocaleDateString('de-DE');
+  const todayIso=new Date().toISOString().slice(0,10);
+  const lines=[];
+  // Erledigte Aufgaben
+  const done=(g('af_tasks')||[]).filter(t=>t.done&&t.doneDate===today);
+  if(done.length) lines.push('✅ Erledigte Aufgaben ('+done.length+'): '+done.map(t=>t.title).join(', ')+'.');
+  // Offene Aufgaben
+  const open=(g('af_tasks')||[]).filter(t=>!t.done);
+  if(open.length) lines.push('⚠️ Noch offen ('+open.length+'): '+open.slice(0,3).map(t=>t.title).join(', ')+(open.length>3?'…':'')+'.');
+  // Trinkgeld
+  const tg=(g('af_trinkgeld')||[]).filter(t=>t.datum===todayIso);
+  if(tg.length){const sum=tg.reduce((s,t)=>s+parseFloat(t.betrag||0),0).toFixed(2);lines.push('💰 Trinkgeld heute: '+sum+'€.');}
+  // Inventar Probleme
+  const leer=(g('af_inventar')||[]).filter(i=>i.status==='leer'||i.status==='wenig');
+  if(leer.length) lines.push('📦 Inventar: '+leer.map(i=>i.name+(i.status==='leer'?' (leer)':' (wenig)')).join(', ')+'.');
+  // Chat aktiv
+  const chatH=(g('af_chat')||[]).filter(m=>m.ts&&new Date(m.ts).toLocaleDateString('de-DE')===today);
+  if(chatH.length) lines.push('💬 '+chatH.length+' Chat-Nachricht'+(chatH.length===1?'':'en')+' heute.');
+
+  const txt=lines.length?lines.join('\n'):'Schicht verlief ohne Besonderheiten.';
+  const el=document.getElementById('ue-text');
+  if(el){el.value=txt;el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 }
 
 function setUeSchicht(s) {
