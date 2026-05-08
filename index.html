@@ -1926,6 +1926,7 @@ function showMuellkalender() {
     body.innerHTML = '';
     var VALID_TYPES = MULL_TYPES.map(function(t) { return t.key; });
     var REPEAT_LABELS2 = {none:'Einmalig',weekly:'Wöchentlich',biweekly:'Alle 2 Wo.',fourweekly:'Alle 4 Wo.',monthly:'Monatlich'};
+    var PROXY = 'https://api.allorigins.win/raw?url=';
 
     var backBtn = document.createElement('button');
     backBtn.className = 'btn-d'; backBtn.style.cssText = 'margin-bottom:0.75rem;font-size:0.78rem';
@@ -1956,24 +1957,51 @@ function showMuellkalender() {
     }
     setStep(1, '');
 
-    /* ── FULL-AUTO NOTICE ── */
-    var autoHint = document.createElement('p');
-    autoHint.style.cssText = 'font-size:0.74rem;color:var(--dim);margin:0 0 0.65rem;line-height:1.5';
-    autoHint.innerHTML = 'Vollständige Adresse inkl. <b>Ort/PLZ</b> eingeben — die KI sucht automatisch den Abfallkalender deiner Gemeinde.';
-    body.appendChild(autoHint);
-
-    var title = document.createElement('p');
-    title.style.cssText = 'font-size:0.82rem;font-weight:600;margin-bottom:0.15rem';
-    title.textContent = '🤖 Abfallkalender automatisch einlesen';
-    body.appendChild(title);
-
-    /* Address */
+    /* ── ADDRESS AUTOCOMPLETE ── */
     var savedAddr = localStorage.getItem('af_mull_addr') || '';
-    var addrDiv = document.createElement('div'); addrDiv.className = 'fg';
-    addrDiv.innerHTML = '<label class="fl">Vollständige Adresse (Straße, Nr., Ort/PLZ)</label><input class="inp" id="mkiAddr" placeholder="z.B. Hauptstraße 5, 1010 Wien" autocomplete="street-address" value="' + esc(savedAddr) + '">';
-    body.appendChild(addrDiv);
+    var addrWrap = document.createElement('div'); addrWrap.className = 'fg'; addrWrap.style.position = 'relative';
+    addrWrap.innerHTML = '<label class="fl">Vollständige Adresse (Straße Nr., PLZ Ort)</label><input class="inp" id="mkiAddr" placeholder="z.B. Hauptstraße 5, 1010 Wien" autocomplete="off" value="' + esc(savedAddr) + '">';
+    body.appendChild(addrWrap);
 
-    /* Müllarten */
+    var acList = document.createElement('div');
+    acList.style.cssText = 'position:absolute;left:0;right:0;top:100%;background:var(--bg2);border:1px solid var(--border);border-radius:0 0 10px 10px;z-index:100;display:none;max-height:180px;overflow-y:auto';
+    addrWrap.appendChild(acList);
+
+    var acTimer = null;
+    var addrInput = addrWrap.querySelector('#mkiAddr');
+    addrInput.addEventListener('input', function() {
+      clearTimeout(acTimer);
+      var q = addrInput.value.trim();
+      if (q.length < 3) { acList.style.display = 'none'; return; }
+      acTimer = setTimeout(function() {
+        fetch('https://photon.komoot.io/api/?q=' + encodeURIComponent(q) + '&limit=6&lang=de')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            var items = (data.features || []).map(function(f) {
+              var p = f.properties;
+              var street = (p.street || p.name || '');
+              var num    = p.housenumber || '';
+              var plz    = p.postcode || '';
+              var city2  = p.city || p.town || p.village || p.county || '';
+              if (!street || !city2) return null;
+              return (street + (num ? ' ' + num : '') + (plz || city2 ? ', ' + plz + (plz&&city2?' ':'') + city2 : ''));
+            }).filter(Boolean);
+            if (!items.length) { acList.style.display = 'none'; return; }
+            acList.innerHTML = '';
+            items.forEach(function(s) {
+              var row = document.createElement('div');
+              row.style.cssText = 'padding:0.55rem 0.85rem;font-size:0.82rem;border-bottom:1px solid var(--border);cursor:pointer';
+              row.textContent = s;
+              row.addEventListener('click', function() { addrInput.value = s; acList.style.display = 'none'; });
+              acList.appendChild(row);
+            });
+            acList.style.display = '';
+          }).catch(function() { acList.style.display = 'none'; });
+      }, 280);
+    });
+    document.addEventListener('click', function(e) { if (!addrWrap.contains(e.target)) acList.style.display = 'none'; });
+
+    /* ── MÜLLARTEN ── */
     var typesDiv = document.createElement('div'); typesDiv.className = 'fg';
     var typesLabel = document.createElement('label'); typesLabel.className = 'fl'; typesLabel.textContent = 'Welche Müllarten hast du?';
     typesDiv.appendChild(typesLabel);
@@ -1993,225 +2021,216 @@ function showMuellkalender() {
     runBtn.textContent = '🔍 Kalender automatisch suchen & einlesen';
     body.appendChild(runBtn);
 
-    /* Manual fallback (hidden by default) */
     var fallbackToggle = document.createElement('button');
     fallbackToggle.className = 'btn-d'; fallbackToggle.style.cssText = 'width:100%;margin-top:0.4rem;font-size:0.74rem';
     fallbackToggle.textContent = '📋 Kalendertext manuell einfügen';
     body.appendChild(fallbackToggle);
-
-    var fallbackPanel = document.createElement('div'); fallbackPanel.style.display = 'none'; fallbackPanel.style.marginTop = '0.4rem';
-    fallbackPanel.innerHTML = '<textarea class="inp" id="mkiText" style="height:110px;resize:vertical" placeholder="Text vom Abfallkalender hier einfügen…"></textarea>' +
-      '<button class="btn-g" style="width:100%;margin-top:0.4rem" id="mkiTextRun">🔍 Aus Text erkennen</button>';
+    var fallbackPanel = document.createElement('div'); fallbackPanel.style.cssText = 'display:none;margin-top:0.4rem';
+    fallbackPanel.innerHTML = '<textarea class="inp" id="mkiText" style="height:100px;resize:vertical" placeholder="Text vom Abfallkalender hier einfügen…"></textarea><button class="btn-g" style="width:100%;margin-top:0.4rem" id="mkiTextRun">🔍 Aus Text erkennen</button>';
     body.appendChild(fallbackPanel);
-    fallbackToggle.addEventListener('click', function() {
-      fallbackPanel.style.display = fallbackPanel.style.display === 'none' ? '' : 'none';
-    });
+    fallbackToggle.addEventListener('click', function() { fallbackPanel.style.display = fallbackPanel.style.display === 'none' ? '' : 'none'; });
 
-    var resultEl = document.createElement('div'); resultEl.style.marginTop = '0.6rem';
+    var resultEl = document.createElement('div'); resultEl.style.marginTop = '0.7rem';
     body.appendChild(resultEl);
 
+    /* ── HELPERS ── */
+    function getSelectedTypes() {
+      var t = []; typesRow.querySelectorAll('.chip.on').forEach(function(c) { t.push(c.getAttribute('data-mtype')); }); return t;
+    }
+    function cityFromAddr(a) {
+      var parts = a.split(','); var raw = parts.length > 1 ? parts[parts.length-1].trim() : parts[0].trim();
+      return raw.replace(/^\d{4,5}\s*/, '').trim();
+    }
+
+    /* ── ICS PARSER (no KI needed — 100% reliable) ── */
+    function mapICSType(s) {
+      s = (s||'').toLowerCase().replace(/ü/g,'u').replace(/ä/g,'a').replace(/ö/g,'o');
+      if (/restm|hausm|grau|schwarze|rest.?abf|rest.?mull/.test(s)) return 'Restmüll';
+      if (/biom|bio.?abf|braune|kompost|org/.test(s))               return 'Biomüll';
+      if (/gelb|plastik|leicht|dsd|grune tonne|wert.?stoff/.test(s)) return 'Gelber Sack';
+      if (/papier|pappe|karton|alte.?papier|blau/.test(s))           return 'Papier';
+      if (/glas|altglas/.test(s))                                     return 'Glas';
+      return null;
+    }
+    function parseICS(text, selectedTypes) {
+      var events = [];
+      var seen = {};
+      var blocks = text.split(/BEGIN:VEVENT/i);
+      blocks.slice(1).forEach(function(block) {
+        var dtm = block.match(/DTSTART[^:]*:(\d{8})/i);
+        var sum = block.match(/SUMMARY[^:]*:([^\r\n]+)/i);
+        if (!dtm || !sum) return;
+        var ds = dtm[1];
+        var date = ds.slice(0,4)+'-'+ds.slice(4,6)+'-'+ds.slice(6,8);
+        var type = mapICSType(sum[1].trim());
+        if (type && selectedTypes.indexOf(type) >= 0) {
+          var key = type + '|' + date;
+          if (!seen[key]) { seen[key] = true; events.push({type:type, date:date, repeat:'none'}); }
+        }
+      });
+      events.sort(function(a,b) { return a.date < b.date ? -1 : 1; });
+      return events;
+    }
+
+    /* ── URL SCORING ── */
+    function scoreUrl(u) {
+      var l = u.toLowerCase();
+      var s = 0;
+      if (l.indexOf('.ics') >= 0 || l.indexOf('ical') >= 0 || l.indexOf('calendar') >= 0) s += 6;
+      if (/abfall|m.ll|entsorg|recycl|muell/.test(l)) s += 3;
+      if (/kalender|plan|termin|abfuhr/.test(l)) s += 2;
+      if (/\.at(\/|$)/.test(l)) s += 1;
+      if (/gemeinde|stadt|markt/.test(l)) s += 1;
+      return s;
+    }
+    function extractUrls(html) {
+      var found = []; var seen = {};
+      var re = /href=["']?(https?:\/\/[^"'\s>]+)/gi; var m;
+      var skip = /google|duckduck|bing|facebook|wikipedia|twitter|youtube|maps\.google|gstatic|w3\.org/i;
+      while ((m = re.exec(html)) !== null) {
+        var u = m[1].replace(/&amp;/g,'&').split('#')[0];
+        if (skip.test(u) || seen[u]) continue;
+        seen[u] = true; found.push(u);
+      }
+      found.sort(function(a,b) { return scoreUrl(b)-scoreUrl(a); });
+      return found;
+    }
+
+    /* ── KI TEXT EXTRACTION (fallback when no ICS found) ── */
+    function extractWithKI(calText, addr, sel) {
+      setStep(3, '⏳');
+      var prompt =
+        'Österreichischer Abfallkalender. Meine Adresse: ' + addr + '. Müllarten: ' + sel.join(', ') + '.\n' +
+        'Extrahiere NUR Abholtermine für MEINE Straße + MEINE Müllarten.\n' +
+        'Antworte NUR JSON-Array:\n[{"type":"Restmüll","date":"2026-01-05","repeat":"none"},...]\n' +
+        'Typen: ' + sel.join('|') + '. Datum YYYY-MM-DD. Jahr: ' + new Date().getFullYear() + '.\n' +
+        'repeat: none|weekly|biweekly|fourweekly|monthly (wenn wiederkehrend: nur 1. Termin, optional repeatEnd)\n' +
+        'Straße nicht vorhanden → NICHT_GEFUNDEN\n\nText:\n' + calText.slice(0, 15000);
+      fetch('https://text.pollinations.ai/', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({messages:[{role:'system',content:'JSON-only data extractor.'},{role:'user',content:prompt}],model:'openai',private:true})
+      })
+      .then(function(r){return r.text();})
+      .then(function(raw) {
+        runBtn.disabled = false; runBtn.textContent = '🔍 Kalender automatisch suchen & einlesen';
+        raw = (raw||'').trim();
+        if (raw.indexOf('NICHT_GEFUNDEN') >= 0) { showFail('Straße nicht im Kalender. Schreibweise prüfen.'); return; }
+        var mm = raw.match(/\[[\s\S]*?\]/);
+        if (!mm) { showFail('Keine Termine erkannt.'); return; }
+        var parsed; try { parsed = JSON.parse(mm[0]); } catch(e) { showFail('Fehler beim Verarbeiten.'); return; }
+        parsed = parsed.filter(function(e){return e.date&&e.type&&VALID_TYPES.indexOf(e.type)>=0;});
+        showResults(parsed);
+      })
+      .catch(function() { runBtn.disabled=false; runBtn.textContent='🔍 Kalender automatisch suchen & einlesen'; showFail('Verbindungsfehler.'); });
+    }
+
+    /* ── TRY URLS: ICS first, then HTML ── */
+    function tryUrls(urls, addr, sel) {
+      if (!urls.length) { runBtn.disabled=false; runBtn.textContent='🔍 Kalender automatisch suchen & einlesen'; setStep(1,''); showFail('Kalender nicht gefunden. Text manuell einfügen.'); fallbackPanel.style.display=''; return; }
+      var url = urls[0]; var rest = urls.slice(1);
+      var isICS = url.toLowerCase().indexOf('.ics') >= 0 || url.toLowerCase().indexOf('ical') >= 0;
+      fetch(PROXY + encodeURIComponent(url))
+        .then(function(r){return r.text();})
+        .then(function(content) {
+          if (isICS || content.indexOf('BEGIN:VCALENDAR') >= 0) {
+            var events = parseICS(content, sel);
+            if (events.length) { localStorage.setItem('af_mull_url', url); showResults(events); return; }
+          }
+          /* Look for ICS links in HTML page */
+          var icsLinks = extractUrls(content).filter(function(u){ return u.toLowerCase().indexOf('.ics')>=0||u.toLowerCase().indexOf('ical')>=0; });
+          if (icsLinks.length) { tryUrls(icsLinks.concat(rest), addr, sel); return; }
+          /* Use KI on text */
+          var tmp = document.createElement('div'); tmp.innerHTML = content;
+          /* Strip scripts/styles from text */
+          tmp.querySelectorAll('script,style,nav,header,footer').forEach(function(n){n.parentNode&&n.parentNode.removeChild(n);});
+          var text = (tmp.textContent||tmp.innerText||'').replace(/\s+/g,' ').trim();
+          if (text.length > 300) { localStorage.setItem('af_mull_url', url); extractWithKI(text, addr, sel); }
+          else { tryUrls(rest, addr, sel); }
+        })
+        .catch(function(){tryUrls(rest, addr, sel);});
+    }
+
+    /* ── SEARCH ── */
+    function search(query) {
+      return fetch(PROXY + encodeURIComponent('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query)))
+        .then(function(r){return r.text();})
+        .then(extractUrls);
+    }
+
     function showResults(parsed) {
-      if (!parsed.length) { resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Keine Termine erkannt. Adresse oder Müllarten prüfen, oder Text manuell einfügen.</p>'; return; }
+      runBtn.disabled = false; runBtn.textContent = '🔍 Kalender automatisch suchen & einlesen';
+      if (!parsed.length) { showFail('Keine Termine erkannt. Text manuell einfügen.'); return; }
       setStep(4, '');
       var preview = document.createElement('div');
       var pHdr = document.createElement('p'); pHdr.style.cssText = 'font-size:0.75rem;font-weight:600;color:var(--gold);margin:0 0 0.4rem';
       pHdr.textContent = parsed.length + ' Termine erkannt:'; preview.appendChild(pHdr);
       parsed.forEach(function(e) {
         var row = document.createElement('div'); row.className = 'card';
-        row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;border-left:3px solid ' + mullColor(e.type);
-        row.innerHTML = '<span>' + mullIcon(e.type) + '</span><div style="flex:1"><div style="font-size:0.82rem;font-weight:500">' + esc(e.type) + '</div><div style="font-size:0.65rem;color:var(--dim)">' + esc(e.date) + ' · ' + esc(REPEAT_LABELS2[e.repeat||'none']||'') + (e.repeatEnd ? ' bis ' + esc(e.repeatEnd) : '') + '</div></div>';
+        row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;border-left:3px solid '+mullColor(e.type);
+        row.innerHTML = '<span>'+mullIcon(e.type)+'</span><div style="flex:1"><div style="font-size:0.82rem;font-weight:500">'+esc(e.type)+'</div><div style="font-size:0.65rem;color:var(--dim)">'+esc(e.date)+' · '+esc(REPEAT_LABELS2[e.repeat||'none']||'')+(e.repeatEnd?' bis '+esc(e.repeatEnd):'')+' </div></div>';
         preview.appendChild(row);
       });
-      var importBtn = document.createElement('button'); importBtn.className = 'btn-g'; importBtn.style.cssText = 'width:100%;margin-top:0.5rem';
-      importBtn.textContent = '✓ Alle ' + parsed.length + ' Termine eintragen';
+      var importBtn = document.createElement('button'); importBtn.className='btn-g'; importBtn.style.cssText='width:100%;margin-top:0.5rem';
+      importBtn.textContent = '✓ Alle '+parsed.length+' Termine eintragen';
       importBtn.addEventListener('click', function() {
-        importBtn.disabled = true; importBtn.textContent = '⏳ Wird eingetragen…';
-        var done = 0;
+        importBtn.disabled=true; importBtn.textContent='⏳ Wird eingetragen…';
+        var done=0;
         parsed.forEach(function(e) {
-          var entry = {type:e.type, date:e.date, repeat:e.repeat||'none', by:me, ts:Date.now()};
-          if (e.repeatEnd) entry.repeatEnd = e.repeatEnd;
-          dbPost('/muell', entry, function(err, key) {
-            if (key) { mullData[key] = entry; mullData[key].id = key; }
-            done++;
-            if (done === parsed.length) { loadDashExtras(); toast('✓ ' + parsed.length + ' Termine eingetragen'); render(); }
-          });
+          var entry={type:e.type,date:e.date,repeat:e.repeat||'none',by:me,ts:Date.now()};
+          if (e.repeatEnd) entry.repeatEnd=e.repeatEnd;
+          dbPost('/muell', entry, function(err,key){ if(key){mullData[key]=entry;mullData[key].id=key;} done++; if(done===parsed.length){loadDashExtras();toast('✓ '+parsed.length+' Termine eingetragen');render();} });
         });
       });
       preview.appendChild(importBtn);
-      resultEl.innerHTML = ''; resultEl.appendChild(preview);
+      resultEl.innerHTML=''; resultEl.appendChild(preview);
     }
 
-    function extractFromText(calText, addr, selectedTypes) {
-      var prompt =
-        'Ich habe den Abfallkalender meiner österreichischen Gemeinde.\n' +
-        'Meine Adresse: ' + addr + '\n' +
-        'Meine Müllarten: ' + selectedTypes.join(', ') + '\n' +
-        'Extrahiere NUR Abholtermine für MEINE Straße und MEINE Müllarten.\n' +
-        'Antworte NUR mit JSON-Array, kein anderer Text:\n' +
-        '[{"type":"Restmüll","date":"2026-01-05","repeat":"none"},...]\n' +
-        'Gültige type-Werte: ' + selectedTypes.join(', ') + '\n' +
-        'Datum: YYYY-MM-DD. Jahr: ' + new Date().getFullYear() + '\n' +
-        'repeat: none|weekly|biweekly|fourweekly|monthly. Bei wiederkehrend: nur 1. Termin + repeat, optional repeatEnd:"YYYY-MM-DD"\n' +
-        'Straße fehlt im Kalender → antworte: NICHT_GEFUNDEN\n\nKalender:\n' + calText.slice(0, 14000);
-
-      fetch('https://text.pollinations.ai/', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          messages:[
-            {role:'system', content:'Daten-Extraktor. Antworte ausschließlich mit JSON-Array, kein erklärender Text.'},
-            {role:'user', content:prompt}
-          ], model:'openai', private:true
-        })
-      })
-      .then(function(r) { return r.text(); })
-      .then(function(raw) {
-        runBtn.disabled = false; runBtn.textContent = '🔍 Kalender automatisch suchen & einlesen';
-        raw = (raw||'').trim();
-        if (raw.indexOf('NICHT_GEFUNDEN') >= 0) {
-          resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Deine Straße wurde im Kalender nicht gefunden. Schreibweise prüfen oder Text manuell einfügen.</p>'; return;
-        }
-        var m = raw.match(/\[[\s\S]*?\]/);
-        if (!m) { resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Keine Termine erkannt. Text manuell einfügen.</p>'; return; }
-        var parsed; try { parsed = JSON.parse(m[0]); } catch(e) { resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Fehler. Nochmal versuchen.</p>'; return; }
-        parsed = parsed.filter(function(e) { return e.date && e.type && VALID_TYPES.indexOf(e.type) >= 0; });
-        showResults(parsed);
-      })
-      .catch(function() {
-        runBtn.disabled = false; runBtn.textContent = '🔍 Kalender automatisch suchen & einlesen';
-        resultEl.innerHTML = '<p style="font-size:0.8rem;color:var(--red)">Verbindungsfehler. Nochmal versuchen.</p>';
-      });
+    function showFail(msg) {
+      resultEl.innerHTML = '<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:10px;padding:0.65rem 0.85rem;font-size:0.8rem"><div style="font-weight:600;margin-bottom:0.2rem">Nicht gefunden</div><div style="color:var(--dim)">'+esc(msg)+'</div></div>';
+      fallbackPanel.style.display = '';
     }
 
-    function getSelectedTypes() {
-      var t = []; typesRow.querySelectorAll('.chip.on').forEach(function(c) { t.push(c.getAttribute('data-mtype')); }); return t;
-    }
-
-    /* Manual text fallback handler */
+    /* ── MANUAL TEXT FALLBACK ── */
     fallbackPanel.addEventListener('click', function(e) {
-      if (!e.target || e.target.id !== 'mkiTextRun') return;
-      var addr = el('mkiAddr') ? el('mkiAddr').value.trim() : '';
-      var input = el('mkiText') ? el('mkiText').value.trim() : '';
-      var sel = getSelectedTypes();
-      if (!addr)  { toast('Adresse eingeben'); return; }
-      if (!input) { toast('Text einfügen'); return; }
-      if (!sel.length) { toast('Müllart auswählen'); return; }
-      localStorage.setItem('af_mull_addr', addr);
-      localStorage.setItem('af_mull_types', JSON.stringify(sel));
-      runBtn.disabled = true; setStep(3, '⏳');
-      resultEl.innerHTML = '';
-      extractFromText(input, addr, sel);
+      if (!e.target||e.target.id!=='mkiTextRun') return;
+      var addr=addrInput.value.trim(); var input=el('mkiText')?el('mkiText').value.trim():''; var sel=getSelectedTypes();
+      if (!addr){toast('Adresse eingeben');return;} if(!input){toast('Text einfügen');return;} if(!sel.length){toast('Müllart auswählen');return;}
+      localStorage.setItem('af_mull_addr',addr); localStorage.setItem('af_mull_types',JSON.stringify(sel));
+      runBtn.disabled=true; resultEl.innerHTML='';
+      extractWithKI(input, addr, sel);
     });
 
-    /* Extract city name from address */
-    function cityFromAddr(addr) {
-      var parts = addr.split(',');
-      var raw = parts.length > 1 ? parts[parts.length-1].trim() : parts[0].trim();
-      return raw.replace(/^\d{4,5}\s*/, '').trim(); // strip PLZ
-    }
-
-    /* Extract all candidate URLs from search HTML */
-    function extractUrls(html) {
-      var found = [];
-      var re = /href=["']?(https?:\/\/[^"'\s>]+)/gi;
-      var m;
-      while ((m = re.exec(html)) !== null) {
-        var u = m[1].replace(/&amp;/g,'&');
-        if (u.indexOf('google') >= 0 || u.indexOf('duckduckgo') >= 0 || u.indexOf('bing') >= 0 || u.indexOf('facebook') >= 0 || u.indexOf('wikipedia') >= 0) continue;
-        found.push(u);
-      }
-      return found.filter(function(u, i, a) { return a.indexOf(u) === i; });
-    }
-
-    /* Score a URL for likelihood of being a Müll calendar page */
-    function scoreUrl(u) {
-      var lower = u.toLowerCase();
-      var score = 0;
-      if (/abfall|m.+ll|entsorgung|recycling|waste|muell/.test(lower)) score += 3;
-      if (/kalender|plan|termin|abfuhr/.test(lower)) score += 2;
-      if (/\.at\//.test(lower)) score += 1;
-      if (/gemeinde|stadt|marktgemeinde/.test(lower)) score += 1;
-      return score;
-    }
-
-    /* Search DuckDuckGo and return best candidate URLs */
-    function searchDDG(query) {
-      var proxy = 'https://api.allorigins.win/raw?url=';
-      var ddgUrl = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query);
-      return fetch(proxy + encodeURIComponent(ddgUrl))
-        .then(function(r) { return r.text(); })
-        .then(function(html) {
-          var urls = extractUrls(html);
-          urls.sort(function(a, b) { return scoreUrl(b) - scoreUrl(a); });
-          return urls.slice(0, 5);
-        });
-    }
-
-    /* Try fetching each candidate URL until one has usable content */
-    function tryUrls(urls, onFound, onFail) {
-      if (!urls.length) { onFail(); return; }
-      var url = urls[0];
-      var rest = urls.slice(1);
-      fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url))
-        .then(function(r) { return r.text(); })
-        .then(function(html) {
-          var tmp = document.createElement('div'); tmp.innerHTML = html;
-          var text = (tmp.textContent || tmp.innerText || '').replace(/\s+/g,' ').trim();
-          if (text.length < 200) { tryUrls(rest, onFound, onFail); return; }
-          onFound(url, text);
-        })
-        .catch(function() { tryUrls(rest, onFound, onFail); });
-    }
-
-    /* Main auto flow */
+    /* ── MAIN AUTO FLOW ── */
     runBtn.addEventListener('click', function() {
-      var addr = el('mkiAddr') ? el('mkiAddr').value.trim() : '';
+      var addr = addrInput.value.trim();
       if (!addr) { toast('Adresse eingeben'); return; }
       var sel = getSelectedTypes();
       if (!sel.length) { toast('Müllart auswählen'); return; }
       localStorage.setItem('af_mull_addr', addr);
       localStorage.setItem('af_mull_types', JSON.stringify(sel));
 
-      runBtn.disabled = true;
-      setStep(2, '⏳'); resultEl.innerHTML = '';
-
+      runBtn.disabled = true; setStep(2, '⏳'); resultEl.innerHTML = '';
       var city = cityFromAddr(addr);
-      var street = addr.split(',')[0].trim();
+      var street = addr.split(',')[0].replace(/\d+.*$/,'').trim();
 
-      /* Search 1: specific street */
-      var q1 = street + ' ' + city + ' Abfallkalender Müllabfuhr Österreich';
-      /* Search 2: city-level fallback */
-      var q2 = city + ' Abfallkalender Müllabfuhr 2026';
-
-      searchDDG(q1)
-        .then(function(urls) {
-          if (!urls.length) return searchDDG(q2);
-          /* also merge fallback results */
-          return searchDDG(q2).then(function(urls2) {
-            var merged = urls.concat(urls2).filter(function(u, i, a) { return a.indexOf(u) === i; });
-            merged.sort(function(a, b) { return scoreUrl(b) - scoreUrl(a); });
-            return merged.slice(0, 6);
-          }).catch(function() { return urls; });
-        })
-        .then(function(candidates) {
-          if (!candidates.length) throw new Error('no results');
-          setStep(3, '⏳');
-          tryUrls(candidates, function(foundUrl, calText) {
-            localStorage.setItem('af_mull_url', foundUrl);
-            extractFromText(calText, addr, sel);
-          }, function() {
-            throw new Error('all failed');
-          });
-        })
-        .catch(function() {
-          runBtn.disabled = false; runBtn.textContent = '🔍 Kalender automatisch suchen & einlesen';
-          setStep(1, '');
-          resultEl.innerHTML =
-            '<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:10px;padding:0.65rem 0.85rem;font-size:0.8rem">' +
-            '<div style="font-weight:600;margin-bottom:0.3rem">Kalender nicht automatisch gefunden</div>' +
-            '<div style="color:var(--dim);line-height:1.5">Gemeinde-Website im Browser öffnen, Kalendertext kopieren und "📋 Text manuell einfügen" verwenden.</div>' +
-            '</div>';
-          fallbackPanel.style.display = '';
-        });
+      /* Run 3 searches in parallel: ICS-specific, street-specific, city-level */
+      Promise.all([
+        search(city + ' Abfallkalender ical ICS herunterladen Österreich').catch(function(){return[];}),
+        search(street + ' ' + city + ' Abfallkalender Müllabfuhr Termine 2026').catch(function(){return[];}),
+        search(city + ' Abfallkalender Gemeinde Entsorgung 2026').catch(function(){return[];})
+      ]).then(function(results) {
+        var all = results[0].concat(results[1]).concat(results[2]);
+        /* Deduplicate + sort: ICS files first, then by score */
+        var seen = {}; var candidates = [];
+        all.forEach(function(u){ if(!seen[u]){seen[u]=true;candidates.push(u);} });
+        candidates.sort(function(a,b){return scoreUrl(b)-scoreUrl(a);});
+        setStep(3,'⏳');
+        tryUrls(candidates.slice(0,10), addr, sel);
+      }).catch(function(){
+        runBtn.disabled=false; runBtn.textContent='🔍 Kalender automatisch suchen & einlesen';
+        setStep(1,''); showFail('Suche fehlgeschlagen. Text manuell einfügen.');
+        fallbackPanel.style.display='';
+      });
     });
   }
 
