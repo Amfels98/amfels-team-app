@@ -378,6 +378,14 @@ function fmtTime(ts) {
   var d = new Date(ts);
   return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
+function fmtDate(ts) {
+  var d = new Date(ts);
+  return String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.';
+}
+function isSameDay(ts1, ts2) {
+  var a = new Date(ts1), b = new Date(ts2);
+  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+}
 function todayKey() {
   var d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
@@ -708,7 +716,7 @@ function renderTasks() {
     div.innerHTML =
       '<div class="t-check">' + (t.done ? '✓' : '') + '</div>' +
       '<div class="t-body"><div class="t-title">' + esc(t.title) + '</div>' +
-        '<div class="t-meta">' + esc(t.assign || 'Alle') + '</div></div>' +
+        '<div class="t-meta">' + esc(t.assign || 'Alle') + (t.by ? ' · von ' + esc(t.by) : '') + (t.ts ? ' · ' + fmtDate(t.ts) : '') + '</div></div>' +
       '<button class="del">✕</button>';
     div.querySelector('.t-check').addEventListener('click', function() { toggleTask(t.id); });
     div.querySelector('.t-body').addEventListener('click', function() { toggleTask(t.id); });
@@ -755,7 +763,18 @@ function renderChat() {
   var wrap = el('chatMsgs');
   if (!chat.length) { wrap.innerHTML = '<p class="empty">Noch keine Nachrichten</p>'; return; }
   wrap.innerHTML = '';
-  chat.forEach(function(m) {
+  var lastTs = null;
+  var now = Date.now();
+  chat.slice(-100).forEach(function(m) {
+    if (!lastTs || !isSameDay(lastTs, m.ts||0)) {
+      var sep = document.createElement('div');
+      sep.style.cssText = 'text-align:center;font-size:0.62rem;color:var(--dim);margin:0.6rem 0;letter-spacing:0.04em';
+      var isToday = isSameDay(m.ts||0, now);
+      var isYesterday = isSameDay(m.ts||0, now - 86400000);
+      sep.textContent = isToday ? 'Heute' : isYesterday ? 'Gestern' : fmtDate(m.ts||0);
+      wrap.appendChild(sep);
+      lastTs = m.ts||0;
+    }
     var mine = m.user === me;
     var div = document.createElement('div');
     div.className = 'bw ' + (mine ? 'mine' : 'other');
@@ -904,15 +923,35 @@ function showBestellen() {
       }
       if (!orders.length) { list.innerHTML = '<p class="empty">Liste ist leer</p>'; updateDash(); return; }
       list.innerHTML = '';
-      orders.forEach(function(o) {
+      var pending = orders.filter(function(o) { return !o.ordered; });
+      var done    = orders.filter(function(o) { return  o.ordered; });
+      function makeOrderRow(o) {
         var div = document.createElement('div');
-        div.className = 'order';
-        div.innerHTML = '<div><div class="o-name">' + esc(o.name) + '</div><div class="o-qty">' + esc(o.qty||'') + '</div></div><button class="del">✕</button>';
+        div.className = 'order' + (o.ordered ? ' ordered' : '');
+        div.innerHTML =
+          '<div style="flex:1">' +
+            '<div class="o-name" style="' + (o.ordered ? 'text-decoration:line-through;opacity:0.5' : '') + '">' + esc(o.name) + '</div>' +
+            '<div class="o-qty">' + esc(o.qty||'') + (o.by ? ' · ' + esc(o.by) : '') + '</div>' +
+          '</div>' +
+          '<button class="qty-btn" style="margin-right:0.35rem;color:' + (o.ordered?'var(--green)':'var(--dim)') + '">' + (o.ordered ? '✓' : '○') + '</button>' +
+          '<button class="del">✕</button>';
+        div.querySelector('.qty-btn').addEventListener('click', function() {
+          o.ordered = !o.ordered;
+          dbPut('/orders/' + o.id, o, function() { loadOrdersInto(container); loadOrders(); });
+        });
         div.querySelector('.del').addEventListener('click', function() {
           dbDel('/orders/' + o.id, function() { loadOrdersInto(container); loadOrders(); });
         });
         list.appendChild(div);
-      });
+      }
+      pending.forEach(makeOrderRow);
+      if (done.length) {
+        var doneHdr = document.createElement('p');
+        doneHdr.style.cssText = 'font-size:0.62rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.04em;margin:0.6rem 0 0.3rem';
+        doneHdr.textContent = 'Bestellt';
+        list.appendChild(doneHdr);
+        done.forEach(makeOrderRow);
+      }
       updateDash();
     });
   }
@@ -1009,9 +1048,11 @@ function showHaccp() {
       body.appendChild(div);
     });
     var done = Object.keys(data).filter(function(k) { return data[k] && data[k].checked; }).length;
+    var allDone = done >= HACCP.length;
     var prog = document.createElement('div');
-    prog.style.cssText = 'background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:0.75rem 1rem;margin-top:0.75rem;text-align:center;font-size:0.85rem;color:var(--dim)';
-    prog.textContent = done + ' / ' + HACCP.length + ' erledigt';
+    prog.style.cssText = 'border-radius:12px;padding:0.75rem 1rem;margin-top:0.75rem;text-align:center;font-size:0.85rem;' +
+      (allDone ? 'background:rgba(76,175,125,0.12);border:1px solid var(--green);color:var(--green);font-weight:600' : 'background:var(--bg2);border:1px solid var(--border);color:var(--dim)');
+    prog.textContent = allDone ? '✓ Alle Checks erledigt!' : done + ' / ' + HACCP.length + ' erledigt';
     body.appendChild(prog);
   });
 }
@@ -1152,8 +1193,10 @@ function showInventar() {
       var list = body.querySelector('#invList');
       list.innerHTML = '';
       if (!data || err) { list.innerHTML = '<p class="empty">Keine Einträge</p>'; return; }
-      Object.keys(data).forEach(function(k) {
-        var item = data[k]; item.id = k;
+      var invItems = Object.keys(data).map(function(k) { var item = data[k]; item.id = k; return item; });
+      invItems.sort(function(a,b) { return (a.name||'').localeCompare(b.name||'','de'); });
+      invItems.forEach(function(item) {
+        var k = item.id;
         var div = document.createElement('div');
         div.className = 'inv-item';
         div.innerHTML =
@@ -1210,8 +1253,10 @@ function showWiki() {
       var list = body.querySelector('#wikiList');
       list.innerHTML = '';
       if (!data || err) { list.innerHTML = '<p class="empty">Noch nichts vorhanden</p>'; return; }
-      Object.keys(data).forEach(function(k) {
-        var item = data[k]; item.id = k;
+      var wItems = Object.keys(data).map(function(k) { var item = data[k]; item.id = k; return item; });
+      wItems.sort(function(a,b) { return (a.title||'').localeCompare(b.title||'','de'); });
+      wItems.forEach(function(item) {
+        var k = item.id;
         var div = document.createElement('div');
         div.className = 'wiki-item';
         div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
@@ -1282,12 +1327,14 @@ function getMovableHolidays(y) {
   h[add(e,60)]='Fronleichnam';
   return h;
 }
+var _movableCache = {};
 function isHoliday(date) {
+  var y = date.getFullYear();
+  if (!_movableCache[y]) _movableCache[y] = getMovableHolidays(y);
   var mo = String(date.getMonth()+1).padStart(2,'0');
   var dy = String(date.getDate()).padStart(2,'0');
   var key = mo + '-' + dy;
-  var movable = getMovableHolidays(date.getFullYear());
-  return AT_HOLIDAYS[key] || movable[key] || null;
+  return AT_HOLIDAYS[key] || _movableCache[y][key] || null;
 }
 function dateToKey(d) {
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
