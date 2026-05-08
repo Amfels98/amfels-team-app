@@ -285,9 +285,14 @@
   <!-- Schritt 1: Name -->
   <div id="stepName" class="ls-step active">
     <p class="ls-label">Wer bist du?</p>
-    <div class="ngrid" id="nameGrid"></div>
+    <div class="ngrid" id="nameGrid">
+      <button class="nbtn" onclick="selectName('Leon')"><span class="av">👑</span><span class="nm">Leon</span></button>
+      <button class="nbtn" onclick="selectName('Sasho')"><span class="av">👨‍🍳</span><span class="nm">Sasho</span></button>
+      <button class="nbtn" onclick="selectName('Patrik')"><span class="av">🍺</span><span class="nm">Patrik</span></button>
+      <button class="nbtn" onclick="selectName('Tea')"><span class="av">👩‍🍳</span><span class="nm">Tea</span></button>
+      <button class="nbtn" onclick="selectName('Daniel')"><span class="av">🍳</span><span class="nm">Daniel</span></button>
+    </div>
     <button class="ls-invite-btn" onclick="showStep('stepInvite')">Neu hier? Einladungscode eingeben →</button>
-    <p style="font-size:0.55rem;color:#333;margin-top:1.2rem;cursor:pointer" onclick="location.reload(true)">v8 May · Neu laden</p>
   </div>
 
   <!-- Schritt 2: PIN (Keypad) -->
@@ -1004,6 +1009,11 @@ async function skipProfile() {
 // ── LOGIN ──
 
 let pinMode = 'enter'; // 'enter' | 'create'
+
+function selectName(name) {
+  currentUser = name;
+  goToPin();
+}
 
 function goToPin() {
   if (!currentUser) return;
