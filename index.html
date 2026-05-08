@@ -2102,6 +2102,66 @@ function showMuellkalender() {
       extractFromText(input, addr, sel);
     });
 
+    /* Extract city name from address */
+    function cityFromAddr(addr) {
+      var parts = addr.split(',');
+      var raw = parts.length > 1 ? parts[parts.length-1].trim() : parts[0].trim();
+      return raw.replace(/^\d{4,5}\s*/, '').trim(); // strip PLZ
+    }
+
+    /* Extract all candidate URLs from search HTML */
+    function extractUrls(html) {
+      var found = [];
+      var re = /href=["']?(https?:\/\/[^"'\s>]+)/gi;
+      var m;
+      while ((m = re.exec(html)) !== null) {
+        var u = m[1].replace(/&amp;/g,'&');
+        if (u.indexOf('google') >= 0 || u.indexOf('duckduckgo') >= 0 || u.indexOf('bing') >= 0 || u.indexOf('facebook') >= 0 || u.indexOf('wikipedia') >= 0) continue;
+        found.push(u);
+      }
+      return found.filter(function(u, i, a) { return a.indexOf(u) === i; });
+    }
+
+    /* Score a URL for likelihood of being a Müll calendar page */
+    function scoreUrl(u) {
+      var lower = u.toLowerCase();
+      var score = 0;
+      if (/abfall|m.+ll|entsorgung|recycling|waste|muell/.test(lower)) score += 3;
+      if (/kalender|plan|termin|abfuhr/.test(lower)) score += 2;
+      if (/\.at\//.test(lower)) score += 1;
+      if (/gemeinde|stadt|marktgemeinde/.test(lower)) score += 1;
+      return score;
+    }
+
+    /* Search DuckDuckGo and return best candidate URLs */
+    function searchDDG(query) {
+      var proxy = 'https://api.allorigins.win/raw?url=';
+      var ddgUrl = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query);
+      return fetch(proxy + encodeURIComponent(ddgUrl))
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+          var urls = extractUrls(html);
+          urls.sort(function(a, b) { return scoreUrl(b) - scoreUrl(a); });
+          return urls.slice(0, 5);
+        });
+    }
+
+    /* Try fetching each candidate URL until one has usable content */
+    function tryUrls(urls, onFound, onFail) {
+      if (!urls.length) { onFail(); return; }
+      var url = urls[0];
+      var rest = urls.slice(1);
+      fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url))
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+          var tmp = document.createElement('div'); tmp.innerHTML = html;
+          var text = (tmp.textContent || tmp.innerText || '').replace(/\s+/g,' ').trim();
+          if (text.length < 200) { tryUrls(rest, onFound, onFail); return; }
+          onFound(url, text);
+        })
+        .catch(function() { tryUrls(rest, onFound, onFail); });
+    }
+
     /* Main auto flow */
     runBtn.addEventListener('click', function() {
       var addr = el('mkiAddr') ? el('mkiAddr').value.trim() : '';
@@ -2114,65 +2174,44 @@ function showMuellkalender() {
       runBtn.disabled = true;
       setStep(2, '⏳'); resultEl.innerHTML = '';
 
-      /* Step 1: KI finds the calendar URL */
-      var urlPrompt =
-        'Finde die URL der Abfallkalender-Seite (Müllabfuhrplan) für diese österreichische Adresse: ' + addr + '\n' +
-        'Antworte NUR mit der vollständigen URL (https://...), kein anderer Text.\n' +
-        'Wenn du keine genaue URL kennst: antworte NUR mit NICHT_GEFUNDEN';
+      var city = cityFromAddr(addr);
+      var street = addr.split(',')[0].trim();
 
-      fetch('https://text.pollinations.ai/', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          messages:[
-            {role:'system', content:'Du gibst exakte URLs zurück. Antworte nur mit der URL oder NICHT_GEFUNDEN.'},
-            {role:'user', content:urlPrompt}
-          ], model:'openai', private:true
+      /* Search 1: specific street */
+      var q1 = street + ' ' + city + ' Abfallkalender Müllabfuhr Österreich';
+      /* Search 2: city-level fallback */
+      var q2 = city + ' Abfallkalender Müllabfuhr 2026';
+
+      searchDDG(q1)
+        .then(function(urls) {
+          if (!urls.length) return searchDDG(q2);
+          /* also merge fallback results */
+          return searchDDG(q2).then(function(urls2) {
+            var merged = urls.concat(urls2).filter(function(u, i, a) { return a.indexOf(u) === i; });
+            merged.sort(function(a, b) { return scoreUrl(b) - scoreUrl(a); });
+            return merged.slice(0, 6);
+          }).catch(function() { return urls; });
         })
-      })
-      .then(function(r) { return r.text(); })
-      .then(function(urlRaw) {
-        urlRaw = (urlRaw||'').trim().split('\n')[0].trim();
-        var isValidUrl = urlRaw.indexOf('http') === 0 && urlRaw.indexOf('NICHT_GEFUNDEN') < 0;
-
-        if (!isValidUrl) {
-          /* Fallback: try common Austrian municipality pattern via search */
-          setStep(2, '⏳');
-          var parts = addr.split(',');
-          var city = parts.length > 1 ? parts[parts.length-1].trim().replace(/^\d+\s*/,'') : addr;
-          var searchUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.google.com/search?q=' + encodeURIComponent(city + ' Abfallkalender Müllabfuhr') + '&num=3');
-          return fetch(searchUrl)
-            .then(function(r) { return r.text(); })
-            .then(function(html) {
-              var urlMatch = html.match(/href="(https?:\/\/(?!google)[^"]+abfall[^"]*?)"/i) ||
-                             html.match(/href="(https?:\/\/(?!google)[^"]+m.+ll[^"]*?)"/i);
-              if (urlMatch && urlMatch[1]) return urlMatch[1];
-              throw new Error('no url');
-            });
-        }
-        return urlRaw;
-      })
-      .then(function(calUrl) {
-        setStep(3, '⏳');
-        localStorage.setItem('af_mull_url', calUrl);
-        return fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(calUrl));
-      })
-      .then(function(r) { return r.text(); })
-      .then(function(html) {
-        var tmp = document.createElement('div'); tmp.innerHTML = html;
-        var calText = (tmp.textContent || tmp.innerText || '').replace(/\s+/g,' ').trim();
-        if (!calText || calText.length < 100) throw new Error('empty');
-        extractFromText(calText, addr, sel);
-      })
-      .catch(function(err) {
-        runBtn.disabled = false; runBtn.textContent = '🔍 Kalender automatisch suchen & einlesen';
-        setStep(1, '');
-        resultEl.innerHTML =
-          '<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:10px;padding:0.65rem 0.85rem;font-size:0.8rem">' +
-          '<div style="font-weight:600;margin-bottom:0.3rem">Kalender konnte nicht automatisch gefunden werden</div>' +
-          '<div style="color:var(--dim);line-height:1.5">Öffne den Abfallkalender deiner Gemeinde im Browser, kopiere den Text und verwende "📋 Text manuell einfügen".</div>' +
-          '</div>';
-        fallbackPanel.style.display = '';
-      });
+        .then(function(candidates) {
+          if (!candidates.length) throw new Error('no results');
+          setStep(3, '⏳');
+          tryUrls(candidates, function(foundUrl, calText) {
+            localStorage.setItem('af_mull_url', foundUrl);
+            extractFromText(calText, addr, sel);
+          }, function() {
+            throw new Error('all failed');
+          });
+        })
+        .catch(function() {
+          runBtn.disabled = false; runBtn.textContent = '🔍 Kalender automatisch suchen & einlesen';
+          setStep(1, '');
+          resultEl.innerHTML =
+            '<div style="background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:10px;padding:0.65rem 0.85rem;font-size:0.8rem">' +
+            '<div style="font-weight:600;margin-bottom:0.3rem">Kalender nicht automatisch gefunden</div>' +
+            '<div style="color:var(--dim);line-height:1.5">Gemeinde-Website im Browser öffnen, Kalendertext kopieren und "📋 Text manuell einfügen" verwenden.</div>' +
+            '</div>';
+          fallbackPanel.style.display = '';
+        });
     });
   }
 
