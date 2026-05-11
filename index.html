@@ -493,6 +493,17 @@ function dbDel(path, cb) {
     .then(function() { if (cb) cb(); }).catch(function() { if (cb) cb(); });
 }
 
+/* ── PUSH NOTIFICATIONS (ntfy.sh) ── */
+function sendPushNotif(title, body, priority) {
+  var topic = localStorage.getItem('af_ntfy_topic');
+  if (!topic || !getSetting('af_ntfy_enabled', false)) return;
+  var headers = {'Title': title, 'Content-Type': 'text/plain'};
+  if (priority === 'urgent') { headers['Priority'] = 'urgent'; headers['Tags'] = 'rotating_light'; }
+  else if (priority === 'high') { headers['Priority'] = 'high'; headers['Tags'] = 'bell'; }
+  else { headers['Tags'] = 'memo'; }
+  fetch('https://ntfy.sh/' + encodeURIComponent(topic), {method:'POST', headers:headers, body:body}).catch(function(){});
+}
+
 /* ── CONFIRM DELETE ── */
 function confirmDel(msg, onConfirm) {
   var ov = document.createElement('div'); ov.className = 'confirm-ov';
@@ -1122,6 +1133,12 @@ function saveTask() {
     el('taskRepeat').value = 'none';
     el('taskForm').classList.remove('open');
     renderTasks(); updateDash(); toast('✓ Aufgabe gespeichert');
+    var notifBody = title + (assign && assign !== 'Alle' ? ' → ' + assign : '') + (me ? ' (von ' + me + ')' : '');
+    if (prio === 'dringend' && getSetting('af_ntfy_urgent', true)) {
+      sendPushNotif('🚨 Dringende Aufgabe', notifBody, 'urgent');
+    } else if (getSetting('af_ntfy_tasks', true)) {
+      sendPushNotif('📋 Neue Aufgabe', notifBody, 'default');
+    }
   });
 }
 
@@ -1187,6 +1204,9 @@ function sendChat() {
   dbPost('/chat', msg, function(err, key) {
     if (key) { msg.id = key; chat.push(msg); }
     renderChat();
+    if (getSetting('af_ntfy_chat', false)) {
+      sendPushNotif('💬 ' + (me || 'Team'), text, 'default');
+    }
   });
 }
 
@@ -2501,6 +2521,42 @@ function showSettings() {
       sTeam.appendChild(tBtn);
     });
   }
+
+  /* ── Push-Benachrichtigungen ── */
+  var sPush = section('📲 Push-Benachrichtigungen');
+  var pushInfo = document.createElement('div');
+  pushInfo.style.cssText = 'font-size:0.75rem;color:var(--dim);line-height:1.6;margin-bottom:0.75rem;padding:0.65rem;background:var(--bg3);border-radius:10px';
+  pushInfo.innerHTML = 'Benachrichtigungen über <strong style="color:var(--text)">ntfy</strong> — kostenlos & ohne Account.<br>' +
+    '1. <a href="https://ntfy.sh" target="_blank" style="color:var(--gold)">ntfy.sh</a> App installieren (iOS / Android)<br>' +
+    '2. Unten deinen Kanal-Namen eingeben (z.B. <em>amfels-team</em>)<br>' +
+    '3. Im ntfy-App diesen Kanal abonnieren → fertig';
+  sPush.appendChild(pushInfo);
+
+  var topicRow = document.createElement('div'); topicRow.className = 'set-row';
+  topicRow.style.cssText = 'flex-direction:column;align-items:flex-start;gap:0.4rem';
+  var topicLbl = document.createElement('div'); topicLbl.className = 'set-row-label'; topicLbl.textContent = 'Kanal-Name (Topic)';
+  var topicSub = document.createElement('div'); topicSub.className = 'set-row-sub'; topicSub.textContent = 'Geheimen Namen wählen — wer ihn kennt, empfängt Nachrichten';
+  var topicInp = document.createElement('input'); topicInp.className = 'inp'; topicInp.placeholder = 'z.B. amfels-team-2026';
+  topicInp.value = localStorage.getItem('af_ntfy_topic') || '';
+  topicInp.style.marginTop = '0.35rem';
+  topicInp.addEventListener('input', function() { localStorage.setItem('af_ntfy_topic', topicInp.value.trim()); });
+  topicRow.appendChild(topicLbl); topicRow.appendChild(topicSub); topicRow.appendChild(topicInp);
+  sPush.appendChild(topicRow);
+
+  sPush.appendChild(row('Benachrichtigungen aktiv', 'Sendet Push bei neuen Aufgaben und Erwähnungen', toggle('af_ntfy_enabled', false)));
+  sPush.appendChild(row('Dringende Aufgaben', 'Hohe Priorität mit Klingeln', toggle('af_ntfy_urgent', true)));
+  sPush.appendChild(row('Neue Aufgaben', 'Bei jeder neuen Aufgabe', toggle('af_ntfy_tasks', true)));
+  sPush.appendChild(row('Chat-Nachrichten', 'Bei neuer Nachricht im Team-Chat', toggle('af_ntfy_chat', false)));
+
+  var testBtn = document.createElement('button'); testBtn.className = 'btn-d'; testBtn.style.cssText = 'width:100%;margin-top:0.5rem;font-size:0.82rem';
+  testBtn.textContent = '🔔 Test-Benachrichtigung senden';
+  testBtn.addEventListener('click', function() {
+    var topic = localStorage.getItem('af_ntfy_topic');
+    if (!topic) { toast('Bitte zuerst Kanal-Namen eingeben'); return; }
+    sendPushNotif('🔔 Test', 'Am Fels Team App funktioniert!', 'default');
+    toast('Test gesendet → ' + topic);
+  });
+  sPush.appendChild(testBtn);
 
   /* ── App ── */
   var sApp = section('App');
