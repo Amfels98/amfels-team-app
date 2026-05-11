@@ -494,9 +494,10 @@ function dbDel(path, cb) {
 }
 
 /* ── PUSH NOTIFICATIONS (ntfy.sh) ── */
+var NTFY_DEFAULT = 'amfels98team2026';
 function sendPushNotif(title, body, priority) {
-  var topic = localStorage.getItem('af_ntfy_topic');
-  if (!topic || !getSetting('af_ntfy_enabled', false)) return;
+  var topic = localStorage.getItem('af_ntfy_topic') || NTFY_DEFAULT;
+  if (!getSetting('af_ntfy_enabled', true)) return;
   var headers = {'Title': title, 'Content-Type': 'text/plain'};
   if (priority === 'urgent') { headers['Priority'] = 'urgent'; headers['Tags'] = 'rotating_light'; }
   else if (priority === 'high') { headers['Priority'] = 'high'; headers['Tags'] = 'bell'; }
@@ -2537,13 +2538,13 @@ function showSettings() {
   var topicLbl = document.createElement('div'); topicLbl.className = 'set-row-label'; topicLbl.textContent = 'Kanal-Name (Topic)';
   var topicSub = document.createElement('div'); topicSub.className = 'set-row-sub'; topicSub.textContent = 'Geheimen Namen wählen — wer ihn kennt, empfängt Nachrichten';
   var topicInp = document.createElement('input'); topicInp.className = 'inp'; topicInp.placeholder = 'z.B. amfels-team-2026';
-  topicInp.value = localStorage.getItem('af_ntfy_topic') || '';
+  topicInp.value = localStorage.getItem('af_ntfy_topic') || NTFY_DEFAULT;
   topicInp.style.marginTop = '0.35rem';
   topicInp.addEventListener('input', function() { localStorage.setItem('af_ntfy_topic', topicInp.value.trim()); });
   topicRow.appendChild(topicLbl); topicRow.appendChild(topicSub); topicRow.appendChild(topicInp);
   sPush.appendChild(topicRow);
 
-  sPush.appendChild(row('Benachrichtigungen aktiv', 'Sendet Push bei neuen Aufgaben und Erwähnungen', toggle('af_ntfy_enabled', false)));
+  sPush.appendChild(row('Benachrichtigungen aktiv', 'Sendet Push bei neuen Aufgaben und Erwähnungen', toggle('af_ntfy_enabled', true)));
   sPush.appendChild(row('Dringende Aufgaben', 'Hohe Priorität mit Klingeln', toggle('af_ntfy_urgent', true)));
   sPush.appendChild(row('Neue Aufgaben', 'Bei jeder neuen Aufgabe', toggle('af_ntfy_tasks', true)));
   sPush.appendChild(row('Chat-Nachrichten', 'Bei neuer Nachricht im Team-Chat', toggle('af_ntfy_chat', false)));
