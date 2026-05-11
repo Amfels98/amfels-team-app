@@ -498,12 +498,14 @@ var NTFY_DEFAULT = 'amfels98team2026';
 if (!localStorage.getItem('af_ntfy_topic')) localStorage.setItem('af_ntfy_topic', NTFY_DEFAULT);
 function sendPushNotif(title, body, priority) {
   var topic = localStorage.getItem('af_ntfy_topic') || NTFY_DEFAULT;
-  if (!getSetting('af_ntfy_enabled', true)) return;
+  if (!getSetting('af_ntfy_enabled', true)) { console.log('[ntfy] disabled'); return; }
   var headers = {'Title': title, 'Content-Type': 'text/plain'};
   if (priority === 'urgent') { headers['Priority'] = 'urgent'; headers['Tags'] = 'rotating_light'; }
   else if (priority === 'high') { headers['Priority'] = 'high'; headers['Tags'] = 'bell'; }
   else { headers['Tags'] = 'memo'; }
-  fetch('https://ntfy.sh/' + encodeURIComponent(topic), {method:'POST', headers:headers, body:body}).catch(function(){});
+  fetch('https://ntfy.sh/' + encodeURIComponent(topic), {method:'POST', headers:headers, body:body})
+    .then(function(r) { toast(r.ok ? '✓ Notification gesendet' : '✗ ntfy Fehler ' + r.status); })
+    .catch(function(e) { toast('✗ Kein Internet / ntfy nicht erreichbar'); });
 }
 
 /* ── CONFIRM DELETE ── */
