@@ -495,6 +495,7 @@ function dbDel(path, cb) {
 
 /* ── PUSH NOTIFICATIONS (ntfy.sh) ── */
 var NTFY_DEFAULT = 'amfels98team2026';
+if (!localStorage.getItem('af_ntfy_topic')) localStorage.setItem('af_ntfy_topic', NTFY_DEFAULT);
 function sendPushNotif(title, body, priority) {
   var topic = localStorage.getItem('af_ntfy_topic') || NTFY_DEFAULT;
   if (!getSetting('af_ntfy_enabled', true)) return;
@@ -2552,10 +2553,8 @@ function showSettings() {
   var testBtn = document.createElement('button'); testBtn.className = 'btn-d'; testBtn.style.cssText = 'width:100%;margin-top:0.5rem;font-size:0.82rem';
   testBtn.textContent = '🔔 Test-Benachrichtigung senden';
   testBtn.addEventListener('click', function() {
-    var topic = localStorage.getItem('af_ntfy_topic');
-    if (!topic) { toast('Bitte zuerst Kanal-Namen eingeben'); return; }
     sendPushNotif('🔔 Test', 'Am Fels Team App funktioniert!', 'default');
-    toast('Test gesendet → ' + topic);
+    toast('Test gesendet → ' + (localStorage.getItem('af_ntfy_topic') || NTFY_DEFAULT));
   });
   sPush.appendChild(testBtn);
 
