@@ -493,19 +493,87 @@ function dbDel(path, cb) {
     .then(function() { if (cb) cb(); }).catch(function() { if (cb) cb(); });
 }
 
-/* ── PUSH NOTIFICATIONS (ntfy.sh) ── */
+/* ── PUSH NOTIFICATIONS ── */
+var VAPID_PUB  = 'BCJFYQBWnbTRXtxU1PfQUE4qC-ZZXSF-nTiMmKOQj3zS_oXCS_kz2Mt9l2vGgUqYJN90nxKhk8fWSFupre4bbE4';
+var VAPID_PRIV = 'MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgdU2d_Fo1-G4kcHGj7lbinvUKOnBV5iXXNHBnQkh5WK2hRANCAAQiRWEAVp200V7cVNT30FBOKgvmWV0hfp04jJijkI980v6Fwkv5M9jLfZdrxoFKmCTfdJ8SoZPH1khbqa3uG2xO';
+
+function _pb64(s){var b64=s.replace(/-/g,'+').replace(/_/g,'/');while(b64.length%4)b64+='=';var bin=atob(b64);var a=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a.buffer;}
+function _b64u(d){var bytes=d instanceof Uint8Array?d:new TextEncoder().encode(typeof d==='string'?d:JSON.stringify(d));var s='';for(var i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');}
+
+function subscribePush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  navigator.serviceWorker.ready.then(function(reg) {
+    return reg.pushManager.getSubscription().then(function(existing) {
+      if (existing) { _saveSub(existing); return; }
+      return Notification.requestPermission().then(function(p) {
+        if (p !== 'granted') return;
+        var key = new Uint8Array(_pb64(VAPID_PUB));
+        return reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:key})
+          .then(_saveSub);
+      });
+    });
+  }).catch(function(){});
+}
+function _saveSub(sub) {
+  if (!me || !sub) return;
+  var d = sub.toJSON();
+  dbPut('/pushSubs/'+me.replace(/[^a-z0-9]/gi,'_'), {endpoint:d.endpoint, keys:d.keys, user:me, ts:Date.now()});
+}
+
+function sendWebPush(title, body) {
+  dbPut('/notifications/latest', {title:title, body:body, ts:Date.now()});
+  if (!crypto.subtle) return;
+  dbGet('/pushSubs', function(err, data) {
+    if (err || !data) return;
+    Object.keys(data).forEach(function(k) {
+      var s = data[k];
+      if (!s || !s.endpoint || s.user === me) return;
+      _vapidJWT(s.endpoint).then(function(jwt) {
+        return fetch(s.endpoint, {method:'POST', headers:{'Authorization':'vapid t='+jwt+',k='+VAPID_PUB,'TTL':'86400','Content-Length':'0'}});
+      }).then(function(r) {
+        if (r.status === 410 || r.status === 404) dbDel('/pushSubs/'+k);
+      }).catch(function(){});
+    });
+  });
+}
+
+function _vapidJWT(endpoint) {
+  var origin = new URL(endpoint).origin;
+  var hdr = _b64u(JSON.stringify({typ:'JWT',alg:'ES256'}));
+  var pay = _b64u(JSON.stringify({aud:origin, exp:Math.floor(Date.now()/1000)+86400, sub:'mailto:restaurant.amfels@web.de'}));
+  var data = new TextEncoder().encode(hdr+'.'+pay);
+  return crypto.subtle.importKey('pkcs8',_pb64(VAPID_PRIV),{name:'ECDSA',namedCurve:'P-256'},false,['sign'])
+    .then(function(key) { return crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},key,data); })
+    .then(function(sig) { return hdr+'.'+pay+'.'+_b64u(new Uint8Array(sig)); });
+}
+
+/* ntfy.sh als Backup */
 var NTFY_DEFAULT = 'amfels98team2026';
 if (!localStorage.getItem('af_ntfy_topic')) localStorage.setItem('af_ntfy_topic', NTFY_DEFAULT);
 function sendPushNotif(title, body, priority) {
+  sendWebPush(title, body);
   var topic = localStorage.getItem('af_ntfy_topic') || NTFY_DEFAULT;
-  if (!getSetting('af_ntfy_enabled', true)) { console.log('[ntfy] disabled'); return; }
+  if (!getSetting('af_ntfy_enabled', true)) return;
   var headers = {'Title': title, 'Content-Type': 'text/plain'};
   if (priority === 'urgent') { headers['Priority'] = 'urgent'; headers['Tags'] = 'rotating_light'; }
   else if (priority === 'high') { headers['Priority'] = 'high'; headers['Tags'] = 'bell'; }
   else { headers['Tags'] = 'memo'; }
-  fetch('https://ntfy.sh/' + encodeURIComponent(topic), {method:'POST', headers:headers, body:body})
-    .then(function(r) { toast(r.ok ? '✓ Notification gesendet' : '✗ ntfy Fehler ' + r.status); })
-    .catch(function(e) { toast('✗ Kein Internet / ntfy nicht erreichbar'); });
+  fetch('https://ntfy.sh/' + encodeURIComponent(topic), {method:'POST', headers:headers, body:body}).catch(function(){});
+}
+
+/* ── iOS INSTALL HINT ── */
+function showInstallHint() {
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  var isInstalled = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  if (!isIOS || isInstalled || localStorage.getItem('af_install_ok')) return;
+  var bar = document.createElement('div');
+  bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);padding:0.85rem 1rem max(0.85rem,env(safe-area-inset-bottom));z-index:1500;display:flex;align-items:center;gap:0.75rem';
+  bar.innerHTML = '<div style="flex:1"><div style="font-size:0.85rem;font-weight:600;margin-bottom:0.15rem">📲 Zum Home-Bildschirm hinzufügen</div><div style="font-size:0.72rem;color:var(--dim)">Für Push-Benachrichtigungen: Teilen-Symbol → "Zum Home-Bildschirm"</div></div><button style="background:none;border:none;color:var(--dim);font-size:1.2rem;padding:0.25rem;flex-shrink:0;cursor:pointer" id="installClose">✕</button>';
+  document.body.appendChild(bar);
+  bar.querySelector('#installClose').addEventListener('click', function() {
+    localStorage.setItem('af_install_ok', '1');
+    bar.parentNode.removeChild(bar);
+  });
 }
 
 /* ── CONFIRM DELETE ── */
@@ -601,6 +669,8 @@ function loginAs(name) {
   loadOrders();
   loadChat();
   toast('Hallo, ' + name + '!');
+  setTimeout(subscribePush, 1000);
+  setTimeout(showInstallHint, 2000);
 }
 function showPicker() {
   buildPicker();
