@@ -388,6 +388,16 @@
     .splash-tag { margin-top: 0.75rem; color: var(--dim); font-size: 0.82rem; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0; animation: splashTag 0.9s ease forwards; animation-delay: 0.75s; }
     @keyframes splashTag { to { opacity: 1; } }
 
+    /* ── AUTH (Login / Registrierung) ── */
+    #authScreen { position: fixed; inset: 0; z-index: 970; background: radial-gradient(circle at 50% 18%, #17140d 0%, #0c0c0e 68%); overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; align-items: flex-start; justify-content: center; padding: max(2.8rem,calc(env(safe-area-inset-top) + 1.5rem)) 1.2rem 2.5rem; }
+    #authScreen.hidden, #authLogin.hidden, #authRegister.hidden { display: none; }
+    .auth-card { width: 100%; max-width: 400px; animation: pickerIn 0.5s cubic-bezier(0.22,1,0.36,1); }
+    .auth-logo { font-size: 2.1rem; font-weight: 800; letter-spacing: -0.03em; text-align: center; margin-bottom: 1.7rem; background: linear-gradient(100deg,#9a7a3c,#f0d79a,#9a7a3c); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
+    .auth-h { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 1.1rem; }
+    .auth-err { color: var(--red); font-size: 0.76rem; min-height: 1.1em; margin: 0.35rem 0 0.1rem; }
+    .auth-switch { text-align: center; font-size: 0.8rem; color: var(--dim); margin-top: 1.15rem; }
+    .auth-switch button { background: none; border: none; color: var(--gold); font-family: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0.2rem; -webkit-tap-highlight-color: transparent; }
+
     @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.01ms !important; } }
   </style>
 </head>
@@ -427,7 +437,7 @@
     </div>
     <button class="um-btn" id="umSettings" data-icon="settings"><span class="um-ic"></span>Einstellungen</button>
     <button class="um-btn" id="umSwitch" data-icon="swap"><span class="um-ic"></span>Benutzer wechseln</button>
-    <button class="um-btn" id="umPinChange" data-icon="key"><span class="um-ic"></span>PIN ändern</button>
+    <button class="um-btn" id="umPinChange" data-icon="key" style="display:none"><span class="um-ic"></span>PIN ändern</button>
     <button class="um-btn danger" id="umLogout" data-icon="logout"><span class="um-ic"></span>Abmelden</button>
   </div>
 
@@ -542,6 +552,40 @@
   </div>
   <div class="pin-pad" id="pinPad"></div>
   <button class="pin-back" id="pinBack">← Zurück</button>
+</div>
+
+<!-- Auth: Registrierung / Login -->
+<div id="authScreen" class="hidden">
+  <div class="auth-card">
+    <div class="auth-logo">Gastro<span>Flow</span></div>
+
+    <!-- LOGIN -->
+    <div id="authLogin">
+      <div class="auth-h">Anmelden</div>
+      <div class="fg"><label class="fl">E-Mail</label><input class="inp" id="loginEmail" type="email" autocomplete="username" placeholder="name@restaurant.de"></div>
+      <div class="fg"><label class="fl">Passwort</label><input class="inp" id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+      <div class="auth-err" id="loginErr"></div>
+      <button class="btn-g" id="loginBtn" style="width:100%;margin-top:0.3rem">Anmelden</button>
+      <div class="auth-switch">Neues Restaurant? <button id="toRegister">Jetzt registrieren</button></div>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="authRegister" class="hidden">
+      <div class="auth-h">Restaurant registrieren</div>
+      <div class="fg"><label class="fl">Restaurant-Name</label><input class="inp" id="regRest" placeholder="z.B. Trattoria Bella"></div>
+      <div class="fg"><label class="fl">Adresse</label><input class="inp" id="regAddr" placeholder="Straße, PLZ Ort"></div>
+      <div class="fg"><label class="fl">Telefon (optional)</label><input class="inp" id="regPhone" type="tel" placeholder=""></div>
+      <div class="fg"><label class="fl">Dein Name (Admin)</label><input class="inp" id="regName" placeholder="Vorname"></div>
+      <div class="fg"><label class="fl">E-Mail</label><input class="inp" id="regEmail" type="email" autocomplete="username" placeholder="name@restaurant.de"></div>
+      <div class="row2">
+        <div class="fg" style="flex:1"><label class="fl">Passwort</label><input class="inp" id="regPass" type="password" autocomplete="new-password" placeholder="min. 6 Zeichen"></div>
+        <div class="fg" style="flex:1"><label class="fl">Wiederholen</label><input class="inp" id="regPass2" type="password" autocomplete="new-password"></div>
+      </div>
+      <div class="auth-err" id="regErr"></div>
+      <button class="btn-g" id="regBtn" style="width:100%;margin-top:0.3rem">Restaurant erstellen</button>
+      <div class="auth-switch">Schon registriert? <button id="toLogin">Zur Anmeldung</button></div>
+    </div>
+  </div>
 </div>
 
 <!-- Toast -->
@@ -2750,13 +2794,9 @@ function showSettings() {
   profCard.className = 'set-row'; profCard.style.marginBottom = '0.35rem';
   profCard.innerHTML = '<div style="display:flex;align-items:center;gap:0.75rem"><span class="avatar" style="width:42px;height:42px;font-size:1rem">' + esc(initials(me)) + '</span><div><div class="set-row-label">' + esc(me||'–') + '</div><div class="set-row-sub">' + (me===ADMIN?'Administrator':'Team') + '</div></div></div>';
   sProfil.appendChild(profCard);
-  sProfil.appendChild(btn('PIN ändern', 'Eigenen PIN ändern', function() {
+  sProfil.appendChild(btn('Abmelden / Konto wechseln', '', function() {
     var ov = document.querySelector('.ov'); if (ov) ov.parentNode.removeChild(ov);
-    showPinChange();
-  }));
-  sProfil.appendChild(btn('Benutzer wechseln', '', function() {
-    var ov = document.querySelector('.ov'); if (ov) ov.parentNode.removeChild(ov);
-    showPicker();
+    logoutToLogin();
   }));
 
   /* ── Benachrichtigungen ── */
@@ -2776,8 +2816,8 @@ function showSettings() {
     });
     var addBtn = document.createElement('button'); addBtn.className = 'set-btn';
     addBtn.style.cssText = 'color:var(--gold);justify-content:center;font-weight:600';
-    addBtn.textContent = '+ Team-Mitglied hinzufügen';
-    addBtn.addEventListener('click', function() { addMember(reopenSettings); });
+    addBtn.textContent = '+ Mitarbeiter anlegen';
+    addBtn.addEventListener('click', function() { showAddEmployee(reopenSettings); });
     sTeam.appendChild(addBtn);
   }
 
@@ -2824,9 +2864,9 @@ function showSettings() {
       }).then(function() { window.location.reload(); });
     }
   }));
-  sApp.appendChild(btn('Abmelden', 'Aktuellen Benutzer abmelden', function() {
+  sApp.appendChild(btn('Abmelden', 'Vom Konto abmelden', function() {
     var ov = document.querySelector('.ov'); if (ov) ov.parentNode.removeChild(ov);
-    logoutUser();
+    logoutToLogin();
   }, true));
 
   var ver = document.createElement('div');
@@ -3263,7 +3303,13 @@ function bind() {
     var btn = el('nav-' + tab);
     if (btn) btn.addEventListener('click', function() { switchTab(tab); });
   });
-  el('userChip').addEventListener('click', function() { if (me) showUserMenu(); else showPicker(); });
+  el('userChip').addEventListener('click', function() { if (me) showUserMenu(); else showAuth('login'); });
+  el('loginBtn').addEventListener('click', doLogin);
+  el('regBtn').addEventListener('click', doRegister);
+  el('toRegister').addEventListener('click', function() { showAuth('register'); });
+  el('toLogin').addEventListener('click', function() { showAuth('login'); });
+  el('loginPass').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+  el('regPass2').addEventListener('keydown', function(e) { if (e.key === 'Enter') doRegister(); });
   el('statCardOpen').addEventListener('click', function() { switchTab('aufgaben'); });
   el('statCardOrders').addEventListener('click', function() { showBestellen(); });
   el('umSettings').addEventListener('click', function() {
@@ -3271,9 +3317,9 @@ function bind() {
     el('umOverlay').classList.add('hidden');
     showSettings();
   });
-  el('umSwitch').addEventListener('click', showPicker);
+  el('umSwitch').addEventListener('click', logoutToLogin);
   el('umPinChange').addEventListener('click', showPinChange);
-  el('umLogout').addEventListener('click', logoutUser);
+  el('umLogout').addEventListener('click', logoutToLogin);
   el('umOverlay').addEventListener('click', function() {
     el('userMenu').classList.add('hidden');
     el('umOverlay').classList.add('hidden');
@@ -3417,6 +3463,149 @@ function manageMember(name, onDone) {
   });
 }
 
+/* ── AUTH: Restaurant-Konto + Mitarbeiter (E-Mail + Passwort) ── */
+var SESSION_KEY = 'gf_email';
+function emailKey(e) { return String(e || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '_'); }
+function _hex(buf) { var a = new Uint8Array(buf), s = ''; for (var i = 0; i < a.length; i++) { s += ('0' + a[i].toString(16)).slice(-2); } return s; }
+function genSalt() { var a = new Uint8Array(16); if (crypto.getRandomValues) crypto.getRandomValues(a); return _hex(a.buffer); }
+function hashPw(pw, salt) {
+  var data = new TextEncoder().encode(salt + '|' + pw);
+  if (!crypto.subtle) return Promise.resolve('plain:' + salt + ':' + pw);
+  return crypto.subtle.digest('SHA-256', data).then(function(b) { return _hex(b); });
+}
+function validEmail(e) { return /.+@.+\..+/.test(e); }
+
+function showAuth(view) {
+  el('authScreen').classList.remove('hidden');
+  el('authLogin').classList.toggle('hidden', view === 'register');
+  el('authRegister').classList.toggle('hidden', view !== 'register');
+}
+function hideAuth() { el('authScreen').classList.add('hidden'); }
+
+function enterApp(name, role) {
+  me = name;
+  if (role === 'admin') ADMIN = name;
+  localStorage.setItem('af_user', name);
+  hideAuth();
+  el('uEmoji').textContent = initials(name);
+  el('uLabel').textContent = name;
+  el('userChip').classList.add('active');
+  refreshTeamUI();
+  updateDash(); loadDashExtras(); loadTasks(); loadOrders(); loadChat(); loadShift();
+  setTimeout(subscribePush, 1000);
+  setTimeout(showInstallHint, 2000);
+}
+
+function startAuth() {
+  var key = localStorage.getItem(SESSION_KEY);
+  if (key) {
+    dbGet('/accounts/' + key, function(err, acc) {
+      if (!err && acc && acc.name) { enterApp(acc.name, acc.role); }
+      else { localStorage.removeItem(SESSION_KEY); decideAuthView(); }
+    });
+  } else { decideAuthView(); }
+}
+function decideAuthView() {
+  dbGet('/accounts', function(err, accs) {
+    if (!err && accs && Object.keys(accs).length) showAuth('login');
+    else showAuth('register');
+  });
+}
+
+function doLogin() {
+  var email = el('loginEmail').value.trim();
+  var pw = el('loginPass').value;
+  el('loginErr').textContent = '';
+  if (!email || !pw) { el('loginErr').textContent = 'Bitte E-Mail und Passwort eingeben'; return; }
+  el('loginBtn').textContent = '…';
+  dbGet('/accounts/' + emailKey(email), function(err, acc) {
+    if (err || !acc) { el('loginBtn').textContent = 'Anmelden'; el('loginErr').textContent = 'Kein Konto mit dieser E-Mail'; return; }
+    hashPw(pw, acc.salt).then(function(h) {
+      el('loginBtn').textContent = 'Anmelden';
+      if (h !== acc.hash) { el('loginErr').textContent = 'Falsches Passwort'; return; }
+      localStorage.setItem(SESSION_KEY, emailKey(email));
+      el('loginPass').value = '';
+      if (TEAM.indexOf(acc.name) < 0) { TEAM = TEAM.concat([acc.name]); saveTeamConfig(); }
+      enterApp(acc.name, acc.role);
+      toast('Willkommen, ' + acc.name + '!');
+    });
+  });
+}
+
+function doRegister() {
+  var rest = el('regRest').value.trim(), addr = el('regAddr').value.trim(), phone = el('regPhone').value.trim();
+  var name = el('regName').value.trim(), email = el('regEmail').value.trim(), pw = el('regPass').value, pw2 = el('regPass2').value;
+  el('regErr').textContent = '';
+  if (!rest) { el('regErr').textContent = 'Bitte Restaurant-Name angeben'; return; }
+  if (!name) { el('regErr').textContent = 'Bitte deinen Namen angeben'; return; }
+  if (!validEmail(email)) { el('regErr').textContent = 'Bitte gültige E-Mail angeben'; return; }
+  if (pw.length < 6) { el('regErr').textContent = 'Passwort muss mind. 6 Zeichen haben'; return; }
+  if (pw !== pw2) { el('regErr').textContent = 'Passwörter stimmen nicht überein'; return; }
+  el('regBtn').textContent = '…';
+  var key = emailKey(email);
+  dbGet('/accounts/' + key, function(err, existing) {
+    if (existing) { el('regBtn').textContent = 'Restaurant erstellen'; el('regErr').textContent = 'E-Mail ist bereits registriert'; return; }
+    var salt = genSalt();
+    hashPw(pw, salt).then(function(h) {
+      var acc = {email: email, name: name, role: 'admin', salt: salt, hash: h, ts: Date.now()};
+      dbPut('/accounts/' + key, acc, function() {
+        dbPut('/restaurant', {name: rest, address: addr, phone: phone, email: email, ts: Date.now()});
+        localStorage.setItem(SESSION_KEY, key);
+        el('regPass').value = ''; el('regPass2').value = '';
+        ADMIN = name; TEAM = [name]; saveTeamConfig();
+        el('regBtn').textContent = 'Restaurant erstellen';
+        enterApp(name, 'admin');
+        toast('Restaurant „' + rest + '" erstellt!');
+      });
+    });
+  });
+}
+
+function logoutToLogin() {
+  localStorage.removeItem(SESSION_KEY);
+  me = '';
+  el('userChip').classList.remove('active');
+  el('uEmoji').textContent = '·'; el('uLabel').textContent = '––';
+  el('userMenu').classList.add('hidden'); el('umOverlay').classList.add('hidden');
+  var ov = document.querySelector('.ov'); if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+  showAuth('login');
+}
+
+function showAddEmployee(onDone) {
+  var ov = document.createElement('div'); ov.className = 'confirm-ov';
+  var sh = document.createElement('div'); sh.className = 'confirm-sheet';
+  sh.innerHTML = '<h3>Mitarbeiter anlegen</h3>' +
+    '<div class="fg"><label class="fl">Name</label><input class="inp" id="empName" placeholder="Vorname"></div>' +
+    '<div class="fg"><label class="fl">E-Mail</label><input class="inp" id="empEmail" type="email" placeholder="name@restaurant.de"></div>' +
+    '<div class="fg"><label class="fl">Passwort</label><input class="inp" id="empPass" type="password" placeholder="min. 6 Zeichen"></div>' +
+    '<div class="auth-err" id="empErr"></div>' +
+    '<div class="row2"><button class="btn-d" id="empCancel">Abbrechen</button><button class="btn-g" id="empSave">Anlegen</button></div>';
+  ov.appendChild(sh); document.body.appendChild(ov);
+  function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+  ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
+  sh.querySelector('#empCancel').addEventListener('click', close);
+  sh.querySelector('#empSave').addEventListener('click', function() {
+    var name = sh.querySelector('#empName').value.trim();
+    var email = sh.querySelector('#empEmail').value.trim();
+    var pw = sh.querySelector('#empPass').value;
+    var errEl = sh.querySelector('#empErr'); errEl.textContent = '';
+    if (!name) { errEl.textContent = 'Bitte Name angeben'; return; }
+    if (!validEmail(email)) { errEl.textContent = 'Bitte gültige E-Mail angeben'; return; }
+    if (pw.length < 6) { errEl.textContent = 'Passwort mind. 6 Zeichen'; return; }
+    if (TEAM.indexOf(name) >= 0) { errEl.textContent = 'Name existiert schon im Team'; return; }
+    var key = emailKey(email);
+    dbGet('/accounts/' + key, function(err, ex) {
+      if (ex) { errEl.textContent = 'E-Mail bereits vergeben'; return; }
+      var salt = genSalt();
+      hashPw(pw, salt).then(function(h) {
+        dbPut('/accounts/' + key, {email: email, name: name, role: 'employee', salt: salt, hash: h, ts: Date.now()});
+        TEAM = TEAM.concat([name]); saveTeamConfig(); refreshTeamUI();
+        close(); toast(name + ' angelegt'); if (onDone) onDone();
+      });
+    });
+  });
+}
+
 /* ── SPLASH ── */
 function runSplash() {
   var sp = el('splash');
@@ -3448,21 +3637,11 @@ dbGet('/pins', function(err, dbPins) {
   }
 });
 
-if (me) {
-  el('uEmoji').textContent = initials(me);
-  el('uLabel').textContent = me;
-  el('userChip').classList.add('active');
-} else { showPicker(); }
-
-updateDash();
-loadDashExtras();
-loadTasks();
-loadOrders();
-loadChat();
-loadShift();
+// Anmelde-Ebene entscheidet über den Start (Session → App, sonst Login/Registrierung)
+startAuth();
 
 chatPollT = setInterval(function() {
-  if (el('chatWrap').classList.contains('on')) { loadChat(); }
+  if (me && el('chatWrap').classList.contains('on')) { loadChat(); }
 }, 6000);
 </script>
 </body>
