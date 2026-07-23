@@ -334,6 +334,48 @@
     .inp:focus { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
     .empty { color: var(--dim); }
     ::-webkit-scrollbar { width: 0; height: 0; }
+
+    /* ── ANIMATIONEN ── */
+    @keyframes screenIn { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+    .screen.on { animation: screenIn 0.26s cubic-bezier(0.22,1,0.36,1); }
+    #chatWrap.on { animation: screenIn 0.26s cubic-bezier(0.22,1,0.36,1); }
+    @keyframes ovIn { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+    .ov { animation: ovIn 0.3s cubic-bezier(0.22,1,0.36,1); }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes sheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .confirm-ov { animation: fadeIn 0.2s ease; }
+    .confirm-sheet { animation: sheetIn 0.32s cubic-bezier(0.22,1,0.36,1); }
+    #userMenu:not(.hidden) { animation: screenIn 0.2s ease; }
+
+    /* Tap-Feedback */
+    .tap { cursor: pointer; transition: transform 0.12s ease, background 0.15s; }
+    .tap:active { transform: scale(0.975); }
+    .card.tap { position: relative; padding-right: 1.9rem; }
+    .card.tap::after { content: '\203A'; position: absolute; top: 50%; right: 0.95rem; transform: translateY(-50%); color: var(--dim2); font-size: 1.2rem; line-height: 1; }
+    .task:active, .sd-row:active, .cl-item:active, .order:active, .wiki-item:active, .inv-item:active, .urlaub-entry:active, .um-btn:active, .set-btn:active, .set-row:active { transform: scale(0.985); transition: transform 0.1s ease; }
+
+    /* Nav-Icon Pop */
+    @keyframes navPop { 0% { transform: scale(1); } 45% { transform: scale(1.22); } 100% { transform: scale(1); } }
+    .ni.on .ni-icon { animation: navPop 0.34s ease; }
+
+    /* Ripple */
+    .mehr-tile, .btn-g, .btn-d, .nbtn, .pin-key, .ni, .add-btn, .qty-btn { position: relative; overflow: hidden; }
+    .ripple { position: absolute; border-radius: 50%; background: rgba(199,154,77,0.28); transform: scale(0); animation: rippleExp 0.55s ease-out; pointer-events: none; z-index: 0; }
+    .btn-g .ripple { background: rgba(0,0,0,0.18); }
+    @keyframes rippleExp { to { transform: scale(1); opacity: 0; } }
+
+    /* Login-Screen Einblendung (Launch-Feel) */
+    @keyframes pickerIn { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: none; } }
+    #picker:not(.hidden) .picker-logo, #picker:not(.hidden) .picker-title, #picker:not(.hidden) .picker-sub, #picker:not(.hidden) .nbtn { animation: pickerIn 0.5s cubic-bezier(0.22,1,0.36,1) backwards; }
+    #picker:not(.hidden) .picker-title { animation-delay: 0.05s; }
+    #picker:not(.hidden) .picker-sub { animation-delay: 0.1s; }
+    #picker:not(.hidden) .nbtn:nth-child(1) { animation-delay: 0.16s; }
+    #picker:not(.hidden) .nbtn:nth-child(2) { animation-delay: 0.22s; }
+    #picker:not(.hidden) .nbtn:nth-child(3) { animation-delay: 0.28s; }
+    #picker:not(.hidden) .nbtn:nth-child(4) { animation-delay: 0.34s; }
+    #picker:not(.hidden) .nbtn:nth-child(5) { animation-delay: 0.40s; }
+
+    @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.01ms !important; } }
   </style>
 </head>
 <body>
@@ -378,8 +420,8 @@
         <div class="dw-shift" id="dShift"></div>
       </div>
       <div class="stats">
-        <div class="stat"><div class="stat-n" id="statOpen">–</div><div class="stat-l">Aufgaben offen</div></div>
-        <div class="stat"><div class="stat-n" id="statOrders">–</div><div class="stat-l">Bestellungen</div></div>
+        <div class="stat tap" id="statCardOpen"><div class="stat-n" id="statOpen">–</div><div class="stat-l">Aufgaben offen</div></div>
+        <div class="stat tap" id="statCardOrders"><div class="stat-n" id="statOrders">–</div><div class="stat-l">Bestellungen</div></div>
       </div>
       <div id="dashCal"></div>
       <div id="dashCalPanel" style="display:none"></div>
@@ -1073,7 +1115,8 @@ function loadDashExtras() {
     }
     /* Heute im Dienst */
     var shiftCard = document.createElement('div');
-    shiftCard.className = 'card';
+    shiftCard.className = 'card tap';
+    shiftCard.addEventListener('click', function() { switchTab('schicht'); });
     var anyShift = false;
     var shiftRows = '';
     SCHICHTEN.forEach(function(s) {
@@ -1092,7 +1135,8 @@ function loadDashExtras() {
     var hDone = Object.keys(haccpToday).filter(function(k) { return haccpToday[k] && haccpToday[k].checked; }).length;
     var hColor = hDone === HACCP.length ? 'var(--green)' : hDone > 0 ? 'var(--orange)' : 'var(--red)';
     var hCard = document.createElement('div');
-    hCard.className = 'card';
+    hCard.className = 'card tap';
+    hCard.addEventListener('click', function() { showHaccp(); });
     hCard.innerHTML = '<div style="font-size:0.6rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem">HACCP Heute</div>' +
       '<div style="display:flex;align-items:center;justify-content:space-between">' +
         '<span style="font-size:0.82rem;color:var(--dim)">Lebensmittelkontrollen</span>' +
@@ -1101,7 +1145,8 @@ function loadDashExtras() {
     msg.appendChild(hCard);
     /* Übergabe */
     if (uvToday && uvToday.text) {
-      var uvCard = document.createElement('div'); uvCard.className = 'card';
+      var uvCard = document.createElement('div'); uvCard.className = 'card tap';
+      uvCard.addEventListener('click', function() { showUebergabe(); });
       var preview = uvToday.text.substring(0, 100) + (uvToday.text.length > 100 ? '…' : '');
       uvCard.innerHTML = '<div style="font-size:0.6rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem">Übergabe heute · ' + esc(uvToday.by||'?') + '</div>' +
         '<div style="font-size:0.82rem;color:var(--dim);line-height:1.5;white-space:pre-wrap">' + esc(preview) + '</div>' +
@@ -1201,7 +1246,7 @@ function renderTasks() {
     if (taskFilter === 'offen')    return !t.done;
     if (taskFilter === 'meine')    return t.assign === me;
     if (taskFilter === 'erledigt') return !!t.done;
-    return !t.done; /* "alle" shows open tasks; done shown below */
+    return true; /* "alle" zeigt alle — erledigte werden unten einsortiert */
   });
   shown.sort(function(a, b) {
     function rank(t) {
@@ -2634,11 +2679,11 @@ function showSettings() {
   profCard.innerHTML = '<div style="display:flex;align-items:center;gap:0.75rem"><span class="avatar" style="width:42px;height:42px;font-size:1rem">' + esc(initials(me)) + '</span><div><div class="set-row-label">' + esc(me||'–') + '</div><div class="set-row-sub">' + (me===ADMIN?'Administrator':'Team') + '</div></div></div>';
   sProfil.appendChild(profCard);
   sProfil.appendChild(btn('PIN ändern', 'Eigenen PIN ändern', function() {
-    var ov = el('ov'); if (ov) ov.parentNode.removeChild(ov);
+    var ov = document.querySelector('.ov'); if (ov) ov.parentNode.removeChild(ov);
     showPinChange();
   }));
   sProfil.appendChild(btn('Benutzer wechseln', '', function() {
-    var ov = el('ov'); if (ov) ov.parentNode.removeChild(ov);
+    var ov = document.querySelector('.ov'); if (ov) ov.parentNode.removeChild(ov);
     showPicker();
   }));
 
@@ -2714,7 +2759,7 @@ function showSettings() {
     }
   }));
   sApp.appendChild(btn('Abmelden', 'Aktuellen Benutzer abmelden', function() {
-    var ov = el('ov'); if (ov) ov.parentNode.removeChild(ov);
+    var ov = document.querySelector('.ov'); if (ov) ov.parentNode.removeChild(ov);
     logoutUser();
   }, true));
 
@@ -3153,6 +3198,8 @@ function bind() {
     if (btn) btn.addEventListener('click', function() { switchTab(tab); });
   });
   el('userChip').addEventListener('click', function() { if (me) showUserMenu(); else showPicker(); });
+  el('statCardOpen').addEventListener('click', function() { switchTab('aufgaben'); });
+  el('statCardOrders').addEventListener('click', function() { showBestellen(); });
   el('umSettings').addEventListener('click', function() {
     el('userMenu').classList.add('hidden');
     el('umOverlay').classList.add('hidden');
@@ -3210,11 +3257,35 @@ function paintNavIcons() {
   }
 }
 
+/* ── RIPPLE (Klick-Animation) ── */
+function attachRipple() {
+  var sel = '.mehr-tile, .btn-g, .btn-d, .nbtn, .pin-key, .ni, .add-btn, .qty-btn';
+  function spawn(e) {
+    var host = e.target && e.target.closest ? e.target.closest(sel) : null;
+    if (!host) return;
+    var r = host.getBoundingClientRect();
+    var size = Math.max(r.width, r.height);
+    var x = (e.touches ? e.touches[0].clientX : e.clientX);
+    var y = (e.touches ? e.touches[0].clientY : e.clientY);
+    if (x == null) { x = r.left + r.width / 2; y = r.top + r.height / 2; }
+    var rip = document.createElement('span');
+    rip.className = 'ripple';
+    rip.style.width = rip.style.height = size + 'px';
+    rip.style.left = (x - r.left - size / 2) + 'px';
+    rip.style.top  = (y - r.top  - size / 2) + 'px';
+    host.appendChild(rip);
+    setTimeout(function() { if (rip.parentNode) rip.parentNode.removeChild(rip); }, 560);
+  }
+  if ('ontouchstart' in window) document.addEventListener('touchstart', spawn, {passive:true});
+  else document.addEventListener('mousedown', spawn, true);
+}
+
 /* ── INIT ── */
 buildPicker();
 buildMehr();
 buildPinPad();
 paintNavIcons();
+attachRipple();
 bind();
 tick();
 setInterval(tick, 30000);
