@@ -3621,8 +3621,8 @@ function resetMemberPassword(name) {
     if (!key) { toast(name + ' hat noch kein Konto (lädt sich per Code selbst ein)'); return; }
     var salt = genSalt();
     hashPw(np, salt).then(function(h) {
-      gPut('/accounts/' + key + '/salt', salt);
-      gPut('/accounts/' + key + '/hash', h, function(e) { toast(e ? '⚠ Fehler' : 'Passwort für ' + name + ' gesetzt'); });
+      var acc = accs[key]; acc.salt = salt; acc.hash = h;
+      gPut('/accounts/' + key, acc, function(e) { toast(e ? '⚠ Fehler beim Speichern' : 'Passwort für ' + name + ' gesetzt'); });
     });
   });
 }
