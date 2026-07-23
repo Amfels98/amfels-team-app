@@ -333,6 +333,8 @@
     .chip.on { box-shadow: 0 1px 7px rgba(199,154,77,0.28); }
     .inp:focus { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
     .empty { color: var(--dim); }
+    #offlineBar { background: var(--red); color: #fff; font-size: 0.72rem; font-weight: 500; text-align: center; padding: 0.4rem 1rem; flex-shrink: 0; }
+    #offlineBar.hidden { display: none; }
     ::-webkit-scrollbar { width: 0; height: 0; }
 
     /* ── ANIMATIONEN ── */
@@ -473,6 +475,7 @@
   </div>
 
   <!-- Offline Banner -->
+  <div id="offlineBar" class="hidden">Keine Internetverbindung — Änderungen werden evtl. nicht gespeichert</div>
 
   <!-- User Menu -->
   <div id="umOverlay" class="hidden"></div>
@@ -2002,20 +2005,32 @@ function showBestellen() {
   var body = makeOv('Bestellliste');
   function render() {
     body.innerHTML = '';
+    var toggle = document.createElement('button');
+    toggle.className = 'wiz-add'; toggle.style.marginBottom = '0.75rem';
+    toggle.textContent = '+ Artikel hinzufügen';
+    body.appendChild(toggle);
     var addForm = document.createElement('div');
-    addForm.className = 'add-form open';
+    addForm.className = 'add-form';
     addForm.innerHTML =
       '<div class="fg"><label class="fl">Artikel</label><input class="inp" id="oName" placeholder="z.B. Mehl"></div>' +
       '<div class="fg"><label class="fl">Menge</label><input class="inp" id="oQty" placeholder="z.B. 5 kg"></div>' +
-      '<button class="btn-g" style="width:100%" id="oSave">Hinzufügen</button>';
+      '<div class="row2"><button class="btn-d" id="oCancel">Abbrechen</button><button class="btn-g" id="oSave">Hinzufügen</button></div>';
     body.appendChild(addForm);
+    toggle.addEventListener('click', function() {
+      addForm.classList.toggle('open');
+      if (addForm.classList.contains('open')) { toggle.style.display = 'none'; addForm.querySelector('#oName').focus(); }
+    });
+    function closeForm() { addForm.classList.remove('open'); toggle.style.display = ''; }
+    addForm.querySelector('#oCancel').addEventListener('click', closeForm);
     addForm.querySelector('#oSave').addEventListener('click', function() {
       var name = addForm.querySelector('#oName').value.trim();
       if (!name) { toast('Bitte Artikel eingeben'); return; }
       var qty = addForm.querySelector('#oQty').value.trim();
       dbPost('/orders', {name:name, qty:qty, by:me, ts:Date.now()}, function(err, key) {
+        if (err) { toast('⚠ Nicht gespeichert – offline?'); return; }
         addForm.querySelector('#oName').value = '';
         addForm.querySelector('#oQty').value = '';
+        closeForm();
         loadOrdersInto(body);
         toast('✓ Hinzugefügt');
         loadOrders();
@@ -2086,10 +2101,13 @@ function showUebergabe() {
     '<div class="fg"><textarea class="inp" id="uText" placeholder="Was gibt es zu übergeben? Besonderheiten, offene Aufgaben, Hinweise…" style="min-height:140px"></textarea></div>' +
     '<button class="btn-g" style="width:100%" id="uSave">Speichern</button>' +
     '<div id="uHistory" style="margin-top:1.5rem"></div>';
-  if (me) { dbPut('/uebergabe_read/' + today + '/' + me, {ts:Date.now()}); }
   dbGet('/uebergabe', function(err, data) {
     if (data && data[today] && data[today].text) {
       body.querySelector('#uText').value = data[today].text;
+      // Als gelesen markieren – nur wenn es eine Übergabe von jemand anderem gibt
+      if (me && data[today].by && data[today].by !== me) {
+        dbPut('/uebergabe_read/' + today + '/' + me, {ts:Date.now()});
+      }
     }
     var history = body.querySelector('#uHistory');
     if (data) {
@@ -2110,8 +2128,12 @@ function showUebergabe() {
   body.querySelector('#uSave').addEventListener('click', function() {
     var text = body.querySelector('#uText').value.trim();
     if (!text) { toast('Bitte Text eingeben'); return; }
-    dbPut('/uebergabe/' + today, {text:text, by:me, ts:Date.now()}, function() {
+    dbPut('/uebergabe/' + today, {text:text, by:me, ts:Date.now()}, function(err) {
+      if (err) { toast('⚠ Nicht gespeichert – offline?'); return; }
       toast('✓ Übergabe gespeichert');
+      var ovEl = body.closest ? body.closest('.ov') : null;
+      if (ovEl && ovEl.parentNode) ovEl.parentNode.removeChild(ovEl);
+      loadDashExtras();
     });
   });
 }
@@ -2192,11 +2214,25 @@ function showReinigung() {
   var loaded = 0;
   var dailyData = {};
   var weeklyData = {};
+  var progEl = document.createElement('div');
+  function updateProg() {
+    var done = 0;
+    REINIG.forEach(function(r) {
+      var d = r.freq === 'täglich' ? dailyData : weeklyData;
+      if (d[r.id] && d[r.id].checked) done++;
+    });
+    var all = done >= REINIG.length;
+    progEl.style.cssText = 'border-radius:12px;padding:0.75rem 1rem;margin-top:0.9rem;text-align:center;font-size:0.85rem;' +
+      (all ? 'background:rgba(76,175,125,0.12);border:1px solid var(--green);color:var(--green);font-weight:600' : 'background:var(--bg2);border:1px solid var(--border);color:var(--dim)');
+    progEl.textContent = all ? '✓ Alles erledigt!' : done + ' / ' + REINIG.length + ' erledigt';
+  }
   function onLoaded() {
     loaded++;
     if (loaded < 2) return;
     renderSection('täglich',     dailyData,  '/reinigung/d/' + today + '/');
     renderSection('wöchentlich', weeklyData, '/reinigung/w/' + wk + '/');
+    updateProg();
+    body.appendChild(progEl);
   }
   dbGet('/reinigung/d/' + today, function(err, data) { dailyData  = data || {}; onLoaded(); });
   dbGet('/reinigung/w/' + wk,    function(err, data) { weeklyData = data || {}; onLoaded(); });
@@ -2220,7 +2256,7 @@ function showReinigung() {
         var isNow = !entry.checked;
         entry.checked = isNow; entry.by = me; entry.ts = Date.now();
         data[item.id] = entry;
-        dbPut(basePath + item.id, entry);
+        dbPut(basePath + item.id, entry, function(err) { if (err) toast('⚠ Nicht gespeichert – offline?'); });
         div.className = 'cl-item' + (isNow ? ' checked' : '');
         div.querySelector('.cl-box').textContent = isNow ? '✓' : '';
         div.querySelector('.cl-label').style.textDecoration = isNow ? 'line-through' : '';
@@ -2229,6 +2265,7 @@ function showReinigung() {
           if (!whoEl) { whoEl = document.createElement('div'); whoEl.className = 'cl-who'; div.querySelector('.cl-text').appendChild(whoEl); }
           whoEl.textContent = '✓ ' + me + ' ' + fmtTime(Date.now());
         } else { if (whoEl) whoEl.remove(); }
+        updateProg();
       });
       body.appendChild(div);
     });
@@ -3513,6 +3550,12 @@ function paintNavIcons() {
   }
 }
 
+/* ── OFFLINE-ERKENNUNG ── */
+function updateOnline() {
+  var bar = el('offlineBar'); if (!bar) return;
+  bar.classList.toggle('hidden', navigator.onLine !== false);
+}
+
 /* ── RIPPLE (Klick-Animation) ── */
 function attachRipple() {
   var sel = '.mehr-tile, .btn-g, .btn-d, .nbtn, .pin-key, .ni, .add-btn, .qty-btn';
@@ -3566,15 +3609,31 @@ function addMember(onDone) {
   saveTeamConfig(); refreshTeamUI(); toast(nn + ' hinzugefügt');
   if (onDone) onDone();
 }
+function resetMemberPassword(name) {
+  var np = prompt('Neues Passwort für ' + name + ' (min. 6 Zeichen):');
+  if (np === null) return;
+  np = np.trim();
+  if (np.length < 6) { toast('Passwort muss mind. 6 Zeichen haben'); return; }
+  gGet('/accounts', function(err, accs) {
+    if (err || !accs) { toast('Kein Konto gefunden'); return; }
+    var key = null;
+    Object.keys(accs).forEach(function(k) { var a = accs[k]; if (a && a.name === name && a.tenantId === TENANT) key = k; });
+    if (!key) { toast(name + ' hat noch kein Konto (lädt sich per Code selbst ein)'); return; }
+    var salt = genSalt();
+    hashPw(np, salt).then(function(h) {
+      gPut('/accounts/' + key + '/salt', salt);
+      gPut('/accounts/' + key + '/hash', h, function(e) { toast(e ? '⚠ Fehler' : 'Passwort für ' + name + ' gesetzt'); });
+    });
+  });
+}
 function manageMember(name, onDone) {
   var ov = document.createElement('div'); ov.className = 'confirm-ov';
   var sh = document.createElement('div'); sh.className = 'confirm-sheet';
   var isAdmin = name === ADMIN;
-  var hasPIN = !!getPins()[name];
-  sh.innerHTML = '<h3>' + esc(name) + '</h3><p>' + (isAdmin ? 'Administrator' : 'Team-Mitglied') + ' · ' + (hasPIN ? 'PIN gesetzt' : 'kein PIN') + '</p>' +
+  sh.innerHTML = '<h3>' + esc(name) + '</h3><p>' + (isAdmin ? 'Administrator' : 'Team-Mitglied') + '</p>' +
     '<button class="btn-d" id="mRename" style="width:100%;margin-bottom:0.4rem">Umbenennen</button>' +
     (isAdmin ? '' : '<button class="btn-d" id="mAdmin" style="width:100%;margin-bottom:0.4rem">Zum Administrator machen</button>') +
-    '<button class="btn-d" id="mPin" style="width:100%;margin-bottom:0.4rem">PIN zurücksetzen</button>' +
+    '<button class="btn-d" id="mPin" style="width:100%;margin-bottom:0.4rem">Passwort zurücksetzen</button>' +
     (isAdmin ? '' : '<button class="btn-d" id="mRemove" style="width:100%;margin-bottom:0.4rem;color:var(--red)">Aus Team entfernen</button>') +
     '<button class="btn-g" id="mClose" style="width:100%">Fertig</button>';
   ov.appendChild(sh); document.body.appendChild(ov);
@@ -3594,7 +3653,7 @@ function manageMember(name, onDone) {
   var aBtn = sh.querySelector('#mAdmin');
   if (aBtn) aBtn.addEventListener('click', function() { ADMIN = name; saveTeamConfig(); toast(name + ' ist jetzt Administrator'); close(); if (onDone) onDone(); });
   sh.querySelector('#mPin').addEventListener('click', function() {
-    var p = getPins(); delete p[name]; savePins(p); dbDel('/pins/' + name); toast(name + ' PIN zurückgesetzt'); close(); if (onDone) onDone();
+    close(); resetMemberPassword(name); if (onDone) onDone();
   });
   var rBtn = sh.querySelector('#mRemove');
   if (rBtn) rBtn.addEventListener('click', function() {
@@ -4030,6 +4089,9 @@ bind();
 loadConfig();
 tick();
 setInterval(tick, 30000);
+updateOnline();
+window.addEventListener('online', updateOnline);
+window.addEventListener('offline', updateOnline);
 
 // Sync PINs from Firebase into localStorage cache (guards against iOS ~7d localStorage wipe)
 dbGet('/pins', function(err, dbPins) {
@@ -4044,8 +4106,13 @@ dbGet('/pins', function(err, dbPins) {
 startAuth();
 
 chatPollT = setInterval(function() {
-  if (me && el('chatWrap').classList.contains('on')) { loadChat(); }
-}, 6000);
+  if (!me) return;
+  loadChat(); // aktualisiert auch die Ungelesen-Badge im Hintergrund
+  if (el('chatWrap').classList.contains('on')) {
+    localStorage.setItem(CHAT_LAST_SEEN, String(Date.now()));
+    setBadge('nav-chat', 0);
+  }
+}, 10000);
 </script>
 </body>
 </html>
