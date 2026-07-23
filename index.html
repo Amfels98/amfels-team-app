@@ -718,7 +718,8 @@ var ICONS = {
   bell:      '<path d="M18 8.5a6 6 0 0 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 14.5 18 8.5Z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
   send:      '<path d="M21 4 3 11l7 2.5L13 21l8-17Z"/><path d="m10 13.5 3.5-3.5"/>',
   party:     '<path d="M4 20 8.5 9l6.5 6.5L4 20Z"/><path d="M13 3s1 2 3 2M18 8s2 1 2 3M14 6l4 4"/>',
-  warn:      '<path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 9.5v4.5M12 17.2h.01"/>'
+  warn:      '<path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 9.5v4.5M12 17.2h.01"/>',
+  shield:    '<path d="M12 3l7 3v5.5c0 4.3-3 8.2-7 9.5-4-1.3-7-5.2-7-9.5V6l7-3Z"/><path d="m9 12 2 2 4-4"/>'
 };
 function ic(name, size, cls) {
   var p = ICONS[name] || '';
@@ -1351,7 +1352,8 @@ function loadDashExtras() {
 var MEHR_ITEMS = [
   {icon:'cart',         label:'Bestellen',  fn:'showBestellen'},
   {icon:'clipboard',    label:'Übergabe',   fn:'showUebergabe'},
-  {icon:'thermo',       label:'HACCP',      fn:'showHaccp'},
+  {icon:'shield',       label:'HACCP',      fn:'showHaccp'},
+  {icon:'thermo',       label:'Temperatur', fn:'showTemperatur'},
   {icon:'sparkleClean', label:'Reinigung',  fn:'showReinigung'},
   {icon:'euro',         label:'Trinkgeld',  fn:'showTrinkgeld'},
   {icon:'package',      label:'Inventar',   fn:'showInventar'},
@@ -2268,6 +2270,75 @@ function showReinigung() {
         updateProg();
       });
       body.appendChild(div);
+    });
+  }
+}
+
+/* ── TEMPERATUR-ERFASSUNG ── */
+function isTempOk(p, v) {
+  var min = (p.min != null) ? p.min : -999;
+  var max = (p.max != null) ? p.max : 999;
+  return v >= min && v <= max;
+}
+function showTemperatur() {
+  var today = todayKey();
+  var body = makeOv('Temperatur – ' + today);
+  var points = [], recorded = {}, loaded = 0;
+  function ready() { loaded++; if (loaded >= 2) render(); }
+  dbGet('/tempPoints',     function(err, d) { points   = (d && d.length) ? d : []; ready(); });
+  dbGet('/temps/' + today, function(err, d) { recorded = d || {}; ready(); });
+
+  function render() {
+    if (!points.length) {
+      body.innerHTML = '<p class="empty">Noch keine Messpunkte angelegt.<br>Einstellungen → Einrichtung → Einrichtungs-Assistent (Schritt „Temperaturen").</p>';
+      return;
+    }
+    body.innerHTML = '<p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.75rem">Werte für heute erfassen</p>';
+    points.forEach(function(p) {
+      var rec = recorded[p.id] || {};
+      var card = document.createElement('div');
+      card.className = 'card'; card.style.marginBottom = '0.6rem';
+      var hasVal = (rec.value !== undefined && rec.value !== null);
+      card.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.55rem">' +
+          '<div><div style="font-weight:600;font-size:0.92rem">' + esc(p.name) + '</div>' +
+          '<div style="font-size:0.68rem;color:var(--dim)">' + esc(p.type) + ' · Soll ' + tempRangeLabel(p.type) + '</div></div>' +
+          (hasVal ? '<div style="font-weight:700;color:' + (isTempOk(p, rec.value) ? 'var(--green)' : 'var(--red)') + '">' + esc(String(rec.value)) + ' °C</div>' : '') +
+        '</div>' +
+        '<div style="display:flex;gap:0.5rem;align-items:center">' +
+          '<input class="inp" type="number" step="0.1" inputmode="decimal" placeholder="°C" style="flex:1" data-tv value="' + (hasVal ? esc(String(rec.value)) : '') + '">' +
+          '<button class="btn-g" style="flex:0 0 auto;padding:0.85rem 1.2rem" data-tsave>OK</button>' +
+        '</div>' +
+        '<div data-tc style="display:none;margin-top:0.55rem"><label class="fl">Korrekturmaßnahme (Pflicht)</label>' +
+          '<textarea class="inp" data-tca style="min-height:62px" placeholder="Was wurde unternommen?">' + esc(rec.corrective || '') + '</textarea></div>' +
+        (rec.by ? '<div style="font-size:0.65rem;color:var(--dim);margin-top:0.45rem">Erfasst von ' + esc(rec.by) + ' · ' + fmtTime(rec.ts || 0) + (rec.corrective ? ' · Korrektur: ' + esc(rec.corrective) : '') + '</div>' : '');
+      body.appendChild(card);
+
+      var inp = card.querySelector('[data-tv]');
+      var corrWrap = card.querySelector('[data-tc]');
+      function checkRange() {
+        var v = parseFloat(inp.value);
+        corrWrap.style.display = (!isNaN(v) && !isTempOk(p, v)) ? '' : 'none';
+      }
+      inp.addEventListener('input', checkRange);
+      checkRange();
+      card.querySelector('[data-tsave]').addEventListener('click', function() {
+        var v = parseFloat(inp.value);
+        if (isNaN(v)) { toast('Bitte Wert eingeben'); return; }
+        var corr = '';
+        if (!isTempOk(p, v)) {
+          corr = (card.querySelector('[data-tca]').value || '').trim();
+          if (!corr) { toast('Bitte Korrekturmaßnahme angeben'); return; }
+        }
+        var entry = {value: v, by: me, ts: Date.now()};
+        if (corr) entry.corrective = corr;
+        dbPut('/temps/' + today + '/' + p.id, entry, function(err) {
+          if (err) { toast('⚠ Nicht gespeichert – offline?'); return; }
+          recorded[p.id] = entry;
+          toast('✓ ' + p.name + ' gespeichert');
+          render();
+        });
+      });
     });
   }
 }
@@ -3880,12 +3951,27 @@ var CLEAN_TEMPLATES = [
 var RHYTHM_LABEL = {daily:'Täglich', weekly:'Wöchentlich', monthly:'Monatlich', quarterly:'Quartalsweise'};
 var TASK_REPEAT  = {daily:'daily', weekly:'weekly', monthly:'monthly', quarterly:'monthly'};
 var MEMBER_ROLES = ['Inhaber','Leitung','Küche','Service','Reinigung'];
-var wiz = { step: 1, biz: null, cleanSel: {}, clean: CLEAN_TEMPLATES.slice() };
+var WIZ_TOTAL = 6;
+var TEMP_TYPES = ['Kühlung','Tiefkühlung','Warmhaltung','Wareneingang'];
+var TEMP_RANGE = {'Kühlung':{min:0,max:7}, 'Tiefkühlung':{min:-30,max:-18}, 'Warmhaltung':{min:65,max:95}, 'Wareneingang':{min:0,max:7}};
+var TEMP_DEFAULTS = [
+  {name:'Kühlschrank Küche', type:'Kühlung'},
+  {name:'Kühlhaus',          type:'Kühlung'},
+  {name:'Tiefkühler',        type:'Tiefkühlung'},
+  {name:'Warmhaltung',       type:'Warmhaltung'}
+];
+var MUELL_RHYTHM = {weekly:'Wöchentlich', biweekly:'Alle 2 Wochen', fourweekly:'Alle 4 Wochen', monthly:'Monatlich'};
+var wiz = { step: 1, biz: null, cleanSel: {}, clean: CLEAN_TEMPLATES.slice(), tempList: [], tempSel: {}, muellCfg: {}, suppliers: [] };
 
 function startWizard() {
   wiz.step = 1;
   wiz.clean = CLEAN_TEMPLATES.slice();
   wiz.cleanSel = {}; wiz.clean.forEach(function(t, i) { wiz.cleanSel[i] = true; });
+  wiz.tempList = TEMP_DEFAULTS.slice();
+  wiz.tempSel = {}; wiz.tempList.forEach(function(t, i) { wiz.tempSel[i] = true; });
+  wiz.muellCfg = {};
+  MULL_TYPES.forEach(function(t) { wiz.muellCfg[t.key] = {on: false, weekday: 0, rhythm: 'weekly'}; });
+  wiz.suppliers = [];
   el('userMenu').classList.add('hidden'); el('umOverlay').classList.add('hidden');
   var ov = document.querySelector('.ov'); if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
   el('wizard').classList.remove('hidden');
@@ -3906,14 +3992,26 @@ function startWizard() {
 function closeWizard() { el('wizard').classList.add('hidden'); checkSetup(); }
 
 function renderWizard() {
-  el('wizBarFill').style.width = (wiz.step / 3 * 100) + '%';
-  el('wizStepLabel').textContent = 'Schritt ' + wiz.step + ' von 3';
+  el('wizBarFill').style.width = (wiz.step / WIZ_TOTAL * 100) + '%';
+  el('wizStepLabel').textContent = 'Schritt ' + wiz.step + ' von ' + WIZ_TOTAL;
   el('wizBack').style.visibility = wiz.step === 1 ? 'hidden' : 'visible';
-  el('wizNext').textContent = wiz.step === 3 ? 'Fertig — los geht’s' : 'Weiter';
-  if (wiz.step === 1) renderWizStep1();
-  else if (wiz.step === 2) renderWizStep2();
-  else renderWizStep3();
+  el('wizNext').textContent = wiz.step === WIZ_TOTAL ? 'Fertig — los geht’s' : 'Weiter';
+  var renderers = [null, renderWizStep1, renderWizStep2, renderWizStep3, renderWizStep4, renderWizStep5, renderWizStep6];
+  var fn = renderers[wiz.step];
+  if (fn) fn();
   el('wizBody').scrollTop = 0;
+}
+/* Sichert Eingaben des aktuellen Schritts, bevor navigiert wird */
+function wizCollect() {
+  if (wiz.step === 1) collectStep1();
+  else if (wiz.step === 5) collectStep5();
+}
+/* Nächstes Datum für einen Wochentag (0=Mo … 6=So) */
+function nextDateForWeekday(idx) {
+  var d = new Date();
+  var cur = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() + ((idx - cur + 7) % 7));
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
 function renderWizStep1() {
@@ -4023,32 +4121,185 @@ function wizAddClean() {
   });
 }
 
-function wizBack() { if (wiz.step > 1) { wiz.step--; renderWizard(); } }
+/* ── Schritt 4: Temperaturen ── */
+function tempRangeLabel(type) {
+  var r = TEMP_RANGE[type] || {min:0, max:7};
+  if (type === 'Tiefkühlung') return '≤ ' + r.max + ' °C';
+  if (type === 'Warmhaltung') return '≥ ' + r.min + ' °C';
+  return r.min + ' – ' + r.max + ' °C';
+}
+function renderWizStep4() {
+  var list = wiz.tempList.map(function(t, i) {
+    var on = wiz.tempSel[i];
+    return '<div class="wiz-tpl' + (on ? ' on' : ' off') + '" data-tp="' + i + '"><div class="wiz-tpl-box">' + (on ? '✓' : '') + '</div><div class="wiz-tpl-body"><div class="wiz-tpl-title">' + esc(t.name) + '</div><div class="wiz-tpl-rhythm">' + esc(t.type) + ' · ' + tempRangeLabel(t.type) + '</div></div></div>';
+  }).join('');
+  el('wizBody').innerHTML =
+    '<div class="wiz-h">Temperaturen</div><div class="wiz-sub">Welche Messpunkte willst du dokumentieren? Die Sollwerte sind bereits hinterlegt.</div>' +
+    list + '<button class="wiz-add" id="wzAddTemp">+ Eigener Messpunkt</button>' +
+    '<p style="font-size:0.72rem;color:var(--dim2);margin-top:0.9rem;line-height:1.5">Beim Erfassen fragt die App automatisch nach einer Korrekturmaßnahme, wenn ein Wert außerhalb des Soll-Bereichs liegt.</p>';
+  var els = el('wizBody').querySelectorAll('.wiz-tpl');
+  for (var k = 0; k < els.length; k++) {
+    els[k].addEventListener('click', function() { var i = +this.dataset.tp; wiz.tempSel[i] = !wiz.tempSel[i]; renderWizStep4(); });
+  }
+  el('wzAddTemp').addEventListener('click', wizAddTemp);
+}
+function wizAddTemp() {
+  var ov = document.createElement('div'); ov.className = 'confirm-ov';
+  var sh = document.createElement('div'); sh.className = 'confirm-sheet';
+  sh.innerHTML = '<h3>Messpunkt hinzufügen</h3>' +
+    '<div class="fg"><label class="fl">Bezeichnung</label><input class="inp" id="wtName" placeholder="z.B. Kühlvitrine Theke"></div>' +
+    '<div class="fg"><label class="fl">Typ</label><select class="inp" id="wtType">' + TEMP_TYPES.map(function(t) { return '<option>' + t + '</option>'; }).join('') + '</select></div>' +
+    '<div class="row2"><button class="btn-d" id="wtCancel">Abbrechen</button><button class="btn-g" id="wtSave">Hinzufügen</button></div>';
+  ov.appendChild(sh); document.body.appendChild(ov);
+  function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+  ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
+  sh.querySelector('#wtCancel').addEventListener('click', close);
+  sh.querySelector('#wtSave').addEventListener('click', function() {
+    var n = sh.querySelector('#wtName').value.trim();
+    if (!n) { toast('Bitte Bezeichnung angeben'); return; }
+    wiz.tempList.push({name: n, type: sh.querySelector('#wtType').value});
+    wiz.tempSel[wiz.tempList.length - 1] = true;
+    close(); renderWizStep4();
+  });
+}
+
+/* ── Schritt 5: Müllabfuhr ── */
+function renderWizStep5() {
+  var rows = MULL_TYPES.map(function(t) {
+    var c = wiz.muellCfg[t.key] || {on:false, weekday:0, rhythm:'weekly'};
+    var dayOpts = WIZ_DAYS.map(function(d, i) { return '<option value="' + i + '"' + (c.weekday === i ? ' selected' : '') + '>' + d + '</option>'; }).join('');
+    var rOpts = Object.keys(MUELL_RHYTHM).map(function(v) { return '<option value="' + v + '"' + (c.rhythm === v ? ' selected' : '') + '>' + MUELL_RHYTHM[v] + '</option>'; }).join('');
+    return '<div class="wiz-tpl' + (c.on ? ' on' : ' off') + '" style="flex-wrap:wrap">' +
+      '<div class="wiz-tpl-box" data-mt="' + esc(t.key) + '">' + (c.on ? '✓' : '') + '</div>' +
+      '<div class="wiz-tpl-body" data-mt="' + esc(t.key) + '"><div class="wiz-tpl-title">' + esc(t.key) + '</div></div>' +
+      (c.on ? '<div style="display:flex;gap:0.4rem;width:100%;margin-top:0.6rem"><select class="inp" data-mday="' + esc(t.key) + '" style="flex:1">' + dayOpts + '</select><select class="inp" data-mrhy="' + esc(t.key) + '" style="flex:1.5">' + rOpts + '</select></div>' : '') +
+      '</div>';
+  }).join('');
+  el('wizBody').innerHTML =
+    '<div class="wiz-h">Müllabfuhr</div><div class="wiz-sub">Welche Tonnen habt ihr? Wähle Abholtag und Rhythmus — die Termine landen automatisch im Müllkalender inkl. Erinnerung.</div>' + rows;
+  var boxes = el('wizBody').querySelectorAll('[data-mt]');
+  for (var k = 0; k < boxes.length; k++) {
+    boxes[k].addEventListener('click', function() {
+      collectStep5();
+      var key = this.getAttribute('data-mt');
+      wiz.muellCfg[key].on = !wiz.muellCfg[key].on;
+      renderWizStep5();
+    });
+  }
+}
+function collectStep5() {
+  MULL_TYPES.forEach(function(t) {
+    var d = document.querySelector('[data-mday="' + t.key + '"]');
+    var r = document.querySelector('[data-mrhy="' + t.key + '"]');
+    if (!wiz.muellCfg[t.key]) wiz.muellCfg[t.key] = {on:false, weekday:0, rhythm:'weekly'};
+    if (d) wiz.muellCfg[t.key].weekday = +d.value;
+    if (r) wiz.muellCfg[t.key].rhythm = r.value;
+  });
+}
+
+/* ── Schritt 6: Lieferanten ── */
+function renderWizStep6() {
+  var rows = wiz.suppliers.map(function(s, i) {
+    var sub = (s.category ? esc(s.category) + ' · ' : '') + 'Bestellen: ' + WIZ_DAYS[s.orderDay] + (s.deliveryDay != null ? ' · Lieferung: ' + WIZ_DAYS[s.deliveryDay] : '');
+    return '<div class="wiz-member"><div style="flex:1"><div style="font-weight:500">' + esc(s.name) + '</div><div class="wiz-member-role">' + sub + '</div></div><button class="del" data-sup="' + i + '">✕</button></div>';
+  }).join('');
+  el('wizBody').innerHTML =
+    '<div class="wiz-h">Lieferanten</div><div class="wiz-sub">Für jeden Lieferanten legen wir eine wiederkehrende Aufgabe „Bestellung aufgeben" am Bestelltag an.</div>' +
+    (rows || '<p class="empty">Noch keine Lieferanten</p>') + '<button class="wiz-add" id="wzAddSup">+ Lieferant hinzufügen</button>';
+  el('wzAddSup').addEventListener('click', wizAddSupplier);
+  var dels = el('wizBody').querySelectorAll('[data-sup]');
+  for (var k = 0; k < dels.length; k++) {
+    dels[k].addEventListener('click', function() { wiz.suppliers.splice(+this.getAttribute('data-sup'), 1); renderWizStep6(); });
+  }
+}
+function wizAddSupplier() {
+  var ov = document.createElement('div'); ov.className = 'confirm-ov';
+  var sh = document.createElement('div'); sh.className = 'confirm-sheet';
+  var dayOpts = WIZ_DAYS.map(function(d, i) { return '<option value="' + i + '">' + d + '</option>'; }).join('');
+  sh.innerHTML = '<h3>Lieferant hinzufügen</h3>' +
+    '<div class="fg"><label class="fl">Name</label><input class="inp" id="wsName" placeholder="z.B. Handelshof"></div>' +
+    '<div class="fg"><label class="fl">Warengruppe</label><input class="inp" id="wsCat" placeholder="z.B. Getränke"></div>' +
+    '<div class="row2"><div class="fg" style="flex:1"><label class="fl">Bestelltag</label><select class="inp" id="wsOrder">' + dayOpts + '</select></div>' +
+    '<div class="fg" style="flex:1"><label class="fl">Liefertag</label><select class="inp" id="wsDeliv">' + dayOpts + '</select></div></div>' +
+    '<div class="fg"><label class="fl">Kontakt (optional)</label><input class="inp" id="wsContact" placeholder="Telefon oder E-Mail"></div>' +
+    '<div class="row2"><button class="btn-d" id="wsCancel">Abbrechen</button><button class="btn-g" id="wsSave">Hinzufügen</button></div>';
+  ov.appendChild(sh); document.body.appendChild(ov);
+  function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+  ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
+  sh.querySelector('#wsCancel').addEventListener('click', close);
+  sh.querySelector('#wsSave').addEventListener('click', function() {
+    var n = sh.querySelector('#wsName').value.trim();
+    if (!n) { toast('Bitte Name angeben'); return; }
+    wiz.suppliers.push({
+      name: n,
+      category: sh.querySelector('#wsCat').value.trim(),
+      orderDay: +sh.querySelector('#wsOrder').value,
+      deliveryDay: +sh.querySelector('#wsDeliv').value,
+      contact: sh.querySelector('#wsContact').value.trim()
+    });
+    close(); renderWizStep6();
+  });
+}
+
+function wizBack() { if (wiz.step > 1) { wizCollect(); wiz.step--; renderWizard(); } }
 function wizNext() {
-  if (wiz.step === 1) { collectStep1(); wiz.biz.setupProgress.step1 = 'done'; saveBusiness(); wiz.step = 2; renderWizard(); }
-  else if (wiz.step === 2) { wiz.biz.setupProgress.step2 = 'done'; saveBusiness(); wiz.step = 3; renderWizard(); }
-  else { wizFinish(); }
+  wizCollect();
+  wiz.biz.setupProgress['step' + wiz.step] = 'done';
+  saveBusiness();
+  if (wiz.step < WIZ_TOTAL) { wiz.step++; renderWizard(); } else { wizFinish(); }
 }
 function wizSkip() {
-  if (wiz.step === 1) { wiz.biz.setupProgress.step1 = wiz.biz.setupProgress.step1 === 'done' ? 'done' : 'skipped'; collectStep1(); saveBusiness(); wiz.step = 2; renderWizard(); }
-  else if (wiz.step === 2) { if (wiz.biz.setupProgress.step2 !== 'done') wiz.biz.setupProgress.step2 = 'skipped'; saveBusiness(); wiz.step = 3; renderWizard(); }
-  else { if (wiz.biz.setupProgress.step3 !== 'done') wiz.biz.setupProgress.step3 = 'skipped'; saveBusiness(); closeWizard(); }
+  wizCollect();
+  if (wiz.biz.setupProgress['step' + wiz.step] !== 'done') wiz.biz.setupProgress['step' + wiz.step] = 'skipped';
+  saveBusiness();
+  if (wiz.step < WIZ_TOTAL) { wiz.step++; renderWizard(); } else { wizFinish(); }
 }
 function saveBusiness(cb) { dbPut('/business', wiz.biz, cb); }
 function wizFinish() {
   var today = todayKey();
-  var created = 0;
+  var tasksCreated = 0, muellCreated = 0;
+
+  /* Putzplan → wiederkehrende Aufgaben */
   wiz.clean.forEach(function(t, i) {
     if (!wiz.cleanSel[i]) return;
-    var task = {title: t.title, assign: 'Alle', done: false, by: me, ts: Date.now(), priority: 'normal', repeat: (TASK_REPEAT[t.rhythm] || 'weekly'), due: today, source: 'putzplan'};
-    dbPost('/tasks', task);
-    created++;
+    dbPost('/tasks', {title: t.title, assign: 'Alle', done: false, by: me, ts: Date.now(), priority: 'normal', repeat: (TASK_REPEAT[t.rhythm] || 'weekly'), due: today, source: 'putzplan'});
+    tasksCreated++;
   });
-  wiz.biz.setupProgress.step3 = 'done';
+
+  /* Temperatur-Messpunkte */
+  var pts = [];
+  wiz.tempList.forEach(function(t, i) {
+    if (!wiz.tempSel[i]) return;
+    var r = TEMP_RANGE[t.type] || {min:0, max:7};
+    pts.push({id: 'tp' + i, name: t.name, type: t.type, min: r.min, max: r.max});
+  });
+  if (pts.length) dbPut('/tempPoints', pts);
+
+  /* Müllabfuhr → Termine im Müllkalender */
+  MULL_TYPES.forEach(function(t) {
+    var c = wiz.muellCfg[t.key];
+    if (!c || !c.on) return;
+    dbPost('/muell', {type: t.key, date: nextDateForWeekday(c.weekday), repeat: c.rhythm, by: me, ts: Date.now()});
+    muellCreated++;
+  });
+
+  /* Lieferanten → wiederkehrende Bestell-Aufgaben */
+  if (wiz.suppliers.length) {
+    dbPut('/suppliers', wiz.suppliers);
+    wiz.suppliers.forEach(function(s) {
+      dbPost('/tasks', {title: 'Bestellung ' + s.name + ' aufgeben', assign: 'Alle', done: false, by: me, ts: Date.now(), priority: 'normal', repeat: 'weekly', due: nextDateForWeekday(s.orderDay), source: 'lieferant'});
+      tasksCreated++;
+    });
+  }
+
+  for (var st = 1; st <= WIZ_TOTAL; st++) {
+    if (wiz.biz.setupProgress['step' + st] !== 'skipped') wiz.biz.setupProgress['step' + st] = 'done';
+  }
+  wiz.biz.setupProgress.done = true;
   saveBusiness();
   closeWizard();
-  setTimeout(function() { loadTasks(); updateDash(); }, 400);
-  toast('Einrichtung fertig · ' + created + ' Aufgaben erstellt');
+  setTimeout(function() { loadTasks(); loadDashExtras(); updateDash(); }, 400);
+  toast('Fertig · ' + tasksCreated + ' Aufgaben' + (muellCreated ? ', ' + muellCreated + ' Müll-Termine' : '') + ' erstellt');
 }
 
 /* Dashboard-Hinweis, wenn Einrichtung noch offen (nur Admin) */
@@ -4059,7 +4310,7 @@ function checkSetup() {
   dbGet('/business', function(err, b) {
     var host2 = el('dashSetup'); if (!host2) return;
     var sp = (b && b.setupProgress) || {};
-    if (sp.step3 === 'done') return;
+    if (sp.done === true) return;
     var card = document.createElement('div'); card.className = 'card tap';
     card.style.cssText = 'border-color:rgba(199,154,77,0.45);margin-bottom:0.7rem';
     card.innerHTML = '<div style="font-weight:600;margin-bottom:0.15rem;color:var(--gold-l)">Einrichtung abschließen</div><div style="font-size:0.78rem;color:var(--dim)">Betrieb, Team und Putzplan in wenigen Minuten einrichten.</div>';
