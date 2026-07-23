@@ -719,10 +719,15 @@ function showInstallHint() {
 }
 
 /* ── CONFIRM DELETE ── */
-function confirmDel(msg, onConfirm) {
+function confirmDel(msg, onConfirm, opts) {
+  opts = opts || {};
+  var title = opts.title || 'Löschen?';
+  var yesLabel = opts.confirmLabel || 'Löschen';
+  var yesBg = opts.danger === false ? 'var(--gold)' : 'var(--red)';
+  var yesColor = opts.danger === false ? '#000' : '#fff';
   var ov = document.createElement('div'); ov.className = 'confirm-ov';
   var sh = document.createElement('div'); sh.className = 'confirm-sheet';
-  sh.innerHTML = '<h3>Löschen?</h3><p>' + esc(msg) + '</p><div class="row2"><button class="btn-d" id="cdNo">Abbrechen</button><button style="flex:1;background:var(--red);color:#fff;border:none;padding:0.8rem;border-radius:12px;font-family:inherit;font-size:0.88rem;font-weight:700;cursor:pointer" id="cdYes">Löschen</button></div>';
+  sh.innerHTML = '<h3>' + esc(title) + '</h3><p>' + esc(msg) + '</p><div class="row2"><button class="btn-d" id="cdNo">Abbrechen</button><button style="flex:1;background:' + yesBg + ';color:' + yesColor + ';border:none;padding:0.8rem;border-radius:12px;font-family:inherit;font-size:0.88rem;font-weight:700;cursor:pointer" id="cdYes">' + esc(yesLabel) + '</button></div>';
   ov.appendChild(sh);
   document.body.appendChild(ov);
   function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
@@ -1299,8 +1304,8 @@ function renderTasks() {
       '<div class="t-body"><div class="t-title">' + esc(t.title) + '</div>' +
         '<div class="t-meta">' + prioHtml + repHtml + esc(t.assign || 'Alle') + (t.by ? ' · von ' + esc(t.by) : '') + (t.ts ? ' · ' + fmtDate(t.ts) : '') + dueHtml + '</div></div>' +
       '<button class="del">✕</button>';
-    div.querySelector('.t-check').addEventListener('click', function() { toggleTask(t.id); });
-    div.querySelector('.t-body').addEventListener('click', function() { toggleTask(t.id); });
+    div.querySelector('.t-check').addEventListener('click', function(e) { e.stopPropagation(); toggleTask(t.id); });
+    div.querySelector('.t-body').addEventListener('click', function() { openTaskDetail(t.id); });
     div.querySelector('.del').addEventListener('click', function(e) { e.stopPropagation(); deleteTask(t.id); });
     list.appendChild(div);
   });
@@ -1355,6 +1360,43 @@ function saveTask() {
       sendPushNotif('📋 Neue Aufgabe', notifBody, 'default');
     }
   });
+}
+
+function openTaskDetail(id) {
+  var t = null; tasks.forEach(function(x) { if (x.id === id) t = x; });
+  if (!t) return;
+  var ov = document.createElement('div'); ov.className = 'confirm-ov';
+  var sh = document.createElement('div'); sh.className = 'confirm-sheet';
+  var assignOpts = ['Alle'].concat(TEAM).map(function(n) { return '<option value="' + esc(n) + '"' + ((t.assign || 'Alle') === n ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+  var repOpts = [['none','Einmalig'],['daily','Täglich'],['weekly','Wöchentlich'],['monthly','Monatlich']].map(function(o) { return '<option value="' + o[0] + '"' + ((t.repeat || 'none') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
+  sh.innerHTML =
+    '<h3>Aufgabe</h3>' +
+    '<div class="fg"><label class="fl">Titel</label><input class="inp" id="edTitle" value="' + esc(t.title) + '"></div>' +
+    '<div class="fg"><label class="fl">Für</label><select class="inp" id="edAssign">' + assignOpts + '</select></div>' +
+    '<div class="row2">' +
+      '<div class="fg" style="flex:1"><label class="fl">Priorität</label><select class="inp" id="edPrio"><option value="normal"' + (t.priority !== 'dringend' ? ' selected' : '') + '>Normal</option><option value="dringend"' + (t.priority === 'dringend' ? ' selected' : '') + '>Dringend</option></select></div>' +
+      '<div class="fg" style="flex:1"><label class="fl">Fällig</label><input class="inp" type="date" id="edDue" value="' + esc(t.due || '') + '"></div>' +
+    '</div>' +
+    '<div class="fg"><label class="fl">Wiederholung</label><select class="inp" id="edRepeat">' + repOpts + '</select></div>' +
+    '<button class="btn-d" id="edToggle" style="width:100%;margin-bottom:0.5rem">' + (t.done ? 'Als offen markieren' : 'Als erledigt markieren') + '</button>' +
+    '<div class="row2"><button class="btn-d" id="edDel" style="color:var(--red)">Löschen</button><button class="btn-g" id="edSave">Speichern</button></div>';
+  ov.appendChild(sh); document.body.appendChild(ov);
+  function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+  ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
+  sh.querySelector('#edSave').addEventListener('click', function() {
+    var nt = sh.querySelector('#edTitle').value.trim();
+    if (!nt) { toast('Bitte Titel eingeben'); return; }
+    t.title = nt;
+    t.assign = sh.querySelector('#edAssign').value;
+    t.priority = sh.querySelector('#edPrio').value;
+    var d = sh.querySelector('#edDue').value; if (d) t.due = d; else delete t.due;
+    var r = sh.querySelector('#edRepeat').value; if (r && r !== 'none') t.repeat = r; else delete t.repeat;
+    dbPut('/tasks/' + id, t);
+    close(); renderTasks(); updateDash(); renderDashTasks(); renderDashCal(); updateNavBadges();
+    toast('✓ Gespeichert');
+  });
+  sh.querySelector('#edToggle').addEventListener('click', function() { close(); toggleTask(id); });
+  sh.querySelector('#edDel').addEventListener('click', function() { close(); deleteTask(id); });
 }
 
 /* ── CHAT ── */
@@ -1727,16 +1769,19 @@ function todayDayDE() {
 }
 function copyShiftWeek() {
   if (!Object.keys(shiftDb).length) { toast('Aktuelle Woche ist leer'); return; }
-  var dstKey = weekKey(shiftOff + 1);
-  var count = 0;
-  Object.keys(shiftDb).forEach(function(day) {
-    Object.keys(shiftDb[day] || {}).forEach(function(shift) {
-      var members = shiftDb[day][shift];
-      if (members && members.length) { dbPut('/schicht/' + dstKey + '/' + day + '/' + shift, members); count++; }
+  confirmDel('Diese Woche auf die nächste Woche kopieren? Bestehende Einträge der nächsten Woche werden überschrieben.', function() {
+    /* onConfirm */
+    var dstKey = weekKey(shiftOff + 1);
+    var count = 0;
+    Object.keys(shiftDb).forEach(function(day) {
+      Object.keys(shiftDb[day] || {}).forEach(function(shift) {
+        var members = shiftDb[day][shift];
+        if (members && members.length) { dbPut('/schicht/' + dstKey + '/' + day + '/' + shift, members); count++; }
+      });
     });
-  });
-  toast('✓ Auf nächste Woche kopiert (' + count + ' Schichten)');
-  shiftOff++; loadShift();
+    toast('✓ Auf nächste Woche kopiert (' + count + ' Schichten)');
+    shiftOff++; loadShift();
+  }, {title:'Woche kopieren', confirmLabel:'Kopieren', danger:false});
 }
 function loadShift() {
   var key = weekKey(shiftOff);
@@ -1933,6 +1978,14 @@ function showHaccp() {
   dbGet('/haccp/' + today, function(err, data) {
     data = data || {};
     body.innerHTML = '<p style="font-size:0.72rem;color:var(--dim);margin-bottom:0.75rem">Täglich prüfen und abhaken</p>';
+    var prog = document.createElement('div');
+    function updateProg() {
+      var done = Object.keys(data).filter(function(k) { return data[k] && data[k].checked; }).length;
+      var allDone = done >= HACCP.length;
+      prog.style.cssText = 'border-radius:12px;padding:0.75rem 1rem;margin-top:0.75rem;text-align:center;font-size:0.85rem;' +
+        (allDone ? 'background:rgba(76,175,125,0.12);border:1px solid var(--green);color:var(--green);font-weight:600' : 'background:var(--bg2);border:1px solid var(--border);color:var(--dim)');
+      prog.textContent = allDone ? '✓ Alle Checks erledigt!' : done + ' / ' + HACCP.length + ' erledigt';
+    }
     HACCP.forEach(function(item) {
       var entry = data[item.id] || {};
       var checked = !!entry.checked;
@@ -1948,7 +2001,7 @@ function showHaccp() {
         var isNow = !entry.checked;
         entry.checked = isNow; entry.by = me; entry.ts = Date.now();
         data[item.id] = entry;
-        dbPut('/haccp/' + today + '/' + item.id, entry);
+        dbPut('/haccp/' + today + '/' + item.id, entry, function(err) { if (err) toast('⚠ Nicht gespeichert – offline?'); });
         div.className = 'cl-item' + (isNow ? ' checked' : '');
         div.querySelector('.cl-box').textContent = isNow ? '✓' : '';
         div.querySelector('.cl-label').style.textDecoration = isNow ? 'line-through' : '';
@@ -1957,15 +2010,11 @@ function showHaccp() {
           if (!whoEl) { whoEl = document.createElement('div'); whoEl.className = 'cl-who'; div.querySelector('.cl-text').appendChild(whoEl); }
           whoEl.textContent = '✓ ' + me + ' ' + fmtTime(Date.now());
         } else { if (whoEl) whoEl.remove(); }
+        updateProg();
       });
       body.appendChild(div);
     });
-    var done = Object.keys(data).filter(function(k) { return data[k] && data[k].checked; }).length;
-    var allDone = done >= HACCP.length;
-    var prog = document.createElement('div');
-    prog.style.cssText = 'border-radius:12px;padding:0.75rem 1rem;margin-top:0.75rem;text-align:center;font-size:0.85rem;' +
-      (allDone ? 'background:rgba(76,175,125,0.12);border:1px solid var(--green);color:var(--green);font-weight:600' : 'background:var(--bg2);border:1px solid var(--border);color:var(--dim)');
-    prog.textContent = allDone ? '✓ Alle Checks erledigt!' : done + ' / ' + HACCP.length + ' erledigt';
+    updateProg();
     body.appendChild(prog);
   });
 }
