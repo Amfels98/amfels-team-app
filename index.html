@@ -6,31 +6,41 @@
   <title>Am Fels – Team</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0a0a0a">
+  <meta name="theme-color" content="#0c0c0e">
   <link rel="manifest" href="manifest.json">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --gold: #b8924a; --gold-l: #dfc089;
-      --bg: #0a0a0a; --bg2: #131313; --bg3: #1c1c1c; --bg4: #252525;
-      --border: rgba(255,255,255,0.07); --text: #f0ebe2; --dim: #666;
-      --green: #4caf7d; --red: #e05252; --blue: #5b8dee; --orange: #e8924a;
+      --gold: #c79a4d; --gold-l: #e6c884; --gold-soft: rgba(199,154,77,0.13);
+      --bg: #0c0c0e; --bg2: #16161a; --bg3: #1f1f25; --bg4: #2a2a31;
+      --border: rgba(255,255,255,0.08); --border-str: rgba(255,255,255,0.15);
+      --text: #f2efe9; --dim: #9a9aa4; --dim2: #6b6b74;
+      --green: #4fb488; --red: #e05a5a; --blue: #5b8dee; --orange: #e8924a;
+      --r-sm: 10px; --r: 14px; --r-lg: 18px;
+      --sh: 0 1px 2px rgba(0,0,0,0.35), 0 6px 20px rgba(0,0,0,0.28);
+      --sh-sm: 0 1px 2px rgba(0,0,0,0.3);
     }
-    html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; -webkit-font-smoothing: antialiased; }
+    html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+    /* ── AVATAR (Initialen statt Emoji) ── */
+    .avatar { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--gold-soft); color: var(--gold-l); font-weight: 600; line-height: 1; flex-shrink: 0; text-transform: uppercase; box-shadow: inset 0 0 0 1px rgba(199,154,77,0.25); }
+    /* ── SVG ICON ── */
+    .ic { display: inline-block; vertical-align: middle; stroke: currentColor; fill: none; flex-shrink: 0; }
     #app { display: flex; flex-direction: column; height: 100%; height: 100dvh; }
 
     /* ── HEADER ── */
-    .hdr { background: var(--bg2); border-bottom: 1px solid var(--border); padding: max(0.8rem,env(safe-area-inset-top)) 1rem 0.65rem; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-    .hdr-l .brand { font-size: 0.88rem; font-weight: 600; }
-    .hdr-l .sub   { font-size: 0.62rem; color: var(--gold); letter-spacing: 0.05em; margin-top: 0.05rem; }
-    .hdr-r { display: flex; align-items: center; gap: 0.5rem; }
+    .hdr { background: var(--bg2); border-bottom: 1px solid var(--border); padding: max(0.85rem,env(safe-area-inset-top)) 1rem 0.7rem; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; box-shadow: 0 1px 0 rgba(0,0,0,0.3); }
+    .hdr-l .brand { font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; display: flex; align-items: center; gap: 0.4rem; }
+    .hdr-l .brand::before { content: ''; width: 4px; height: 15px; border-radius: 2px; background: linear-gradient(var(--gold-l), var(--gold)); }
+    .hdr-l .sub   { font-size: 0.6rem; color: var(--gold); letter-spacing: 0.14em; text-transform: uppercase; margin-top: 0.12rem; margin-left: 0.8rem; font-weight: 500; }
+    .hdr-r { display: flex; align-items: center; gap: 0.55rem; }
     .hdr-time { font-size: 0.72rem; color: var(--dim); font-variant-numeric: tabular-nums; }
-    .uchip { background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; padding: 0.28rem 0.65rem 0.28rem 0.5rem; font-size: 0.75rem; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 0.35rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
-    .uchip.active { border-color: rgba(184,146,74,0.5); background: rgba(184,146,74,0.08); }
-    .u-emoji { font-size: 1rem; line-height: 1; }
-    .u-name  { font-size: 0.72rem; font-weight: 500; }
-    .u-arrow { font-size: 0.5rem; color: var(--dim); margin-left: 0.1rem; }
+    .uchip { background: var(--bg3); border: 1px solid var(--border); border-radius: 22px; padding: 0.24rem 0.6rem 0.24rem 0.28rem; font-size: 0.75rem; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 0.4rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; transition: border-color 0.15s, background 0.15s; }
+    .uchip.active { border-color: rgba(199,154,77,0.4); }
+    .u-emoji { width: 26px; height: 26px; font-size: 0.72rem; }
+    .u-name  { font-size: 0.75rem; font-weight: 600; }
+    .u-arrow { font-size: 0.5rem; color: var(--dim); margin-left: 0.05rem; }
 
     /* ── LAYOUT ── */
     .content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.9rem; }
@@ -41,9 +51,13 @@
 
     /* ── BOTTOM NAV ── */
     .bnav { background: var(--bg2); border-top: 1px solid var(--border); display: flex; padding-bottom: env(safe-area-inset-bottom); flex-shrink: 0; }
-    .ni { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 0.55rem 0.2rem; color: var(--dim); font-size: 0.52rem; letter-spacing: 0.03em; text-transform: uppercase; gap: 0.18rem; border: none; background: none; font-family: 'Inter', sans-serif; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; position: relative; }
+    .ni { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 0.5rem 0.2rem 0.45rem; color: var(--dim2); gap: 0.22rem; border: none; background: none; font-family: 'Inter', sans-serif; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; position: relative; transition: color 0.15s; }
     .ni.on { color: var(--gold); }
-    .ni-icon { font-size: 1.1rem; line-height: 1; }
+    .ni-icon { display: flex; align-items: center; justify-content: center; height: 23px; }
+    .ni-icon .ic { width: 23px; height: 23px; stroke-width: 1.7; }
+    .ni.on .ni-icon .ic { stroke-width: 2; }
+    .ni-lbl { font-size: 0.55rem; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 500; }
+    .ni.on .ni-lbl { font-weight: 600; }
     .ni-badge { position:absolute; top:0.28rem; right:calc(50% - 1.1rem); background:var(--red); color:#fff; font-size:0.48rem; font-weight:700; border-radius:8px; padding:0.06rem 0.28rem; min-width:14px; text-align:center; line-height:1.6; pointer-events:none; }
 
     /* ── COMMON UI ── */
@@ -116,7 +130,7 @@
 
     /* ── DASHBOARD ── */
     .dw { text-align: center; padding: 1.2rem 1rem 0.8rem; }
-    .dw-emoji { font-size: 2.2rem; margin-bottom: 0.35rem; }
+    .dw-emoji { width: 54px; height: 54px; margin: 0 auto 0.55rem; border-radius: 50%; background: var(--gold-soft); color: var(--gold-l); display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px rgba(199,154,77,0.2); }
     .dw-name  { font-size: 1.3rem; font-weight: 300; letter-spacing: -0.02em; margin-bottom: 0.2rem; }
     .dw-date  { font-size: 0.72rem; color: var(--dim); }
     .dw-shift { font-size: 0.72rem; color: var(--gold); margin-top: 0.15rem; min-height: 1em; }
@@ -127,10 +141,10 @@
 
     /* ── MEHR GRID ── */
     .mehr-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem; }
-    .mehr-tile { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-    .mehr-tile:active { background: var(--bg3); }
-    .mehr-icon { font-size: 1.6rem; }
-    .mehr-label { font-size: 0.65rem; color: var(--dim); text-align: center; letter-spacing: 0.03em; }
+    .mehr-tile { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 1.05rem 0.5rem 0.9rem; display: flex; flex-direction: column; align-items: center; gap: 0.55rem; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; box-shadow: var(--sh-sm); transition: transform 0.1s ease, background 0.15s; }
+    .mehr-tile:active { background: var(--bg3); transform: scale(0.97); }
+    .mehr-icon { width: 46px; height: 46px; border-radius: 13px; background: var(--gold-soft); color: var(--gold-l); display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px rgba(199,154,77,0.18); }
+    .mehr-label { font-size: 0.68rem; color: var(--text); text-align: center; letter-spacing: 0.01em; font-weight: 500; }
 
     /* ── OVERLAY ── */
     .ov { position: fixed; inset: 0; background: var(--bg); z-index: 400; display: flex; flex-direction: column; overflow: hidden; }
@@ -184,7 +198,7 @@
     .nbtn { background: var(--bg2); border: 1.5px solid var(--border); color: var(--text); padding: 1rem 0.5rem; border-radius: 16px; font-family: 'Inter', sans-serif; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: border-color 0.15s; }
     .nbtn.current { border-color: var(--gold); background: rgba(184,146,74,0.08); }
     .nbtn:active { background: rgba(184,146,74,0.15); border-color: var(--gold); }
-    .n-av { font-size: 1.8rem; }
+    .n-av { width: 50px; height: 50px; font-size: 1.2rem; margin-bottom: 0.15rem; }
     .n-nm { font-size: 0.85rem; font-weight: 600; }
     .n-you { font-size: 0.58rem; color: var(--gold); margin-top: 0.05rem; }
 
@@ -192,12 +206,14 @@
     #userMenu { position: fixed; top: 0; right: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 0 0 0 18px; padding: max(1rem,env(safe-area-inset-top)) 1rem 1rem; z-index: 850; min-width: 200px; box-shadow: -4px 4px 24px rgba(0,0,0,0.5); }
     #userMenu.hidden { display: none; }
     .um-user { display: flex; align-items: center; gap: 0.65rem; padding-bottom: 0.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
-    .um-emoji { font-size: 1.8rem; }
+    .um-emoji { width: 44px; height: 44px; font-size: 1rem; }
     .um-name  { font-size: 0.95rem; font-weight: 600; }
     .um-role  { font-size: 0.62rem; color: var(--dim); margin-top: 0.1rem; }
     .um-btn { width: 100%; text-align: left; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.85rem; font-family: 'Inter', sans-serif; font-size: 0.82rem; color: var(--text); cursor: pointer; margin-bottom: 0.4rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; display: flex; align-items: center; gap: 0.5rem; }
     .um-btn:active { background: var(--bg4); }
+    .um-ic { display: flex; align-items: center; color: var(--dim); }
     .um-btn.danger { color: var(--red); border-color: rgba(224,82,82,0.2); }
+    .um-btn.danger .um-ic { color: var(--red); }
     #umOverlay { position: fixed; inset: 0; z-index: 840; }
     #umOverlay.hidden { display: none; }
 
@@ -222,7 +238,7 @@
     #pinScreen { position: fixed; inset: 0; background: var(--bg); z-index: 950; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
     #pinScreen.hidden { display: none; }
     .pin-who { text-align: center; margin-bottom: 2rem; }
-    .pin-av { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .pin-av { width: 70px; height: 70px; font-size: 1.7rem; font-weight: 500; margin: 0 auto 0.6rem; }
     .pin-nm { font-size: 1.2rem; font-weight: 300; margin-bottom: 0.3rem; }
     .pin-hint { font-size: 0.75rem; color: var(--dim); }
     .pin-hint.err { color: var(--red); }
@@ -295,7 +311,29 @@
     .ki-input-row .inp { flex:1; }
 
     /* ── TOAST ── */
-    #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 0.55rem 1.1rem; font-size: 0.78rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 9999; white-space: nowrap; }
+    #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--bg4); border: 1px solid var(--border-str); border-radius: 12px; padding: 0.6rem 1.15rem; font-size: 0.8rem; font-weight: 500; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 9999; white-space: nowrap; box-shadow: var(--sh); }
+
+    /* ── POLISH (globale Verfeinerung) ── */
+    .content { padding: 1rem 0.95rem 1.6rem; }
+    .sh { margin-bottom: 1rem; }
+    .st { font-size: 1.08rem; font-weight: 700; letter-spacing: -0.015em; }
+    .task, .order, .sd, .card, .cl-item, .wiki-item, .inv-item, .tg-entry, .urlaub-entry { border-radius: var(--r); box-shadow: var(--sh-sm); }
+    .stat, .mull-reminder, .set-row, .add-form { box-shadow: var(--sh-sm); }
+    .stat { border-radius: var(--r); padding: 1rem 0.85rem; }
+    .stat-n { font-size: 1.7rem; font-weight: 400; }
+    .stat-l { color: var(--dim); }
+    .dw { padding-top: 1.4rem; }
+    .dw-name { font-size: 1.5rem; font-weight: 400; }
+    .add-btn { box-shadow: 0 2px 9px rgba(199,154,77,0.32); transition: transform 0.1s; }
+    .add-btn:active { transform: scale(0.92); }
+    .btn-g { box-shadow: 0 2px 11px rgba(199,154,77,0.22); transition: transform 0.1s, box-shadow 0.15s; }
+    .btn-g:active { transform: scale(0.98); }
+    .btn-d:active { background: var(--bg4); }
+    .chip { transition: background 0.15s, color 0.15s; }
+    .chip.on { box-shadow: 0 1px 7px rgba(199,154,77,0.28); }
+    .inp:focus { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+    .empty { color: var(--dim); }
+    ::-webkit-scrollbar { width: 0; height: 0; }
   </style>
 </head>
 <body>
@@ -309,7 +347,7 @@
     </div>
     <div class="hdr-r">
       <span class="hdr-time" id="hdrTime"></span>
-      <div class="uchip" id="userChip"><span class="u-emoji" id="uEmoji">👤</span><span class="u-name" id="uLabel">––</span><span class="u-arrow">▾</span></div>
+      <div class="uchip" id="userChip"><span class="avatar u-emoji" id="uEmoji">·</span><span class="u-name" id="uLabel">––</span><span class="u-arrow">▾</span></div>
     </div>
   </div>
 
@@ -319,13 +357,13 @@
   <div id="umOverlay" class="hidden"></div>
   <div id="userMenu" class="hidden">
     <div class="um-user">
-      <div class="um-emoji" id="umEmoji"></div>
+      <div class="avatar um-emoji" id="umEmoji"></div>
       <div><div class="um-name" id="umName"></div><div class="um-role" id="umRole"></div></div>
     </div>
-    <button class="um-btn" id="umSettings">⚙️ Einstellungen</button>
-    <button class="um-btn" id="umSwitch">🔄 Benutzer wechseln</button>
-    <button class="um-btn" id="umPinChange">🔑 PIN ändern</button>
-    <button class="um-btn danger" id="umLogout">← Abmelden</button>
+    <button class="um-btn" id="umSettings" data-icon="settings"><span class="um-ic"></span>Einstellungen</button>
+    <button class="um-btn" id="umSwitch" data-icon="swap"><span class="um-ic"></span>Benutzer wechseln</button>
+    <button class="um-btn" id="umPinChange" data-icon="key"><span class="um-ic"></span>PIN ändern</button>
+    <button class="um-btn danger" id="umLogout" data-icon="logout"><span class="um-ic"></span>Abmelden</button>
   </div>
 
   <!-- Main content (all tabs except chat) -->
@@ -334,7 +372,7 @@
     <!-- DASHBOARD -->
     <div class="screen on" id="s-dash">
       <div class="dw">
-        <div class="dw-emoji" id="dEmoji">👋</div>
+        <div class="dw-emoji" id="dEmoji"></div>
         <div class="dw-name"  id="dName">Hallo!</div>
         <div class="dw-date"  id="dDate"></div>
         <div class="dw-shift" id="dShift"></div>
@@ -404,11 +442,11 @@
 
   <!-- Bottom Nav -->
   <div class="bnav">
-    <button class="ni on" id="nav-dash"><span class="ni-icon">🏠</span>Start</button>
-    <button class="ni" id="nav-aufgaben"><span class="ni-icon">✅</span>Aufgaben</button>
-    <button class="ni" id="nav-chat"><span class="ni-icon">💬</span>Chat</button>
-    <button class="ni" id="nav-schicht"><span class="ni-icon">📅</span>Schicht</button>
-    <button class="ni" id="nav-mehr"><span class="ni-icon">⋯</span>Mehr</button>
+    <button class="ni on" id="nav-dash" data-icon="home"><span class="ni-icon"></span><span class="ni-lbl">Start</span></button>
+    <button class="ni" id="nav-aufgaben" data-icon="tasks"><span class="ni-icon"></span><span class="ni-lbl">Aufgaben</span></button>
+    <button class="ni" id="nav-chat" data-icon="chat"><span class="ni-icon"></span><span class="ni-lbl">Chat</span></button>
+    <button class="ni" id="nav-schicht" data-icon="calendar"><span class="ni-icon"></span><span class="ni-lbl">Schicht</span></button>
+    <button class="ni" id="nav-mehr" data-icon="grid"><span class="ni-icon"></span><span class="ni-lbl">Mehr</span></button>
   </div>
 </div>
 
@@ -423,7 +461,7 @@
 <!-- PIN Screen -->
 <div id="pinScreen" class="hidden">
   <div class="pin-who">
-    <div class="pin-av" id="pinAv"></div>
+    <div class="avatar pin-av" id="pinAv"></div>
     <div class="pin-nm" id="pinNm"></div>
     <div class="pin-hint" id="pinHint">PIN eingeben</div>
   </div>
@@ -450,6 +488,45 @@ var DB   = 'https://apfels-team-default-rtdb.europe-west1.firebasedatabase.app/a
 var TEAM = ['Leon','Sasho','Patrik','Tea','Daniel'];
 var ADMIN = 'Leon';
 var EMOJ = ['👑','👨‍🍳','🍺','👩‍🍳','🍳'];
+
+/* ── SVG ICON SYSTEM (Lucide-Stil, ersetzt Emojis) ── */
+var ICONS = {
+  home:      '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/>',
+  tasks:     '<rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="m9 13 2 2 4-4"/>',
+  chat:      '<path d="M21 11.5a8 8 0 0 1-11.5 7.2L4 20l1.3-5A8 8 0 1 1 21 11.5Z"/>',
+  calendar:  '<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18"/><path d="M8 3v3M16 3v3"/>',
+  grid:      '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/>',
+  cart:      '<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2l2.3 12.1a1.6 1.6 0 0 0 1.6 1.3h9.1a1.6 1.6 0 0 0 1.57-1.27L21 7.5H6"/>',
+  clipboard: '<rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="M8.5 12h7M8.5 16h5"/>',
+  thermo:    '<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0Z"/><path d="M12 9v6"/>',
+  sparkleClean:'<path d="M12 3v6M9 6h6"/><path d="M6.5 12 5 15.5 1.5 17 5 18.5 6.5 22 8 18.5 11.5 17 8 15.5Z"/><path d="M17.5 11l-1 2.4-2.4 1 2.4 1 1 2.4 1-2.4 2.4-1-2.4-1Z"/>',
+  euro:      '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5A4.2 4.2 0 0 0 8.5 12a4.2 4.2 0 0 0 7 3.5"/><path d="M6.5 11h6M6.5 13.2h5"/>',
+  package:   '<path d="M20.5 7.8 12 3 3.5 7.8v8.4L12 21l8.5-4.8Z"/><path d="m3.7 7.9 8.3 4.6 8.3-4.6"/><path d="M12 12.5V21"/>',
+  book:      '<path d="M12 6.5C10.5 5 8.5 4.5 6 4.5a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1c2.3 0 4.2.4 5.6 1.6a1.2 1.2 0 0 0 1.6 0C15.2 19 17 18.6 19 18.6a1 1 0 0 0 1-1v-11a2 2 0 0 0-2-2c-2.5 0-4.5.5-6 2Z"/><path d="M12 6.5V20"/>',
+  sun:       '<circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/>',
+  trash:     '<path d="M4 7h16"/><path d="M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2"/><path d="M6 7v12.5A1.5 1.5 0 0 0 7.5 21h9a1.5 1.5 0 0 0 1.5-1.5V7"/><path d="M10 11v6M14 11v6"/>',
+  ai:        '<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M9 12h.01M15 12h.01"/><path d="M9.5 16h5"/>',
+  settings:  '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v2M12 19.5v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2.5 12h2M19.5 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>',
+  swap:      '<path d="M17 3.5 21 7l-4 3.5"/><path d="M3 7h18"/><path d="M7 20.5 3 17l4-3.5"/><path d="M21 17H3"/>',
+  key:       '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 8-8"/><path d="m15.5 4.5 2.5 2.5M14 6l2.5 2.5"/>',
+  logout:    '<path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3"/><path d="m15 16 4-4-4-4"/><path d="M19 12H9"/>',
+  leaf:      '<path d="M11 20A7 7 0 0 1 10 6.2C15 5 17 4.5 20 2c.5 3 .5 6-1 9a8 8 0 0 1-8 4Z"/><path d="M4 21c0-4 2.5-7 6-8.5"/>',
+  recycle:   '<path d="M4 12a8 8 0 0 1 8-8 8.5 8.5 0 0 1 6 2.5"/><path d="M18 3v4h-4"/><path d="M20 12a8 8 0 0 1-8 8 8.5 8.5 0 0 1-6-2.5"/><path d="M6 21v-4h4"/>',
+  paper:     '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/>',
+  glass:     '<path d="M8 21h8M12 15v6"/><path d="M7 10h10"/><path d="M12 15a5 5 0 0 0 5-5c0-2-.4-4-1-7H8c-.6 3-1 5-1 7a5 5 0 0 0 5 5Z"/>',
+  sunrise:   '<path d="M12 2.5v5M5 8.5l1.5 1.5M17.5 10 19 8.5M2.5 15h2M19.5 15h2M8.5 6 12 2.5 15.5 6"/><path d="M16 15a4 4 0 0 0-8 0"/><path d="M2 19.5h20"/>',
+  moon:      '<path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5Z"/>',
+  bell:      '<path d="M18 8.5a6 6 0 0 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 14.5 18 8.5Z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+  send:      '<path d="M21 4 3 11l7 2.5L13 21l8-17Z"/><path d="m10 13.5 3.5-3.5"/>',
+  party:     '<path d="M4 20 8.5 9l6.5 6.5L4 20Z"/><path d="M13 3s1 2 3 2M18 8s2 1 2 3M14 6l4 4"/>',
+  warn:      '<path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 9.5v4.5M12 17.2h.01"/>'
+};
+function ic(name, size, cls) {
+  var p = ICONS[name] || '';
+  var s = size || 22;
+  return '<svg class="ic' + (cls ? ' ' + cls : '') + '" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>';
+}
+function initials(name) { return String(name || '·').trim().charAt(0).toUpperCase() || '·'; }
 
 /* ── STATE ── */
 var me         = localStorage.getItem('af_user') || '';
@@ -568,7 +645,7 @@ function showInstallHint() {
   if (!isIOS || isInstalled || localStorage.getItem('af_install_ok')) return;
   var bar = document.createElement('div');
   bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);padding:0.85rem 1rem max(0.85rem,env(safe-area-inset-bottom));z-index:1500;display:flex;align-items:center;gap:0.75rem';
-  bar.innerHTML = '<div style="flex:1"><div style="font-size:0.85rem;font-weight:600;margin-bottom:0.15rem">📲 Zum Home-Bildschirm hinzufügen</div><div style="font-size:0.72rem;color:var(--dim)">Für Push-Benachrichtigungen: Teilen-Symbol → "Zum Home-Bildschirm"</div></div><button style="background:none;border:none;color:var(--dim);font-size:1.2rem;padding:0.25rem;flex-shrink:0;cursor:pointer" id="installClose">✕</button>';
+  bar.innerHTML = '<div style="flex:1"><div style="font-size:0.85rem;font-weight:600;margin-bottom:0.15rem">Zum Home-Bildschirm hinzufügen</div><div style="font-size:0.72rem;color:var(--dim)">Für Push-Benachrichtigungen: Teilen-Symbol → "Zum Home-Bildschirm"</div></div><button style="background:none;border:none;color:var(--dim);font-size:1.2rem;padding:0.25rem;flex-shrink:0;cursor:pointer" id="installClose">✕</button>';
   document.body.appendChild(bar);
   bar.querySelector('#installClose').addEventListener('click', function() {
     localStorage.setItem('af_install_ok', '1');
@@ -646,7 +723,7 @@ function buildPicker() {
   TEAM.forEach(function(name, i) {
     var btn = document.createElement('button');
     btn.className = 'nbtn' + (name === me ? ' current' : '');
-    btn.innerHTML = '<span class="n-av">' + EMOJ[i] + '</span><span class="n-nm">' + esc(name) + '</span>' + (name === me ? '<span class="n-you">Du</span>' : '');
+    btn.innerHTML = '<span class="avatar n-av">' + esc(initials(name)) + '</span><span class="n-nm">' + esc(name) + '</span>' + (name === me ? '<span class="n-you">Du</span>' : '');
     btn.addEventListener('click', (function(n) { return function() {
       if (n === me) { el('picker').classList.add('hidden'); return; }
       showPinScreen(n);
@@ -659,8 +736,7 @@ function loginAs(name) {
   localStorage.setItem('af_user', name);
   el('picker').classList.add('hidden');
   el('pinScreen').classList.add('hidden');
-  var idx = TEAM.indexOf(name);
-  el('uEmoji').textContent = EMOJ[idx] || '👤';
+  el('uEmoji').textContent = initials(name);
   el('uLabel').textContent = name;
   el('userChip').classList.add('active');
   updateDash();
@@ -681,8 +757,7 @@ function showPicker() {
 }
 function showUserMenu() {
   if (!me) { showPicker(); return; }
-  var idx = TEAM.indexOf(me);
-  el('umEmoji').textContent = EMOJ[idx] || '👤';
+  el('umEmoji').textContent = initials(me);
   el('umName').textContent = me;
   el('umRole').textContent = me === ADMIN ? 'Administrator' : 'Team';
   el('userMenu').classList.remove('hidden');
@@ -697,8 +772,7 @@ function showPinChange() {
   pinChangeStep  = pins[me] ? 0 : 1;
   pinChangeFirst = '';
   pinTarget = me; pinBuffer = ''; pinSetupMode = false; pinSetupFirst = '';
-  var idx = TEAM.indexOf(me);
-  el('pinAv').textContent = EMOJ[idx] || '?';
+  el('pinAv').textContent = initials(me);
   el('pinNm').textContent = me;
   var hints = ['Aktuellen PIN eingeben', 'Neuen PIN eingeben (4 Stellen)', 'Neuen PIN bestätigen'];
   el('pinHint').textContent = hints[pinChangeStep];
@@ -712,7 +786,7 @@ function logoutUser() {
   me = '';
   localStorage.removeItem('af_user');
   el('userChip').classList.remove('active');
-  el('uEmoji').textContent = '👤';
+  el('uEmoji').textContent = '·';
   el('uLabel').textContent = '––';
   el('userMenu').classList.add('hidden');
   el('umOverlay').classList.add('hidden');
@@ -744,8 +818,7 @@ function showPinScreen(name) {
   pinTarget     = name;
   pinBuffer     = '';
   pinSetupFirst = '';
-  var idx = TEAM.indexOf(name);
-  el('pinAv').textContent = EMOJ[idx] || '?';
+  el('pinAv').textContent = initials(name);
   el('pinNm').textContent = name;
   el('picker').classList.add('hidden');
   el('pinScreen').classList.remove('hidden');
@@ -940,7 +1013,7 @@ function switchTab(tab) {
 /* ── DASHBOARD ── */
 function updateDash() {
   var h = new Date().getHours();
-  el('dEmoji').textContent = h < 11 ? '🌅' : h < 17 ? '☀️' : '🌙';
+  el('dEmoji').innerHTML = ic(h < 11 ? 'sunrise' : h < 17 ? 'sun' : 'moon', 28);
   var gr = h < 11 ? 'Guten Morgen' : h < 17 ? 'Hallo' : 'Guten Abend';
   el('dName').textContent = gr + (me ? ', ' + me + '!' : '!');
   el('dDate').textContent = new Date().toLocaleDateString('de-DE', {weekday:'long', day:'numeric', month:'long'});
@@ -987,13 +1060,13 @@ function loadDashExtras() {
     var myShifts = [];
     SCHICHTEN.forEach(function(s) { if (me && (shiftToday[s.k]||[]).indexOf(me) >= 0) myShifts.push(s.l + ' ' + s.t); });
     var dShiftEl = el('dShift');
-    if (dShiftEl) dShiftEl.textContent = myShifts.length ? '📋 Heute: ' + myShifts.join(', ') : '';
+    if (dShiftEl) dShiftEl.textContent = myShifts.length ? 'Heute: ' + myShifts.join(', ') : '';
     /* Last chat message */
     if (chat.length) {
       var lastMsg = chat[chat.length - 1];
       var chatCard = document.createElement('div'); chatCard.className = 'card'; chatCard.style.cursor = 'pointer';
       chatCard.innerHTML =
-        '<div style="font-size:0.6rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem">💬 ' + esc(lastMsg.user||'?') + ' · ' + fmtTime(lastMsg.ts||0) + '</div>' +
+        '<div style="font-size:0.6rem;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem">Chat · ' + esc(lastMsg.user||'?') + ' · ' + fmtTime(lastMsg.ts||0) + '</div>' +
         '<div style="font-size:0.82rem;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(lastMsg.text||'') + '</div>';
       chatCard.addEventListener('click', function() { switchTab('chat'); });
       msg.appendChild(chatCard);
@@ -1046,16 +1119,16 @@ function loadDashExtras() {
 
 /* ── MEHR TILES ── */
 var MEHR_ITEMS = [
-  {icon:'🛒', label:'Bestellen',  fn:'showBestellen'},
-  {icon:'📋', label:'Übergabe',   fn:'showUebergabe'},
-  {icon:'🧪', label:'HACCP',      fn:'showHaccp'},
-  {icon:'🧹', label:'Reinigung',  fn:'showReinigung'},
-  {icon:'💰', label:'Trinkgeld',  fn:'showTrinkgeld'},
-  {icon:'📦', label:'Inventar',   fn:'showInventar'},
-  {icon:'📖', label:'Wiki',       fn:'showWiki'},
-  {icon:'🏖️', label:'Urlaub',    fn:'showUrlaub'},
-  {icon:'🗑️', label:'Müll',      fn:'showMuellkalender'},
-  {icon:'🤖', label:'KI',         fn:'showKI'},
+  {icon:'cart',         label:'Bestellen',  fn:'showBestellen'},
+  {icon:'clipboard',    label:'Übergabe',   fn:'showUebergabe'},
+  {icon:'thermo',       label:'HACCP',      fn:'showHaccp'},
+  {icon:'sparkleClean', label:'Reinigung',  fn:'showReinigung'},
+  {icon:'euro',         label:'Trinkgeld',  fn:'showTrinkgeld'},
+  {icon:'package',      label:'Inventar',   fn:'showInventar'},
+  {icon:'book',         label:'Wiki',       fn:'showWiki'},
+  {icon:'sun',          label:'Urlaub',     fn:'showUrlaub'},
+  {icon:'trash',        label:'Müll',       fn:'showMuellkalender'},
+  {icon:'ai',           label:'KI',         fn:'showKI'},
 ];
 function buildMehr() {
   var grid = el('mehrGrid');
@@ -1063,7 +1136,7 @@ function buildMehr() {
   MEHR_ITEMS.forEach(function(item) {
     var div = document.createElement('div');
     div.className = 'mehr-tile';
-    div.innerHTML = '<div class="mehr-icon">' + item.icon + '</div><div class="mehr-label">' + esc(item.label) + '</div>';
+    div.innerHTML = '<div class="mehr-icon">' + ic(item.icon, 24) + '</div><div class="mehr-label">' + esc(item.label) + '</div>';
     div.addEventListener('click', (function(fn) {
       return function() { window[fn](); };
     })(item.fn));
@@ -1099,7 +1172,7 @@ function renderDashTasks() {
   if (overdue.length) {
     var oHdr = document.createElement('p');
     oHdr.style.cssText = 'font-size:0.6rem;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem';
-    oHdr.textContent = '⚠ Überfällig';
+    oHdr.textContent = 'Überfällig';
     container.appendChild(oHdr);
     overdue.forEach(function(t) { container.appendChild(makeRow(t, true)); });
   }
@@ -1296,9 +1369,10 @@ function mullColor(type) {
   var c = {'Restmüll':'#888','Biomüll':'#4caf7d','Gelber Sack':'#e8c84a','Papier':'#5b8dee','Glas':'#7dd4e8'};
   return c[type] || 'var(--gold)';
 }
-function mullIcon(type) {
-  var ic = {'Restmüll':'🗑️','Biomüll':'🌿','Gelber Sack':'♻️','Papier':'📦','Glas':'🫙'};
-  return ic[type] || '🗑️';
+function mullIcon(type, size) {
+  var m = {'Restmüll':'trash','Biomüll':'leaf','Gelber Sack':'recycle','Papier':'paper','Glas':'glass'};
+  var name = m[type] || 'trash';
+  return '<span style="color:' + mullColor(type) + ';display:inline-flex;vertical-align:middle">' + ic(name, size || 18) + '</span>';
 }
 function buildMullDays(data, year, month) {
   var days = {};
@@ -1459,7 +1533,7 @@ function showDayPanel(dateStr) {
   if (holiday) {
     var hDiv = document.createElement('div');
     hDiv.style.cssText = 'background:rgba(224,82,82,0.1);border:1px solid rgba(224,82,82,0.25);border-radius:8px;padding:0.4rem 0.7rem;margin-bottom:0.5rem;font-size:0.78rem;color:var(--red)';
-    hDiv.textContent = '🎉 ' + holiday; card.appendChild(hDiv);
+    hDiv.textContent = holiday; card.appendChild(hDiv);
   }
 
   /* Müll existing */
@@ -1485,7 +1559,7 @@ function showDayPanel(dateStr) {
   mullForm.innerHTML =
     '<div style="display:flex;gap:0.5rem;align-items:center">' +
       '<select class="inp" id="dpMullType" style="flex:1">' +
-        MULL_TYPES.map(function(t) { return '<option value="' + esc(t.key) + '">' + t.icon + ' ' + esc(t.key) + '</option>'; }).join('') +
+        MULL_TYPES.map(function(t) { return '<option value="' + esc(t.key) + '">' + esc(t.key) + '</option>'; }).join('') +
       '</select>' +
       '<select class="inp" id="dpMullRepeat" style="flex:1">' +
         '<option value="none">Einmalig</option><option value="weekly">Wöchentl.</option><option value="biweekly">2-wöchentl.</option><option value="fourweekly">4-wöchentl.</option><option value="monthly">Monatlich</option>' +
@@ -2022,7 +2096,7 @@ function showInventar() {
           '<button class="qty-btn" data-op="-">−</button>' +
           '<div class="inv-qty" style="color:' + qtyColor + '">' + esc(item.qty||0) + '</div>' +
           '<button class="qty-btn" data-op="+">+</button>' +
-          (isLow ? '<button class="qty-btn inv-reorder" title="Zur Bestellliste" style="color:var(--red);font-size:0.75rem">🛒</button>' : '') +
+          (isLow ? '<button class="qty-btn inv-reorder" title="Zur Bestellliste" style="color:var(--red)">' + ic('cart', 15) + '</button>' : '') +
           '<button class="del">✕</button>';
         div.querySelectorAll('.qty-btn').forEach(function(btn) {
           btn.addEventListener('click', function() {
@@ -2226,7 +2300,7 @@ function showMuellkalender() {
     var row=document.createElement('div');row.style.cssText='display:flex;flex-wrap:wrap;gap:0.35rem;margin-top:0.3rem';
     MULL_TYPES.forEach(function(t){
       var c=document.createElement('button');c.className='chip'+(saved.indexOf(t.key)>=0?' on':'');
-      c.setAttribute('data-mtype',t.key);c.textContent=t.icon+' '+t.key;
+      c.setAttribute('data-mtype',t.key);c.textContent=t.key;
       c.addEventListener('click',function(){c.className=c.classList.contains('on')?'chip':'chip on';});
       row.appendChild(c);
     });
@@ -2283,10 +2357,10 @@ function showMuellkalender() {
     body.appendChild(typesWrap);
 
     /* Paste fallback toggle */
-    var pasteToggle=document.createElement('button');pasteToggle.className='btn-d';pasteToggle.style.cssText='width:100%;margin-top:0.4rem;font-size:0.78rem';pasteToggle.textContent='📋 Text einfügen (Fallback)';
+    var pasteToggle=document.createElement('button');pasteToggle.className='btn-d';pasteToggle.style.cssText='width:100%;margin-top:0.4rem;font-size:0.78rem';pasteToggle.textContent='Text einfügen (Fallback)';
     var pasteWrap=document.createElement('div');pasteWrap.style.display='none';
     var pasteTA=document.createElement('textarea');pasteTA.className='inp';pasteTA.style.cssText='height:90px;resize:vertical;margin-top:0.45rem';pasteTA.placeholder='Kalendertext hier einfügen…';
-    var pasteRun=document.createElement('button');pasteRun.className='btn-g';pasteRun.style.cssText='width:100%;margin-top:0.35rem';pasteRun.textContent='🔍 Auswerten';
+    var pasteRun=document.createElement('button');pasteRun.className='btn-g';pasteRun.style.cssText='width:100%;margin-top:0.35rem';pasteRun.textContent='Auswerten';
     pasteWrap.appendChild(pasteTA);pasteWrap.appendChild(pasteRun);
     pasteToggle.addEventListener('click',function(){pasteWrap.style.display=pasteWrap.style.display==='none'?'':'none';});
     pasteRun.addEventListener('click',function(){
@@ -2298,7 +2372,7 @@ function showMuellkalender() {
     body.appendChild(pasteToggle);body.appendChild(pasteWrap);
 
     /* List link */
-    var listBtn=document.createElement('button');listBtn.className='btn-d';listBtn.style.cssText='width:100%;margin-top:0.65rem;font-size:0.78rem';listBtn.textContent='📋 Eingetragene Termine';
+    var listBtn=document.createElement('button');listBtn.className='btn-d';listBtn.style.cssText='width:100%;margin-top:0.65rem;font-size:0.78rem';listBtn.textContent='Eingetragene Termine';
     listBtn.addEventListener('click',showList);
     body.appendChild(listBtn);
 
@@ -2458,10 +2532,10 @@ function showMuellkalender() {
   /* ─ LIST VIEW ─ */
   function showList(){
     body.innerHTML='';
-    var impBtn=document.createElement('button');impBtn.className='btn-g';impBtn.style.cssText='width:100%;margin-bottom:0.75rem';impBtn.textContent='📥 Neuer Import';impBtn.addEventListener('click',showSource);body.appendChild(impBtn);
+    var impBtn=document.createElement('button');impBtn.className='btn-g';impBtn.style.cssText='width:100%;margin-bottom:0.75rem';impBtn.textContent='Neuer Import';impBtn.addEventListener('click',showSource);body.appendChild(impBtn);
     var form=document.createElement('div');form.className='add-form open';form.style.marginBottom='1rem';
     form.innerHTML=
-      '<div class="fg"><label class="fl">Typ</label><select class="inp" id="mullType">'+MULL_TYPES.map(function(t){return'<option value="'+esc(t.key)+'">'+t.icon+' '+esc(t.key)+'</option>';}).join('')+'</select></div>'+
+      '<div class="fg"><label class="fl">Typ</label><select class="inp" id="mullType">'+MULL_TYPES.map(function(t){return'<option value="'+esc(t.key)+'">'+esc(t.key)+'</option>';}).join('')+'</select></div>'+
       '<div class="fg"><label class="fl">Erster Termin</label><input class="inp" type="date" id="mullDate" value="'+todayKey()+'"></div>'+
       '<div class="fg"><label class="fl">Wiederholung</label><select class="inp" id="mullRepeat">'+Object.keys(REPEAT_LABELS).map(function(v){return'<option value="'+v+'">'+REPEAT_LABELS[v]+'</option>';}).join('')+'</select></div>'+
       '<div class="fg" id="mullEndFg" style="display:none"><label class="fl">Wiederholung bis</label><input class="inp" type="date" id="mullEndDate"></div>'+
@@ -2517,7 +2591,7 @@ function getSetting(key, def) {
 function setSetting(key, val) { localStorage.setItem(key, val ? '1' : '0'); }
 
 function showSettings() {
-  var body = makeOv('⚙️ Einstellungen');
+  var body = makeOv('Einstellungen');
 
   function toggle(key, def) {
     var lbl = document.createElement('label'); lbl.className = 'set-toggle';
@@ -2557,13 +2631,13 @@ function showSettings() {
   var meIdx = TEAM.indexOf(me);
   var profCard = document.createElement('div');
   profCard.className = 'set-row'; profCard.style.marginBottom = '0.35rem';
-  profCard.innerHTML = '<div style="display:flex;align-items:center;gap:0.75rem"><span style="font-size:1.7rem">' + (EMOJ[meIdx]||'👤') + '</span><div><div class="set-row-label">' + esc(me||'–') + '</div><div class="set-row-sub">' + (me===ADMIN?'Administrator':'Team') + '</div></div></div>';
+  profCard.innerHTML = '<div style="display:flex;align-items:center;gap:0.75rem"><span class="avatar" style="width:42px;height:42px;font-size:1rem">' + esc(initials(me)) + '</span><div><div class="set-row-label">' + esc(me||'–') + '</div><div class="set-row-sub">' + (me===ADMIN?'Administrator':'Team') + '</div></div></div>';
   sProfil.appendChild(profCard);
-  sProfil.appendChild(btn('🔑 PIN ändern', 'Eigenen PIN ändern', function() {
+  sProfil.appendChild(btn('PIN ändern', 'Eigenen PIN ändern', function() {
     var ov = el('ov'); if (ov) ov.parentNode.removeChild(ov);
     showPinChange();
   }));
-  sProfil.appendChild(btn('🔄 Benutzer wechseln', '', function() {
+  sProfil.appendChild(btn('Benutzer wechseln', '', function() {
     var ov = el('ov'); if (ov) ov.parentNode.removeChild(ov);
     showPicker();
   }));
@@ -2580,7 +2654,7 @@ function showSettings() {
     TEAM.forEach(function(name) {
       var tBtn = document.createElement('button'); tBtn.className = 'set-btn';
       var idx2 = TEAM.indexOf(name);
-      tBtn.innerHTML = '<div style="display:flex;align-items:center;gap:0.6rem"><span>' + (EMOJ[idx2]||'👤') + '</span><div><div class="set-row-label">' + esc(name) + '</div><div class="set-row-sub">' + (name===ADMIN?'Administrator':'Team-Mitglied') + '</div></div></div><span class="set-arrow">›</span>';
+      tBtn.innerHTML = '<div style="display:flex;align-items:center;gap:0.6rem"><span class="avatar" style="width:34px;height:34px;font-size:0.82rem">' + esc(initials(name)) + '</span><div><div class="set-row-label">' + esc(name) + '</div><div class="set-row-sub">' + (name===ADMIN?'Administrator':'Team-Mitglied') + '</div></div></div><span class="set-arrow">›</span>';
       tBtn.addEventListener('click', function() {
         var pins = getPins();
         var hasPIN = !!pins[name];
@@ -2597,7 +2671,7 @@ function showSettings() {
   }
 
   /* ── Push-Benachrichtigungen ── */
-  var sPush = section('📲 Push-Benachrichtigungen');
+  var sPush = section('Push-Benachrichtigungen');
   var pushInfo = document.createElement('div');
   pushInfo.style.cssText = 'font-size:0.75rem;color:var(--dim);line-height:1.6;margin-bottom:0.75rem;padding:0.65rem;background:var(--bg3);border-radius:10px';
   pushInfo.innerHTML = 'Benachrichtigungen über <strong style="color:var(--text)">ntfy</strong> — kostenlos & ohne Account.<br>' +
@@ -2623,7 +2697,7 @@ function showSettings() {
   sPush.appendChild(row('Chat-Nachrichten', 'Bei neuer Nachricht im Team-Chat', toggle('af_ntfy_chat', false)));
 
   var testBtn = document.createElement('button'); testBtn.className = 'btn-d'; testBtn.style.cssText = 'width:100%;margin-top:0.5rem;font-size:0.82rem';
-  testBtn.textContent = '🔔 Test-Benachrichtigung senden';
+  testBtn.textContent = 'Test-Benachrichtigung senden';
   testBtn.addEventListener('click', function() {
     sendPushNotif('🔔 Test', 'Am Fels Team App funktioniert!', 'default');
     toast('Test gesendet → ' + (localStorage.getItem('af_ntfy_topic') || NTFY_DEFAULT));
@@ -2632,14 +2706,14 @@ function showSettings() {
 
   /* ── App ── */
   var sApp = section('App');
-  sApp.appendChild(btn('🗑️ App-Cache leeren', 'Service Worker Cache zurücksetzen', function() {
+  sApp.appendChild(btn('App-Cache leeren', 'Service Worker Cache zurücksetzen', function() {
     if (confirm('Cache wirklich leeren? Die App wird neu geladen.')) {
       caches.keys().then(function(keys) {
         return Promise.all(keys.map(function(k) { return caches.delete(k); }));
       }).then(function() { window.location.reload(); });
     }
   }));
-  sApp.appendChild(btn('← Abmelden', 'Aktuellen Benutzer abmelden', function() {
+  sApp.appendChild(btn('Abmelden', 'Aktuellen Benutzer abmelden', function() {
     var ov = el('ov'); if (ov) ov.parentNode.removeChild(ov);
     logoutUser();
   }, true));
@@ -2652,7 +2726,7 @@ function showSettings() {
 
 /* ── KI ASSISTENT ── */
 function showKI() {
-  var body = makeOv('🤖 KI Assistent');
+  var body = makeOv('KI Assistent');
   var kiMessages = [];
 
   function addMsg(role, text, loaderId) {
@@ -2707,7 +2781,7 @@ function showKI() {
   body.innerHTML = '';
   var chatEl = document.createElement('div'); chatEl.className = 'ki-chat'; chatEl.id = 'kiChat';
   body.appendChild(chatEl);
-  addMsg('ai', 'Hallo! Ich bin der KI Assistent für Am Fels. Wie kann ich helfen? 👋');
+  addMsg('ai', 'Hallo! Ich bin der KI Assistent für Am Fels. Wie kann ich helfen?');
 
   var inputRow = document.createElement('div'); inputRow.className = 'ki-input-row';
   var inp = document.createElement('input'); inp.className = 'inp'; inp.id = 'kiInp';
@@ -3120,10 +3194,27 @@ function bind() {
     TEAM.map(function(n) { return '<option value="' + esc(n) + '"' + (n===me?' selected':'') + '>' + esc(n) + '</option>'; }).join('');
 }
 
+/* ── NAV / MENU ICONS ── */
+function paintNavIcons() {
+  var nav = document.querySelectorAll('.bnav .ni');
+  for (var i = 0; i < nav.length; i++) {
+    var n1 = nav[i].getAttribute('data-icon');
+    var s1 = nav[i].querySelector('.ni-icon');
+    if (n1 && s1) s1.innerHTML = ic(n1, 23);
+  }
+  var um = document.querySelectorAll('#userMenu .um-btn');
+  for (var j = 0; j < um.length; j++) {
+    var n2 = um[j].getAttribute('data-icon');
+    var s2 = um[j].querySelector('.um-ic');
+    if (n2 && s2) s2.innerHTML = ic(n2, 18);
+  }
+}
+
 /* ── INIT ── */
 buildPicker();
 buildMehr();
 buildPinPad();
+paintNavIcons();
 bind();
 tick();
 setInterval(tick, 30000);
@@ -3138,8 +3229,7 @@ dbGet('/pins', function(err, dbPins) {
 });
 
 if (me) {
-  var meIdx = TEAM.indexOf(me);
-  el('uEmoji').textContent = EMOJ[meIdx] || '👤';
+  el('uEmoji').textContent = initials(me);
   el('uLabel').textContent = me;
   el('userChip').classList.add('active');
 } else { showPicker(); }

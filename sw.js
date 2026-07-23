@@ -1,4 +1,4 @@
-const CACHE = 'amfels-v6';
+const CACHE = 'amfels-v7';
 const DB    = 'https://apfels-team-default-rtdb.europe-west1.firebasedatabase.app/amfels';
 const OFFLINE_URLS = ['/'];
 
