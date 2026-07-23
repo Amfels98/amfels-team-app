@@ -394,6 +394,49 @@
     .auth-seg { display: flex; gap: 0.35rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 0.25rem; margin-bottom: 1.1rem; }
     .seg-btn { flex: 1; padding: 0.55rem; border: none; background: none; color: var(--dim); font-family: inherit; font-size: 0.82rem; font-weight: 600; border-radius: 9px; cursor: pointer; transition: background 0.15s, color 0.15s; -webkit-tap-highlight-color: transparent; }
     .seg-btn.on { background: var(--gold); color: #000; }
+
+    /* ── SETUP-WIZARD ── */
+    #wizard { position: fixed; inset: 0; z-index: 960; background: var(--bg); display: flex; flex-direction: column; }
+    #wizard.hidden { display: none; }
+    .wiz-top { padding: max(1rem,calc(env(safe-area-inset-top) + 0.6rem)) 1.1rem 0.8rem; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .wiz-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.9rem; }
+    .wiz-title { font-size: 1.05rem; font-weight: 700; }
+    .wiz-close { background: none; border: none; color: var(--dim); font-family: inherit; font-size: 0.72rem; cursor: pointer; -webkit-tap-highlight-color: transparent; padding: 0.3rem; }
+    .wiz-bar { height: 6px; background: var(--bg4); border-radius: 6px; overflow: hidden; }
+    .wiz-bar-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-l)); border-radius: 6px; transition: width 0.35s cubic-bezier(0.22,1,0.36,1); width: 33%; }
+    .wiz-step-label { font-size: 0.66rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.5rem; font-weight: 600; }
+    .wiz-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 1.2rem 1.1rem 1.5rem; }
+    .wiz-h { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.3rem; }
+    .wiz-sub { font-size: 0.85rem; color: var(--dim); line-height: 1.5; margin-bottom: 1.3rem; }
+    .wiz-foot { display: flex; gap: 0.5rem; padding: 0.75rem 1.1rem max(0.85rem,env(safe-area-inset-bottom)); background: var(--bg2); border-top: 1px solid var(--border); flex-shrink: 0; }
+    .wiz-foot .btn-g, .wiz-foot .btn-d { padding: 0.95rem 1rem; font-size: 0.92rem; }
+    #wizard .inp { padding: 0.9rem 1rem; font-size: 0.95rem; min-height: 50px; }
+    #wizard .fl { font-size: 0.7rem; margin-bottom: 0.4rem; }
+    #wizard .fg { margin-bottom: 1rem; }
+    /* Auswahl-Kacheln (Betriebsart, Wochentage) */
+    .wiz-choices { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .wiz-chip { padding: 0.7rem 1rem; min-height: 48px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--bg2); color: var(--text); font-family: inherit; font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; transition: border-color 0.15s, background 0.15s; }
+    .wiz-chip.on { border-color: var(--gold); background: var(--gold-soft); color: var(--gold-l); font-weight: 600; }
+    .wiz-day { flex: 1; min-width: 40px; }
+    /* Öffnungszeiten-Zeile */
+    .wiz-oh { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .wiz-oh-day { width: 42px; font-size: 0.82rem; font-weight: 600; flex-shrink: 0; }
+    .wiz-oh .inp { padding: 0.6rem; min-height: 44px; text-align: center; }
+    .wiz-oh-closed { font-size: 0.75rem; color: var(--dim2); flex: 1; }
+    /* Vorlagen-Liste (Putzplan) */
+    .wiz-tpl { display: flex; align-items: center; gap: 0.8rem; padding: 0.85rem 1rem; min-height: 56px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 0.5rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .wiz-tpl-box { width: 26px; height: 26px; border-radius: 7px; border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; color: #fff; }
+    .wiz-tpl.on .wiz-tpl-box { background: var(--green); border-color: var(--green); }
+    .wiz-tpl-body { flex: 1; min-width: 0; }
+    .wiz-tpl-title { font-size: 0.9rem; font-weight: 500; }
+    .wiz-tpl.off { opacity: 0.5; }
+    .wiz-tpl-rhythm { font-size: 0.68rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.1rem; }
+    .wiz-add { width: 100%; padding: 0.85rem; min-height: 50px; border-radius: 12px; border: 1.5px dashed var(--border-str); background: none; color: var(--gold); font-family: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .wiz-member { display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; min-height: 56px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 0.5rem; }
+    .wiz-member-role { font-size: 0.68rem; color: var(--dim); margin-top: 0.1rem; }
+    .wiz-done-stat { text-align: center; padding: 1.2rem; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 0.8rem; }
+    .wiz-done-num { font-size: 2.4rem; font-weight: 300; color: var(--gold); }
+    .wiz-done-lbl { font-size: 0.78rem; color: var(--dim); }
     .auth-card { width: 100%; max-width: 400px; animation: pickerIn 0.5s cubic-bezier(0.22,1,0.36,1); }
     .auth-logo { font-size: 2.1rem; font-weight: 800; letter-spacing: -0.03em; text-align: center; margin-bottom: 1.7rem; background: linear-gradient(100deg,#9a7a3c,#f0d79a,#9a7a3c); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
     .auth-h { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 1.1rem; }
@@ -455,6 +498,7 @@
         <div class="dw-date"  id="dDate"></div>
         <div class="dw-shift" id="dShift"></div>
       </div>
+      <div id="dashSetup"></div>
       <div class="stats">
         <div class="stat tap" id="statCardOpen"><div class="stat-n" id="statOpen">–</div><div class="stat-l">Aufgaben offen</div></div>
         <div class="stat tap" id="statCardOrders"><div class="stat-n" id="statOrders">–</div><div class="stat-l">Bestellungen</div></div>
@@ -607,6 +651,24 @@
 
       <div class="auth-switch">Schon registriert? <button id="toLogin">Zur Anmeldung</button></div>
     </div>
+  </div>
+</div>
+
+<!-- Setup-Wizard (Einrichtungs-Assistent) -->
+<div id="wizard" class="hidden">
+  <div class="wiz-top">
+    <div class="wiz-head">
+      <div class="wiz-title" id="wizTitle">Einrichtung</div>
+      <button class="wiz-close" id="wizClose">Später fertig machen</button>
+    </div>
+    <div class="wiz-bar"><div class="wiz-bar-fill" id="wizBarFill"></div></div>
+    <div class="wiz-step-label" id="wizStepLabel"></div>
+  </div>
+  <div class="wiz-body" id="wizBody"></div>
+  <div class="wiz-foot">
+    <button class="btn-d" id="wizBack" style="flex:0 0 auto;min-width:90px">Zurück</button>
+    <button class="btn-d" id="wizSkip" style="flex:0 0 auto;min-width:80px">Später</button>
+    <button class="btn-g" id="wizNext" style="flex:1">Weiter</button>
   </div>
 </div>
 
@@ -2887,6 +2949,12 @@ function showSettings() {
     addBtn.textContent = '+ Mitarbeiter anlegen';
     addBtn.addEventListener('click', function() { showAddEmployee(reopenSettings); });
     sTeam.appendChild(addBtn);
+
+    var sSetup = section('Einrichtung');
+    sSetup.appendChild(btn('Einrichtungs-Assistent', 'Betrieb, Team & Putzplan einrichten', function() {
+      var ov = document.querySelector('.ov'); if (ov) ov.parentNode.removeChild(ov);
+      startWizard();
+    }));
   }
 
   /* ── Push-Benachrichtigungen ── */
@@ -3382,6 +3450,10 @@ function bind() {
   el('segEmp').addEventListener('click', function() { segReg('emp'); });
   el('empRegBtn').addEventListener('click', doEmployeeRegister);
   el('empRegPass').addEventListener('keydown', function(e) { if (e.key === 'Enter') doEmployeeRegister(); });
+  el('wizBack').addEventListener('click', wizBack);
+  el('wizNext').addEventListener('click', wizNext);
+  el('wizSkip').addEventListener('click', wizSkip);
+  el('wizClose').addEventListener('click', closeWizard);
   el('statCardOpen').addEventListener('click', function() { switchTab('aufgaben'); });
   el('statCardOrders').addEventListener('click', function() { showBestellen(); });
   el('umSettings').addEventListener('click', function() {
@@ -3575,6 +3647,7 @@ function enterApp(name, role) {
   loadConfig();
   refreshTeamUI();
   updateDash(); loadDashExtras(); loadTasks(); loadOrders(); loadChat(); loadShift();
+  checkSetup();
   setTimeout(subscribePush, 1000);
   setTimeout(showInstallHint, 2000);
 }
@@ -3638,6 +3711,7 @@ function doRegister() {
         el('regBtn').textContent = 'Restaurant erstellen';
         enterApp(name, 'admin');
         toast('Restaurant „' + rest + '" erstellt!');
+        setTimeout(startWizard, 500);
       });
     });
   });
@@ -3726,6 +3800,212 @@ function showAddEmployee(onDone) {
         close(); toast(name + ' angelegt'); if (onDone) onDone();
       });
     });
+  });
+}
+
+/* ── SETUP-WIZARD (Einrichtungs-Assistent, Schritt 1–3) ── */
+var BUNDESLAENDER = ['Baden-Württemberg','Bayern','Berlin','Brandenburg','Bremen','Hamburg','Hessen','Mecklenburg-Vorpommern','Niedersachsen','Nordrhein-Westfalen','Rheinland-Pfalz','Saarland','Sachsen','Sachsen-Anhalt','Schleswig-Holstein','Thüringen'];
+var BETRIEBSARTEN = ['Restaurant','Café','Bar','Imbiss','Hotelgastronomie'];
+var WIZ_DAYS = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+var CLEAN_TEMPLATES = [
+  {title:'Böden Gastraum wischen',        rhythm:'daily'},
+  {title:'Küchenböden gründlich',         rhythm:'daily'},
+  {title:'Arbeitsflächen desinfizieren',  rhythm:'daily'},
+  {title:'Fritteuse reinigen / Fett prüfen', rhythm:'weekly'},
+  {title:'Abzugshaube / Filter reinigen', rhythm:'weekly'},
+  {title:'Kühlschränke innen reinigen',   rhythm:'weekly'},
+  {title:'Tiefkühler abtauen',            rhythm:'monthly'},
+  {title:'Lager / Regale reinigen',       rhythm:'monthly'},
+  {title:'Fettabscheider prüfen',         rhythm:'quarterly'}
+];
+var RHYTHM_LABEL = {daily:'Täglich', weekly:'Wöchentlich', monthly:'Monatlich', quarterly:'Quartalsweise'};
+var TASK_REPEAT  = {daily:'daily', weekly:'weekly', monthly:'monthly', quarterly:'monthly'};
+var MEMBER_ROLES = ['Inhaber','Leitung','Küche','Service','Reinigung'];
+var wiz = { step: 1, biz: null, cleanSel: {}, clean: CLEAN_TEMPLATES.slice() };
+
+function startWizard() {
+  wiz.step = 1;
+  wiz.clean = CLEAN_TEMPLATES.slice();
+  wiz.cleanSel = {}; wiz.clean.forEach(function(t, i) { wiz.cleanSel[i] = true; });
+  el('userMenu').classList.add('hidden'); el('umOverlay').classList.add('hidden');
+  var ov = document.querySelector('.ov'); if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+  el('wizard').classList.remove('hidden');
+  dbGet('/business', function(err, b) {
+    wiz.biz = b || {};
+    if (!wiz.biz.closedDays) wiz.biz.closedDays = [];
+    if (!wiz.biz.openingHours) wiz.biz.openingHours = {};
+    if (!wiz.biz.roles) wiz.biz.roles = {};
+    if (!wiz.biz.setupProgress) wiz.biz.setupProgress = {};
+    if (!wiz.biz.name) {
+      gGet('/restaurants/' + TENANT, function(e2, r) {
+        if (r) { if (!wiz.biz.name) wiz.biz.name = r.name || ''; if (!wiz.biz.address) wiz.biz.address = r.address || ''; }
+        renderWizard();
+      });
+    } else { renderWizard(); }
+  });
+}
+function closeWizard() { el('wizard').classList.add('hidden'); checkSetup(); }
+
+function renderWizard() {
+  el('wizBarFill').style.width = (wiz.step / 3 * 100) + '%';
+  el('wizStepLabel').textContent = 'Schritt ' + wiz.step + ' von 3';
+  el('wizBack').style.visibility = wiz.step === 1 ? 'hidden' : 'visible';
+  el('wizNext').textContent = wiz.step === 3 ? 'Fertig — los geht’s' : 'Weiter';
+  if (wiz.step === 1) renderWizStep1();
+  else if (wiz.step === 2) renderWizStep2();
+  else renderWizStep3();
+  el('wizBody').scrollTop = 0;
+}
+
+function renderWizStep1() {
+  var b = wiz.biz;
+  var typeChips = BETRIEBSARTEN.map(function(t) { return '<button class="wiz-chip' + (b.type === t ? ' on' : '') + '" data-type="' + esc(t) + '">' + esc(t) + '</button>'; }).join('');
+  var dayChips = WIZ_DAYS.map(function(d, i) { return '<button class="wiz-chip wiz-day' + (b.closedDays.indexOf(i) >= 0 ? ' on' : '') + '" data-day="' + i + '">' + d + '</button>'; }).join('');
+  var stateOpts = '<option value="">Bitte wählen…</option>' + BUNDESLAENDER.map(function(s) { return '<option' + (b.state === s ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('');
+  var oh = WIZ_DAYS.map(function(d, i) {
+    var closed = b.closedDays.indexOf(i) >= 0;
+    var h = b.openingHours[i] || {from:'11:00', to:'22:00'};
+    return '<div class="wiz-oh"><div class="wiz-oh-day">' + d + '</div>' + (closed
+      ? '<div class="wiz-oh-closed">Ruhetag</div>'
+      : '<input class="inp" type="time" data-ohf="' + i + '" value="' + esc(h.from) + '"><span style="color:var(--dim)">–</span><input class="inp" type="time" data-oht="' + i + '" value="' + esc(h.to) + '">') + '</div>';
+  }).join('');
+  el('wizBody').innerHTML =
+    '<div class="wiz-h">Dein Betrieb</div><div class="wiz-sub">Diese Angaben helfen später bei Feiertagen, Ruhetagen und Zeitfenstern.</div>' +
+    '<div class="fg"><label class="fl">Betriebsname</label><input class="inp" id="wzName" value="' + esc(b.name || '') + '" placeholder="z.B. Trattoria Bella"></div>' +
+    '<div class="fg"><label class="fl">Straße & Hausnummer</label><input class="inp" id="wzAddr" value="' + esc(b.address || '') + '"></div>' +
+    '<div class="row2"><div class="fg" style="flex:0 0 38%"><label class="fl">PLZ</label><input class="inp" id="wzZip" inputmode="numeric" value="' + esc(b.zip || '') + '"></div><div class="fg" style="flex:1"><label class="fl">Ort</label><input class="inp" id="wzCity" value="' + esc(b.city || '') + '"></div></div>' +
+    '<div class="fg"><label class="fl">Betriebsart</label><div class="wiz-choices" id="wzTypes">' + typeChips + '</div></div>' +
+    '<div class="fg"><label class="fl">Bundesland (für Feiertage)</label><select class="inp" id="wzState">' + stateOpts + '</select></div>' +
+    '<div class="fg"><label class="fl">Ruhetage</label><div class="wiz-choices" id="wzDays">' + dayChips + '</div></div>' +
+    '<div class="fg"><label class="fl">Öffnungszeiten</label>' + oh + '</div>';
+  el('wzTypes').addEventListener('click', function(e) { var c = e.target.closest('.wiz-chip'); if (!c) return; collectStep1(); wiz.biz.type = (wiz.biz.type === c.dataset.type) ? '' : c.dataset.type; renderWizStep1(); });
+  el('wzDays').addEventListener('click', function(e) { var c = e.target.closest('.wiz-chip'); if (!c) return; collectStep1(); var i = +c.dataset.day; var idx = wiz.biz.closedDays.indexOf(i); if (idx >= 0) wiz.biz.closedDays.splice(idx, 1); else wiz.biz.closedDays.push(i); renderWizStep1(); });
+}
+function collectStep1() {
+  var b = wiz.biz;
+  if (el('wzName')) b.name = el('wzName').value.trim();
+  if (el('wzAddr')) b.address = el('wzAddr').value.trim();
+  if (el('wzZip')) b.zip = el('wzZip').value.trim();
+  if (el('wzCity')) b.city = el('wzCity').value.trim();
+  if (el('wzState')) b.state = el('wzState').value;
+  WIZ_DAYS.forEach(function(d, i) {
+    var f = document.querySelector('[data-ohf="' + i + '"]'); var t = document.querySelector('[data-oht="' + i + '"]');
+    if (f && t) b.openingHours[i] = {from: f.value, to: t.value};
+  });
+}
+
+function renderWizStep2() {
+  var rows = TEAM.map(function(n) {
+    var role = wiz.biz.roles[n] || 'Team';
+    return '<div class="wiz-member"><span class="avatar" style="width:38px;height:38px;font-size:0.9rem">' + esc(initials(n)) + '</span><div style="flex:1"><div style="font-weight:500">' + esc(n) + '</div><div class="wiz-member-role">' + esc(role) + '</div></div></div>';
+  }).join('');
+  el('wizBody').innerHTML =
+    '<div class="wiz-h">Dein Team</div><div class="wiz-sub">Füge deine Mitarbeiter hinzu. Sie können sich später auch selbst mit dem Restaurant-Code registrieren.</div>' +
+    (rows || '<p class="empty">Noch keine Mitarbeiter</p>') +
+    '<button class="wiz-add" id="wzAddMember">+ Mitarbeiter hinzufügen</button>' +
+    '<div style="margin-top:1.1rem;padding:0.85rem 1rem;background:var(--bg2);border:1px solid var(--border);border-radius:12px"><div class="set-row-sub">Einladungs-Code zum Selbst-Registrieren</div><div id="wzCode" style="font-size:1.4rem;font-weight:800;letter-spacing:0.12em;color:var(--gold);text-align:center;margin-top:0.35rem">…</div></div>';
+  el('wzAddMember').addEventListener('click', wizAddMember);
+  gGet('/restaurants/' + TENANT, function(err, r) { var box = el('wzCode'); if (!box) return; box.textContent = (r && r.code) ? r.code : '—'; });
+}
+function wizAddMember() {
+  var ov = document.createElement('div'); ov.className = 'confirm-ov';
+  var sh = document.createElement('div'); sh.className = 'confirm-sheet';
+  var roleOpts = MEMBER_ROLES.map(function(r) { return '<option>' + r + '</option>'; }).join('');
+  sh.innerHTML = '<h3>Mitarbeiter hinzufügen</h3>' +
+    '<div class="fg"><label class="fl">Name</label><input class="inp" id="wmName" placeholder="Vorname"></div>' +
+    '<div class="fg"><label class="fl">Rolle</label><select class="inp" id="wmRole">' + roleOpts + '</select></div>' +
+    '<div class="row2"><button class="btn-d" id="wmCancel">Abbrechen</button><button class="btn-g" id="wmSave">Hinzufügen</button></div>';
+  ov.appendChild(sh); document.body.appendChild(ov);
+  function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+  ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
+  sh.querySelector('#wmCancel').addEventListener('click', close);
+  sh.querySelector('#wmSave').addEventListener('click', function() {
+    var n = sh.querySelector('#wmName').value.trim();
+    if (!n) { toast('Bitte Name angeben'); return; }
+    if (TEAM.indexOf(n) >= 0) { toast('Name existiert schon'); return; }
+    TEAM = TEAM.concat([n]);
+    wiz.biz.roles[n] = sh.querySelector('#wmRole').value;
+    saveTeamConfig(); dbPut('/business/roles', wiz.biz.roles);
+    close(); renderWizStep2();
+  });
+}
+
+function renderWizStep3() {
+  var list = wiz.clean.map(function(t, i) {
+    var on = wiz.cleanSel[i];
+    return '<div class="wiz-tpl' + (on ? ' on' : ' off') + '" data-tpl="' + i + '"><div class="wiz-tpl-box">' + (on ? '✓' : '') + '</div><div class="wiz-tpl-body"><div class="wiz-tpl-title">' + esc(t.title) + '</div><div class="wiz-tpl-rhythm">' + (RHYTHM_LABEL[t.rhythm] || t.rhythm) + '</div></div></div>';
+  }).join('');
+  el('wizBody').innerHTML =
+    '<div class="wiz-h">Putzplan</div><div class="wiz-sub">Typische Reinigungsaufgaben sind schon vorbereitet. Wähle ab, was du nicht brauchst — der Rest wird automatisch als wiederkehrende Aufgabe angelegt.</div>' +
+    list + '<button class="wiz-add" id="wzAddClean">+ Eigene Aufgabe</button>';
+  var tpls = el('wizBody').querySelectorAll('.wiz-tpl');
+  for (var k = 0; k < tpls.length; k++) {
+    tpls[k].addEventListener('click', function() { var i = +this.dataset.tpl; wiz.cleanSel[i] = !wiz.cleanSel[i]; renderWizStep3(); });
+  }
+  el('wzAddClean').addEventListener('click', wizAddClean);
+}
+function wizAddClean() {
+  var ov = document.createElement('div'); ov.className = 'confirm-ov';
+  var sh = document.createElement('div'); sh.className = 'confirm-sheet';
+  sh.innerHTML = '<h3>Eigene Aufgabe</h3>' +
+    '<div class="fg"><label class="fl">Bezeichnung</label><input class="inp" id="wcTitle" placeholder="z.B. Kaffeemaschine entkalken"></div>' +
+    '<div class="fg"><label class="fl">Rhythmus</label><select class="inp" id="wcRhythm"><option value="daily">Täglich</option><option value="weekly" selected>Wöchentlich</option><option value="monthly">Monatlich</option></select></div>' +
+    '<div class="row2"><button class="btn-d" id="wcCancel">Abbrechen</button><button class="btn-g" id="wcSave">Hinzufügen</button></div>';
+  ov.appendChild(sh); document.body.appendChild(ov);
+  function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+  ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
+  sh.querySelector('#wcCancel').addEventListener('click', close);
+  sh.querySelector('#wcSave').addEventListener('click', function() {
+    var t = sh.querySelector('#wcTitle').value.trim();
+    if (!t) { toast('Bitte Bezeichnung angeben'); return; }
+    wiz.clean.push({title: t, rhythm: sh.querySelector('#wcRhythm').value});
+    wiz.cleanSel[wiz.clean.length - 1] = true;
+    close(); renderWizStep3();
+  });
+}
+
+function wizBack() { if (wiz.step > 1) { wiz.step--; renderWizard(); } }
+function wizNext() {
+  if (wiz.step === 1) { collectStep1(); wiz.biz.setupProgress.step1 = 'done'; saveBusiness(); wiz.step = 2; renderWizard(); }
+  else if (wiz.step === 2) { wiz.biz.setupProgress.step2 = 'done'; saveBusiness(); wiz.step = 3; renderWizard(); }
+  else { wizFinish(); }
+}
+function wizSkip() {
+  if (wiz.step === 1) { wiz.biz.setupProgress.step1 = wiz.biz.setupProgress.step1 === 'done' ? 'done' : 'skipped'; collectStep1(); saveBusiness(); wiz.step = 2; renderWizard(); }
+  else if (wiz.step === 2) { if (wiz.biz.setupProgress.step2 !== 'done') wiz.biz.setupProgress.step2 = 'skipped'; saveBusiness(); wiz.step = 3; renderWizard(); }
+  else { if (wiz.biz.setupProgress.step3 !== 'done') wiz.biz.setupProgress.step3 = 'skipped'; saveBusiness(); closeWizard(); }
+}
+function saveBusiness(cb) { dbPut('/business', wiz.biz, cb); }
+function wizFinish() {
+  var today = todayKey();
+  var created = 0;
+  wiz.clean.forEach(function(t, i) {
+    if (!wiz.cleanSel[i]) return;
+    var task = {title: t.title, assign: 'Alle', done: false, by: me, ts: Date.now(), priority: 'normal', repeat: (TASK_REPEAT[t.rhythm] || 'weekly'), due: today, source: 'putzplan'};
+    dbPost('/tasks', task);
+    created++;
+  });
+  wiz.biz.setupProgress.step3 = 'done';
+  saveBusiness();
+  closeWizard();
+  setTimeout(function() { loadTasks(); updateDash(); }, 400);
+  toast('Einrichtung fertig · ' + created + ' Aufgaben erstellt');
+}
+
+/* Dashboard-Hinweis, wenn Einrichtung noch offen (nur Admin) */
+function checkSetup() {
+  var host = el('dashSetup'); if (!host) return;
+  host.innerHTML = '';
+  if (me !== ADMIN) return;
+  dbGet('/business', function(err, b) {
+    var host2 = el('dashSetup'); if (!host2) return;
+    var sp = (b && b.setupProgress) || {};
+    if (sp.step3 === 'done') return;
+    var card = document.createElement('div'); card.className = 'card tap';
+    card.style.cssText = 'border-color:rgba(199,154,77,0.45);margin-bottom:0.7rem';
+    card.innerHTML = '<div style="font-weight:600;margin-bottom:0.15rem;color:var(--gold-l)">Einrichtung abschließen</div><div style="font-size:0.78rem;color:var(--dim)">Betrieb, Team und Putzplan in wenigen Minuten einrichten.</div>';
+    card.addEventListener('click', startWizard);
+    host2.appendChild(card);
   });
 }
 
