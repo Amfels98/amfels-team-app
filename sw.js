@@ -1,6 +1,15 @@
-const CACHE = 'amfels-v8';
-const DB    = 'https://apfels-team-default-rtdb.europe-west1.firebasedatabase.app/amfels';
+const CACHE = 'amfels-v9';
+const BASE  = 'https://apfels-team-default-rtdb.europe-west1.firebasedatabase.app/amfels';
 const OFFLINE_URLS = ['/'];
+
+// Liest den aktiven Mandanten (Restaurant) aus dem Cache, den die App dort ablegt
+function tenantNotifUrl() {
+  return caches.open('gf-meta')
+    .then(c => c.match('/tenant'))
+    .then(r => r ? r.text() : '')
+    .then(t => t ? (BASE + '/t/' + t + '/notifications/latest.json') : (BASE + '/notifications/latest.json'))
+    .catch(() => BASE + '/notifications/latest.json');
+}
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -40,7 +49,8 @@ self.addEventListener('fetch', e => {
 
 self.addEventListener('push', e => {
   e.waitUntil(
-    fetch(DB + '/notifications/latest.json')
+    tenantNotifUrl()
+      .then(url => fetch(url))
       .then(r => r.json())
       .then(data => {
         const title = (data && data.title) ? data.title : 'GastroFlow';

@@ -390,7 +390,10 @@
 
     /* ── AUTH (Login / Registrierung) ── */
     #authScreen { position: fixed; inset: 0; z-index: 970; background: radial-gradient(circle at 50% 18%, #17140d 0%, #0c0c0e 68%); overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; align-items: flex-start; justify-content: center; padding: max(2.8rem,calc(env(safe-area-inset-top) + 1.5rem)) 1.2rem 2.5rem; }
-    #authScreen.hidden, #authLogin.hidden, #authRegister.hidden { display: none; }
+    #authScreen.hidden, #authLogin.hidden, #authRegister.hidden, #regRestaurant.hidden, #regEmployee.hidden { display: none; }
+    .auth-seg { display: flex; gap: 0.35rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 0.25rem; margin-bottom: 1.1rem; }
+    .seg-btn { flex: 1; padding: 0.55rem; border: none; background: none; color: var(--dim); font-family: inherit; font-size: 0.82rem; font-weight: 600; border-radius: 9px; cursor: pointer; transition: background 0.15s, color 0.15s; -webkit-tap-highlight-color: transparent; }
+    .seg-btn.on { background: var(--gold); color: #000; }
     .auth-card { width: 100%; max-width: 400px; animation: pickerIn 0.5s cubic-bezier(0.22,1,0.36,1); }
     .auth-logo { font-size: 2.1rem; font-weight: 800; letter-spacing: -0.03em; text-align: center; margin-bottom: 1.7rem; background: linear-gradient(100deg,#9a7a3c,#f0d79a,#9a7a3c); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
     .auth-h { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 1.1rem; }
@@ -571,18 +574,37 @@
 
     <!-- REGISTER -->
     <div id="authRegister" class="hidden">
-      <div class="auth-h">Restaurant registrieren</div>
-      <div class="fg"><label class="fl">Restaurant-Name</label><input class="inp" id="regRest" placeholder="z.B. Trattoria Bella"></div>
-      <div class="fg"><label class="fl">Adresse</label><input class="inp" id="regAddr" placeholder="Straße, PLZ Ort"></div>
-      <div class="fg"><label class="fl">Telefon (optional)</label><input class="inp" id="regPhone" type="tel" placeholder=""></div>
-      <div class="fg"><label class="fl">Dein Name (Admin)</label><input class="inp" id="regName" placeholder="Vorname"></div>
-      <div class="fg"><label class="fl">E-Mail</label><input class="inp" id="regEmail" type="email" autocomplete="username" placeholder="name@restaurant.de"></div>
-      <div class="row2">
-        <div class="fg" style="flex:1"><label class="fl">Passwort</label><input class="inp" id="regPass" type="password" autocomplete="new-password" placeholder="min. 6 Zeichen"></div>
-        <div class="fg" style="flex:1"><label class="fl">Wiederholen</label><input class="inp" id="regPass2" type="password" autocomplete="new-password"></div>
+      <div class="auth-h">Registrieren</div>
+      <div class="auth-seg">
+        <button class="seg-btn on" id="segRest">Restaurant</button>
+        <button class="seg-btn" id="segEmp">Mitarbeiter</button>
       </div>
-      <div class="auth-err" id="regErr"></div>
-      <button class="btn-g" id="regBtn" style="width:100%;margin-top:0.3rem">Restaurant erstellen</button>
+
+      <!-- Restaurant / Chef -->
+      <div id="regRestaurant">
+        <div class="fg"><label class="fl">Restaurant-Name</label><input class="inp" id="regRest" placeholder="z.B. Trattoria Bella"></div>
+        <div class="fg"><label class="fl">Adresse</label><input class="inp" id="regAddr" placeholder="Straße, PLZ Ort"></div>
+        <div class="fg"><label class="fl">Telefon (optional)</label><input class="inp" id="regPhone" type="tel" placeholder=""></div>
+        <div class="fg"><label class="fl">Dein Name (Admin)</label><input class="inp" id="regName" placeholder="Vorname"></div>
+        <div class="fg"><label class="fl">E-Mail</label><input class="inp" id="regEmail" type="email" autocomplete="username" placeholder="name@restaurant.de"></div>
+        <div class="row2">
+          <div class="fg" style="flex:1"><label class="fl">Passwort</label><input class="inp" id="regPass" type="password" autocomplete="new-password" placeholder="min. 6 Zeichen"></div>
+          <div class="fg" style="flex:1"><label class="fl">Wiederholen</label><input class="inp" id="regPass2" type="password" autocomplete="new-password"></div>
+        </div>
+        <div class="auth-err" id="regErr"></div>
+        <button class="btn-g" id="regBtn" style="width:100%;margin-top:0.3rem">Restaurant erstellen</button>
+      </div>
+
+      <!-- Mitarbeiter beitreten -->
+      <div id="regEmployee" class="hidden">
+        <div class="fg"><label class="fl">Restaurant-Code (vom Chef)</label><input class="inp" id="empCode" placeholder="z.B. GF-7K2P" autocapitalize="characters"></div>
+        <div class="fg"><label class="fl">Dein Name</label><input class="inp" id="empRegName" placeholder="Vorname"></div>
+        <div class="fg"><label class="fl">E-Mail</label><input class="inp" id="empRegEmail" type="email" autocomplete="username" placeholder="name@mail.de"></div>
+        <div class="fg"><label class="fl">Passwort</label><input class="inp" id="empRegPass" type="password" autocomplete="new-password" placeholder="min. 6 Zeichen"></div>
+        <div class="auth-err" id="empRegErr"></div>
+        <button class="btn-g" id="empRegBtn" style="width:100%;margin-top:0.3rem">Team beitreten</button>
+      </div>
+
       <div class="auth-switch">Schon registriert? <button id="toLogin">Zur Anmeldung</button></div>
     </div>
   </div>
@@ -593,7 +615,10 @@
 
 <script>
 /* ── CONFIG ── */
-var DB   = 'https://apfels-team-default-rtdb.europe-west1.firebasedatabase.app/amfels';
+/* BASE = globale Wurzel (Konten, Restaurant-Register). DB = mandantengebundener Datenbereich pro Restaurant. */
+var BASE = 'https://apfels-team-default-rtdb.europe-west1.firebasedatabase.app/amfels';
+var TENANT = localStorage.getItem('gf_tenant') || '';
+var DB = TENANT ? (BASE + '/t/' + TENANT) : BASE;
 var TEAM = ['Leon','Sasho','Patrik','Tea','Daniel'];
 var ADMIN = 'Leon';
 var EMOJ = ['👑','👨‍🍳','🍺','👩‍🍳','🍳'];
@@ -677,6 +702,29 @@ function dbPost(path, data, cb) {
 function dbDel(path, cb) {
   fetch(DB + path + '.json', {method:'DELETE'})
     .then(function() { if (cb) cb(); }).catch(function() { if (cb) cb(); });
+}
+
+/* Globale Helfer (nicht mandantengebunden): Konten, Restaurant-Register, Codes */
+function gGet(path, cb) {
+  fetch(BASE + path + '.json', {cache:'no-store'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) { cb(null, d); })
+    .catch(function(e) { cb(e, null); });
+}
+function gPut(path, data, cb) {
+  fetch(BASE + path + '.json', {method:'PUT', body:JSON.stringify(data), headers:{'Content-Type':'application/json'}})
+    .then(function() { if (cb) cb(null); }).catch(function() { if (cb) cb('err'); });
+}
+/* Setzt den aktiven Mandanten (Restaurant) — alle DB-Aufrufe laufen danach getrennt */
+function setTenant(t) {
+  TENANT = t || '';
+  DB = TENANT ? (BASE + '/t/' + TENANT) : BASE;
+  if (TENANT) localStorage.setItem('gf_tenant', TENANT); else localStorage.removeItem('gf_tenant');
+  cacheTenant(TENANT);
+}
+/* Legt den Mandanten in den Cache, damit der Service Worker die richtigen Push-Benachrichtigungen lädt */
+function cacheTenant(t) {
+  try { if (window.caches) caches.open('gf-meta').then(function(c) { c.put('/tenant', new Response(t || '')); }); } catch (e) {}
 }
 
 /* ── PUSH NOTIFICATIONS ── */
@@ -2805,6 +2853,26 @@ function showSettings() {
   sNotif.appendChild(row('Aufgaben-Erinnerungen', 'Fällige Aufgaben auf Startseite', toggle(SET_TASK_REMIND, true)));
   sNotif.appendChild(row('Chat-Ton', 'Ton bei neuen Nachrichten', toggle(SET_CHAT_SOUND, false)));
 
+  /* ── Restaurant-Code (Admin only) ── */
+  if (me === ADMIN) {
+    var sCode = section('Mitarbeiter einladen');
+    var codeCard = document.createElement('div'); codeCard.className = 'set-row';
+    codeCard.style.cssText = 'flex-direction:column;align-items:stretch;gap:0.4rem';
+    codeCard.innerHTML = '<div class="set-row-sub">Diesen Code an deine Mitarbeiter geben — damit registrieren sie sich selbst (Registrieren → Mitarbeiter).</div>' +
+      '<div id="restCodeBox" style="font-size:1.4rem;font-weight:800;letter-spacing:0.12em;color:var(--gold);text-align:center;padding:0.5rem;background:var(--bg3);border-radius:10px;margin-top:0.2rem">…</div>';
+    sCode.appendChild(codeCard);
+    gGet('/restaurants/' + TENANT, function(err, r) {
+      var box = el('restCodeBox'); if (!box) return;
+      if (r && r.code) { box.textContent = r.code; }
+      else {
+        var code = genCode();
+        gPut('/restaurants/' + TENANT + '/code', code);
+        gPut('/codes/' + code, TENANT);
+        box.textContent = code;
+      }
+    });
+  }
+
   /* ── Team (Admin only) ── */
   if (me === ADMIN) {
     var sTeam = section('Team-Verwaltung');
@@ -3310,6 +3378,10 @@ function bind() {
   el('toLogin').addEventListener('click', function() { showAuth('login'); });
   el('loginPass').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
   el('regPass2').addEventListener('keydown', function(e) { if (e.key === 'Enter') doRegister(); });
+  el('segRest').addEventListener('click', function() { segReg('rest'); });
+  el('segEmp').addEventListener('click', function() { segReg('emp'); });
+  el('empRegBtn').addEventListener('click', doEmployeeRegister);
+  el('empRegPass').addEventListener('keydown', function(e) { if (e.key === 'Enter') doEmployeeRegister(); });
   el('statCardOpen').addEventListener('click', function() { switchTab('aufgaben'); });
   el('statCardOrders').addEventListener('click', function() { showBestellen(); });
   el('umSettings').addEventListener('click', function() {
@@ -3468,6 +3540,16 @@ var SESSION_KEY = 'gf_email';
 function emailKey(e) { return String(e || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '_'); }
 function _hex(buf) { var a = new Uint8Array(buf), s = ''; for (var i = 0; i < a.length; i++) { s += ('0' + a[i].toString(16)).slice(-2); } return s; }
 function genSalt() { var a = new Uint8Array(16); if (crypto.getRandomValues) crypto.getRandomValues(a); return _hex(a.buffer); }
+function genTenant() { var a = new Uint8Array(8); if (crypto.getRandomValues) crypto.getRandomValues(a); return 'b' + _hex(a.buffer); }
+function genCode() { var ch = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; var a = new Uint8Array(4); if (crypto.getRandomValues) crypto.getRandomValues(a); var s = ''; for (var i = 0; i < 4; i++) s += ch[a[i] % ch.length]; return 'GF-' + s; }
+function addSelfToTeam(name, cb) {
+  dbGet('/config/team', function(err, team) {
+    team = (team && team.length) ? team : (TEAM.length ? TEAM.slice() : []);
+    if (team.indexOf(name) < 0) team.push(name);
+    TEAM = team;
+    dbPut('/config/team', team, function() { if (cb) cb(); });
+  });
+}
 function hashPw(pw, salt) {
   var data = new TextEncoder().encode(salt + '|' + pw);
   if (!crypto.subtle) return Promise.resolve('plain:' + salt + ':' + pw);
@@ -3490,6 +3572,7 @@ function enterApp(name, role) {
   el('uEmoji').textContent = initials(name);
   el('uLabel').textContent = name;
   el('userChip').classList.add('active');
+  loadConfig();
   refreshTeamUI();
   updateDash(); loadDashExtras(); loadTasks(); loadOrders(); loadChat(); loadShift();
   setTimeout(subscribePush, 1000);
@@ -3499,17 +3582,11 @@ function enterApp(name, role) {
 function startAuth() {
   var key = localStorage.getItem(SESSION_KEY);
   if (key) {
-    dbGet('/accounts/' + key, function(err, acc) {
-      if (!err && acc && acc.name) { enterApp(acc.name, acc.role); }
-      else { localStorage.removeItem(SESSION_KEY); decideAuthView(); }
+    gGet('/accounts/' + key, function(err, acc) {
+      if (!err && acc && acc.name) { setTenant(acc.tenantId || TENANT); enterApp(acc.name, acc.role); }
+      else { localStorage.removeItem(SESSION_KEY); setTenant(''); showAuth('login'); }
     });
-  } else { decideAuthView(); }
-}
-function decideAuthView() {
-  dbGet('/accounts', function(err, accs) {
-    if (!err && accs && Object.keys(accs).length) showAuth('login');
-    else showAuth('register');
-  });
+  } else { showAuth('login'); }
 }
 
 function doLogin() {
@@ -3518,14 +3595,15 @@ function doLogin() {
   el('loginErr').textContent = '';
   if (!email || !pw) { el('loginErr').textContent = 'Bitte E-Mail und Passwort eingeben'; return; }
   el('loginBtn').textContent = '…';
-  dbGet('/accounts/' + emailKey(email), function(err, acc) {
+  gGet('/accounts/' + emailKey(email), function(err, acc) {
     if (err || !acc) { el('loginBtn').textContent = 'Anmelden'; el('loginErr').textContent = 'Kein Konto mit dieser E-Mail'; return; }
     hashPw(pw, acc.salt).then(function(h) {
       el('loginBtn').textContent = 'Anmelden';
       if (h !== acc.hash) { el('loginErr').textContent = 'Falsches Passwort'; return; }
       localStorage.setItem(SESSION_KEY, emailKey(email));
       el('loginPass').value = '';
-      if (TEAM.indexOf(acc.name) < 0) { TEAM = TEAM.concat([acc.name]); saveTeamConfig(); }
+      setTenant(acc.tenantId || '');
+      addSelfToTeam(acc.name);
       enterApp(acc.name, acc.role);
       toast('Willkommen, ' + acc.name + '!');
     });
@@ -3543,15 +3621,19 @@ function doRegister() {
   if (pw !== pw2) { el('regErr').textContent = 'Passwörter stimmen nicht überein'; return; }
   el('regBtn').textContent = '…';
   var key = emailKey(email);
-  dbGet('/accounts/' + key, function(err, existing) {
+  gGet('/accounts/' + key, function(err, existing) {
     if (existing) { el('regBtn').textContent = 'Restaurant erstellen'; el('regErr').textContent = 'E-Mail ist bereits registriert'; return; }
     var salt = genSalt();
     hashPw(pw, salt).then(function(h) {
-      var acc = {email: email, name: name, role: 'admin', salt: salt, hash: h, ts: Date.now()};
-      dbPut('/accounts/' + key, acc, function() {
-        dbPut('/restaurant', {name: rest, address: addr, phone: phone, email: email, ts: Date.now()});
+      var tenantId = genTenant();
+      var code = genCode();
+      var acc = {email: email, name: name, role: 'admin', tenantId: tenantId, salt: salt, hash: h, ts: Date.now()};
+      gPut('/accounts/' + key, acc, function() {
+        gPut('/restaurants/' + tenantId, {name: rest, address: addr, phone: phone, email: email, code: code, ownerEmail: email, ts: Date.now()});
+        gPut('/codes/' + code, tenantId);
         localStorage.setItem(SESSION_KEY, key);
         el('regPass').value = ''; el('regPass2').value = '';
+        setTenant(tenantId);
         ADMIN = name; TEAM = [name]; saveTeamConfig();
         el('regBtn').textContent = 'Restaurant erstellen';
         enterApp(name, 'admin');
@@ -3561,8 +3643,49 @@ function doRegister() {
   });
 }
 
+function doEmployeeRegister() {
+  var code = el('empCode').value.trim().toUpperCase();
+  var name = el('empRegName').value.trim();
+  var email = el('empRegEmail').value.trim();
+  var pw = el('empRegPass').value;
+  el('empRegErr').textContent = '';
+  if (!code) { el('empRegErr').textContent = 'Bitte Restaurant-Code eingeben'; return; }
+  if (!name) { el('empRegErr').textContent = 'Bitte deinen Namen angeben'; return; }
+  if (!validEmail(email)) { el('empRegErr').textContent = 'Bitte gültige E-Mail angeben'; return; }
+  if (pw.length < 6) { el('empRegErr').textContent = 'Passwort muss mind. 6 Zeichen haben'; return; }
+  el('empRegBtn').textContent = '…';
+  gGet('/codes/' + code, function(err, tenantId) {
+    if (err || !tenantId) { el('empRegBtn').textContent = 'Team beitreten'; el('empRegErr').textContent = 'Code nicht gefunden'; return; }
+    var key = emailKey(email);
+    gGet('/accounts/' + key, function(e2, existing) {
+      if (existing) { el('empRegBtn').textContent = 'Team beitreten'; el('empRegErr').textContent = 'E-Mail ist bereits registriert'; return; }
+      var salt = genSalt();
+      hashPw(pw, salt).then(function(h) {
+        var acc = {email: email, name: name, role: 'employee', tenantId: tenantId, salt: salt, hash: h, ts: Date.now()};
+        gPut('/accounts/' + key, acc, function() {
+          localStorage.setItem(SESSION_KEY, key);
+          el('empRegPass').value = '';
+          setTenant(tenantId);
+          addSelfToTeam(name);
+          el('empRegBtn').textContent = 'Team beitreten';
+          enterApp(name, 'employee');
+          toast('Willkommen im Team, ' + name + '!');
+        });
+      });
+    });
+  });
+}
+
+function segReg(which) {
+  el('segRest').classList.toggle('on', which === 'rest');
+  el('segEmp').classList.toggle('on', which === 'emp');
+  el('regRestaurant').classList.toggle('hidden', which !== 'rest');
+  el('regEmployee').classList.toggle('hidden', which === 'rest');
+}
+
 function logoutToLogin() {
   localStorage.removeItem(SESSION_KEY);
+  setTenant('');
   me = '';
   el('userChip').classList.remove('active');
   el('uEmoji').textContent = '·'; el('uLabel').textContent = '––';
@@ -3594,11 +3717,11 @@ function showAddEmployee(onDone) {
     if (pw.length < 6) { errEl.textContent = 'Passwort mind. 6 Zeichen'; return; }
     if (TEAM.indexOf(name) >= 0) { errEl.textContent = 'Name existiert schon im Team'; return; }
     var key = emailKey(email);
-    dbGet('/accounts/' + key, function(err, ex) {
+    gGet('/accounts/' + key, function(err, ex) {
       if (ex) { errEl.textContent = 'E-Mail bereits vergeben'; return; }
       var salt = genSalt();
       hashPw(pw, salt).then(function(h) {
-        dbPut('/accounts/' + key, {email: email, name: name, role: 'employee', salt: salt, hash: h, ts: Date.now()});
+        gPut('/accounts/' + key, {email: email, name: name, role: 'employee', tenantId: TENANT, salt: salt, hash: h, ts: Date.now()});
         TEAM = TEAM.concat([name]); saveTeamConfig(); refreshTeamUI();
         close(); toast(name + ' angelegt'); if (onDone) onDone();
       });
