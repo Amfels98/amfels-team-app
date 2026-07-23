@@ -3953,7 +3953,8 @@ var TASK_REPEAT  = {daily:'daily', weekly:'weekly', monthly:'monthly', quarterly
 var MEMBER_ROLES = ['Inhaber','Leitung','Küche','Service','Reinigung'];
 var WIZ_TOTAL = 6;
 var TEMP_TYPES = ['Kühlung','Tiefkühlung','Warmhaltung','Wareneingang'];
-var TEMP_RANGE = {'Kühlung':{min:0,max:7}, 'Tiefkühlung':{min:-30,max:-18}, 'Warmhaltung':{min:65,max:95}, 'Wareneingang':{min:0,max:7}};
+/* Tiefkühlung/Warmhaltung sind fachlich einseitig begrenzt (≤ -18 °C bzw. ≥ 65 °C) */
+var TEMP_RANGE = {'Kühlung':{min:0,max:7}, 'Tiefkühlung':{min:-99,max:-18}, 'Warmhaltung':{min:65,max:999}, 'Wareneingang':{min:0,max:7}};
 var TEMP_DEFAULTS = [
   {name:'Kühlschrank Küche', type:'Kühlung'},
   {name:'Kühlhaus',          type:'Kühlung'},
