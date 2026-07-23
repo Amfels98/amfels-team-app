@@ -2770,21 +2770,15 @@ function showSettings() {
     var sTeam = section('Team-Verwaltung');
     TEAM.forEach(function(name) {
       var tBtn = document.createElement('button'); tBtn.className = 'set-btn';
-      var idx2 = TEAM.indexOf(name);
       tBtn.innerHTML = '<div style="display:flex;align-items:center;gap:0.6rem"><span class="avatar" style="width:34px;height:34px;font-size:0.82rem">' + esc(initials(name)) + '</span><div><div class="set-row-label">' + esc(name) + '</div><div class="set-row-sub">' + (name===ADMIN?'Administrator':'Team-Mitglied') + '</div></div></div><span class="set-arrow">›</span>';
-      tBtn.addEventListener('click', function() {
-        var pins = getPins();
-        var hasPIN = !!pins[name];
-        var info = hasPIN ? 'Hat PIN gesetzt' : 'Kein PIN gesetzt';
-        var choice = confirm(name + ' – ' + info + '\n\nPIN zurücksetzen?');
-        if (choice) {
-          var p = getPins(); delete p[name]; savePins(p);
-          dbDel('/pins/' + name);
-          toast(name + ' PIN zurückgesetzt');
-        }
-      });
+      tBtn.addEventListener('click', function() { manageMember(name, reopenSettings); });
       sTeam.appendChild(tBtn);
     });
+    var addBtn = document.createElement('button'); addBtn.className = 'set-btn';
+    addBtn.style.cssText = 'color:var(--gold);justify-content:center;font-weight:600';
+    addBtn.textContent = '+ Team-Mitglied hinzufügen';
+    addBtn.addEventListener('click', function() { addMember(reopenSettings); });
+    sTeam.appendChild(addBtn);
   }
 
   /* ── Push-Benachrichtigungen ── */
@@ -3352,6 +3346,77 @@ function attachRipple() {
   else document.addEventListener('mousedown', spawn, true);
 }
 
+/* ── TEAM-KONFIG (mandantenfähig – jedes Restaurant eigenes Team) ── */
+function refreshTeamUI() {
+  buildPicker();
+  var sel = el('taskAssign');
+  if (sel) sel.innerHTML = '<option value="Alle">Alle</option>' +
+    TEAM.map(function(n) { return '<option value="' + esc(n) + '"' + (n === me ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+}
+function loadConfig() {
+  dbGet('/config', function(err, cfg) {
+    if (err || !cfg) return;
+    if (cfg.team && cfg.team.length) TEAM = cfg.team.slice();
+    if (cfg.admin) ADMIN = cfg.admin;
+    refreshTeamUI();
+  });
+}
+function saveTeamConfig(cb) {
+  dbPut('/config/team', TEAM, function(e1) { dbPut('/config/admin', ADMIN, function(e2) { if (cb) cb(e1 || e2); }); });
+}
+function reopenSettings() {
+  var ov = document.querySelector('.ov'); if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+  showSettings();
+}
+function addMember(onDone) {
+  var nn = prompt('Name des neuen Team-Mitglieds:'); if (nn === null) return;
+  nn = nn.trim(); if (!nn) return;
+  if (TEAM.indexOf(nn) >= 0) { toast('Name existiert schon'); return; }
+  TEAM = TEAM.concat([nn]);
+  saveTeamConfig(); refreshTeamUI(); toast(nn + ' hinzugefügt');
+  if (onDone) onDone();
+}
+function manageMember(name, onDone) {
+  var ov = document.createElement('div'); ov.className = 'confirm-ov';
+  var sh = document.createElement('div'); sh.className = 'confirm-sheet';
+  var isAdmin = name === ADMIN;
+  var hasPIN = !!getPins()[name];
+  sh.innerHTML = '<h3>' + esc(name) + '</h3><p>' + (isAdmin ? 'Administrator' : 'Team-Mitglied') + ' · ' + (hasPIN ? 'PIN gesetzt' : 'kein PIN') + '</p>' +
+    '<button class="btn-d" id="mRename" style="width:100%;margin-bottom:0.4rem">Umbenennen</button>' +
+    (isAdmin ? '' : '<button class="btn-d" id="mAdmin" style="width:100%;margin-bottom:0.4rem">Zum Administrator machen</button>') +
+    '<button class="btn-d" id="mPin" style="width:100%;margin-bottom:0.4rem">PIN zurücksetzen</button>' +
+    (isAdmin ? '' : '<button class="btn-d" id="mRemove" style="width:100%;margin-bottom:0.4rem;color:var(--red)">Aus Team entfernen</button>') +
+    '<button class="btn-g" id="mClose" style="width:100%">Fertig</button>';
+  ov.appendChild(sh); document.body.appendChild(ov);
+  function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+  ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
+  sh.querySelector('#mClose').addEventListener('click', close);
+  sh.querySelector('#mRename').addEventListener('click', function() {
+    var nn = prompt('Neuer Name für ' + name + ':', name); if (nn === null) return;
+    nn = nn.trim(); if (!nn || nn === name) return;
+    if (TEAM.indexOf(nn) >= 0) { toast('Name existiert schon'); return; }
+    var p = getPins(); if (p[name]) { p[nn] = p[name]; delete p[name]; savePins(p); dbPut('/pins/' + nn, p[nn]); dbDel('/pins/' + name); }
+    TEAM = TEAM.map(function(x) { return x === name ? nn : x; });
+    if (ADMIN === name) ADMIN = nn;
+    if (me === name) { me = nn; localStorage.setItem('af_user', nn); el('uLabel').textContent = nn; el('uEmoji').textContent = initials(nn); }
+    saveTeamConfig(); refreshTeamUI(); toast('Umbenannt'); close(); if (onDone) onDone();
+  });
+  var aBtn = sh.querySelector('#mAdmin');
+  if (aBtn) aBtn.addEventListener('click', function() { ADMIN = name; saveTeamConfig(); toast(name + ' ist jetzt Administrator'); close(); if (onDone) onDone(); });
+  sh.querySelector('#mPin').addEventListener('click', function() {
+    var p = getPins(); delete p[name]; savePins(p); dbDel('/pins/' + name); toast(name + ' PIN zurückgesetzt'); close(); if (onDone) onDone();
+  });
+  var rBtn = sh.querySelector('#mRemove');
+  if (rBtn) rBtn.addEventListener('click', function() {
+    close();
+    confirmDel(name + ' aus dem Team entfernen?', function() {
+      TEAM = TEAM.filter(function(x) { return x !== name; });
+      var p = getPins(); delete p[name]; savePins(p); dbDel('/pins/' + name);
+      saveTeamConfig(); refreshTeamUI(); toast(name + ' entfernt'); if (onDone) onDone();
+    });
+  });
+}
+
 /* ── SPLASH ── */
 function runSplash() {
   var sp = el('splash');
@@ -3370,6 +3435,7 @@ buildPinPad();
 paintNavIcons();
 attachRipple();
 bind();
+loadConfig();
 tick();
 setInterval(tick, 30000);
 
