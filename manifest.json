@@ -1,7 +1,7 @@
 {
-  "name": "Am Fels Team",
-  "short_name": "Am Fels",
-  "description": "Restaurant Am Fels – Team App",
+  "name": "GastroFlow",
+  "short_name": "GastroFlow",
+  "description": "GastroFlow – Team-App für die Gastronomie",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0c0c0e",

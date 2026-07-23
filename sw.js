@@ -1,4 +1,4 @@
-const CACHE = 'amfels-v7';
+const CACHE = 'amfels-v8';
 const DB    = 'https://apfels-team-default-rtdb.europe-west1.firebasedatabase.app/amfels';
 const OFFLINE_URLS = ['/'];
 
@@ -43,7 +43,7 @@ self.addEventListener('push', e => {
     fetch(DB + '/notifications/latest.json')
       .then(r => r.json())
       .then(data => {
-        const title = (data && data.title) ? data.title : 'Am Fels Team';
+        const title = (data && data.title) ? data.title : 'GastroFlow';
         const body  = (data && data.body)  ? data.body  : 'Neue Benachrichtigung';
         return self.registration.showNotification(title, {
           body,
@@ -55,7 +55,7 @@ self.addEventListener('push', e => {
           data:      { url: self.location.origin }
         });
       })
-      .catch(() => self.registration.showNotification('Am Fels Team', {
+      .catch(() => self.registration.showNotification('GastroFlow', {
         body: 'Neue Benachrichtigung',
         icon: 'https://amfels98.github.io/amfels-team-app/icon-192.png'
       }))

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Am Fels – Team</title>
+  <title>GastroFlow</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0c0c0e">
@@ -375,16 +375,39 @@
     #picker:not(.hidden) .nbtn:nth-child(4) { animation-delay: 0.34s; }
     #picker:not(.hidden) .nbtn:nth-child(5) { animation-delay: 0.40s; }
 
+    /* ── SPLASH / LAUNCH (Netflix-Style) ── */
+    #splash { position: fixed; inset: 0; z-index: 3000; background: radial-gradient(circle at 50% 42%, #1a160d 0%, #0c0c0e 68%); display: flex; align-items: center; justify-content: center; transition: opacity 0.6s ease; }
+    #splash.hide { opacity: 0; pointer-events: none; }
+    .splash-inner { display: flex; flex-direction: column; align-items: center; }
+    .splash-logo { font-size: 2.7rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; background: linear-gradient(100deg, #9a7a3c 20%, #f0d79a 50%, #9a7a3c 80%); background-size: 220% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; animation: splashLogo 1.5s cubic-bezier(0.22,1,0.36,1) both, splashSheen 2.4s linear 0.3s infinite; }
+    .splash-logo .sl-accent { -webkit-text-fill-color: transparent; }
+    @keyframes splashLogo { 0% { opacity: 0; transform: scale(0.82); letter-spacing: 0.14em; } 55% { opacity: 1; } 100% { opacity: 1; transform: scale(1); letter-spacing: -0.03em; } }
+    @keyframes splashSheen { to { background-position: -220% center; } }
+    .splash-line { width: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--gold), transparent); margin-top: 0.85rem; animation: splashLine 1.1s cubic-bezier(0.22,1,0.36,1) forwards; animation-delay: 0.45s; }
+    @keyframes splashLine { to { width: 175px; } }
+    .splash-tag { margin-top: 0.75rem; color: var(--dim); font-size: 0.82rem; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0; animation: splashTag 0.9s ease forwards; animation-delay: 0.75s; }
+    @keyframes splashTag { to { opacity: 1; } }
+
     @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.01ms !important; } }
   </style>
 </head>
 <body>
+
+<!-- Splash / Launch-Screen (Netflix-Style) -->
+<div id="splash">
+  <div class="splash-inner">
+    <div class="splash-logo">Gastro<span class="sl-accent">Flow</span></div>
+    <div class="splash-line"></div>
+    <div class="splash-tag">Alles im Fluss.</div>
+  </div>
+</div>
+
 <div id="app">
 
   <!-- Header -->
   <div class="hdr">
     <div class="hdr-l">
-      <div class="brand">Am Fels</div>
+      <div class="brand">GastroFlow</div>
       <div class="sub" id="hdrSub">Übersicht</div>
     </div>
     <div class="hdr-r">
@@ -494,7 +517,7 @@
 
 <!-- User Picker -->
 <div id="picker" class="hidden">
-  <div class="picker-logo">Restaurant Am Fels</div>
+  <div class="picker-logo">GastroFlow</div>
   <div class="picker-title">Willkommen</div>
   <div class="picker-sub">Wer bist du heute?</div>
   <div class="name-grid" id="nameGrid"></div>
@@ -2744,7 +2767,7 @@ function showSettings() {
   var testBtn = document.createElement('button'); testBtn.className = 'btn-d'; testBtn.style.cssText = 'width:100%;margin-top:0.5rem;font-size:0.82rem';
   testBtn.textContent = 'Test-Benachrichtigung senden';
   testBtn.addEventListener('click', function() {
-    sendPushNotif('🔔 Test', 'Am Fels Team App funktioniert!', 'default');
+    sendPushNotif('GastroFlow', 'Benachrichtigungen funktionieren!', 'default');
     toast('Test gesendet → ' + (localStorage.getItem('af_ntfy_topic') || NTFY_DEFAULT));
   });
   sPush.appendChild(testBtn);
@@ -2765,7 +2788,7 @@ function showSettings() {
 
   var ver = document.createElement('div');
   ver.style.cssText = 'text-align:center;font-size:0.65rem;color:var(--dim);margin-top:1rem;padding-top:0.75rem;border-top:1px solid var(--border)';
-  ver.textContent = 'Am Fels Team App · v2.0';
+  ver.textContent = 'GastroFlow · v2.0';
   body.appendChild(ver);
 }
 
@@ -2826,7 +2849,7 @@ function showKI() {
   body.innerHTML = '';
   var chatEl = document.createElement('div'); chatEl.className = 'ki-chat'; chatEl.id = 'kiChat';
   body.appendChild(chatEl);
-  addMsg('ai', 'Hallo! Ich bin der KI Assistent für Am Fels. Wie kann ich helfen?');
+  addMsg('ai', 'Hallo! Ich bin dein GastroFlow-Assistent. Wie kann ich helfen?');
 
   var inputRow = document.createElement('div'); inputRow.className = 'ki-input-row';
   var inp = document.createElement('input'); inp.className = 'inp'; inp.id = 'kiInp';
@@ -3280,7 +3303,18 @@ function attachRipple() {
   else document.addEventListener('mousedown', spawn, true);
 }
 
+/* ── SPLASH ── */
+function runSplash() {
+  var sp = el('splash');
+  if (!sp) return;
+  setTimeout(function() {
+    sp.classList.add('hide');
+    setTimeout(function() { if (sp.parentNode) sp.parentNode.removeChild(sp); }, 650);
+  }, 2000);
+}
+
 /* ── INIT ── */
+runSplash();
 buildPicker();
 buildMehr();
 buildPinPad();
