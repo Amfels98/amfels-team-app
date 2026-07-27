@@ -2442,6 +2442,12 @@ function showDokumentation() {
     keys.forEach(function(k) { var t = D.temps[k] || {}; Object.keys(t).forEach(function(pid) { var e = t[pid]; if (e && e.value != null) { anyT = true; var p = pointById(pid), ok = p ? isTempOk(p, e.value) : true; html += '<tr><td>' + k + '</td><td>' + esc(p ? p.name : pid) + '</td><td class="' + (ok ? '' : 'pr-bad') + '">' + esc(String(e.value)) + ' °C</td><td>' + esc(e.by || '') + '</td><td>' + esc(e.corrective || (ok ? '' : '—')) + '</td></tr>'; } }); });
     if (!anyT) html += '<tr><td colspan="5">Keine Einträge</td></tr>';
     html += '</table>';
+    var reinigDaily = REINIG.filter(function(r) { return r.freq === 'täglich'; }).length;
+    html += '<h2>Reinigung (täglich)</h2><table><tr><th>Tag</th><th>Erledigt</th></tr>';
+    var anyR = false;
+    keys.forEach(function(k) { var r = D.reinig[k] || {}, done = 0; Object.keys(r).forEach(function(x) { if (r[x] && r[x].checked) done++; }); if (done > 0) { anyR = true; html += '<tr><td>' + k + '</td><td>' + done + ' / ' + reinigDaily + '</td></tr>'; } });
+    if (!anyR) html += '<tr><td colspan="2">Keine Einträge</td></tr>';
+    html += '</table>';
     html += '<div class="pr-note">Nachweis erfolgt über personalisierten Login (Name) und Zeitstempel je Eintrag — keine gespeicherten Unterschriften. Erstellt mit GastroFlow am ' + todayKey() + '.</div>';
     el('printArea').innerHTML = html;
     window.print();
