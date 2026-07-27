@@ -4073,27 +4073,38 @@ function startWizard() {
   wiz.step = 1;
   wiz.clean = CLEAN_TEMPLATES.slice();
   wiz.cleanSel = {}; wiz.clean.forEach(function(t, i) { wiz.cleanSel[i] = true; });
-  wiz.tempList = TEMP_DEFAULTS.slice();
-  wiz.tempSel = {}; wiz.tempList.forEach(function(t, i) { wiz.tempSel[i] = true; });
   wiz.muellCfg = {};
   MULL_TYPES.forEach(function(t) { wiz.muellCfg[t.key] = {on: false, weekday: 0, rhythm: 'weekly'}; });
-  wiz.suppliers = [];
   el('userMenu').classList.add('hidden'); el('umOverlay').classList.add('hidden');
   var ov = document.querySelector('.ov'); if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
   el('wizard').classList.remove('hidden');
+  var got = 0;
+  function step() { got++; if (got >= 3) finish(); }
   dbGet('/business', function(err, b) {
     wiz.biz = b || {};
     if (!wiz.biz.closedDays) wiz.biz.closedDays = [];
     if (!wiz.biz.openingHours) wiz.biz.openingHours = {};
     if (!wiz.biz.roles) wiz.biz.roles = {};
     if (!wiz.biz.setupProgress) wiz.biz.setupProgress = {};
+    step();
+  });
+  dbGet('/tempPoints', function(err, tp) {
+    wiz.tempList = (tp && tp.length) ? tp.map(function(p) { return {name: p.name, type: p.type}; }) : TEMP_DEFAULTS.slice();
+    wiz.tempSel = {}; wiz.tempList.forEach(function(t, i) { wiz.tempSel[i] = true; });
+    step();
+  });
+  dbGet('/suppliers', function(err, sp) {
+    wiz.suppliers = (sp && sp.length) ? sp.slice() : [];
+    step();
+  });
+  function finish() {
     if (!wiz.biz.name) {
       gGet('/restaurants/' + TENANT, function(e2, r) {
         if (r) { if (!wiz.biz.name) wiz.biz.name = r.name || ''; if (!wiz.biz.address) wiz.biz.address = r.address || ''; }
         renderWizard();
       });
     } else { renderWizard(); }
-  });
+  }
 }
 function closeWizard() { el('wizard').classList.add('hidden'); checkSetup(); }
 
@@ -4362,50 +4373,54 @@ function wizSkip() {
 }
 function saveBusiness(cb) { dbPut('/business', wiz.biz, cb); }
 function wizFinish() {
-  var today = todayKey();
-  var tasksCreated = 0, muellCreated = 0;
-
-  /* Putzplan → wiederkehrende Aufgaben */
-  wiz.clean.forEach(function(t, i) {
-    if (!wiz.cleanSel[i]) return;
-    dbPost('/tasks', {title: t.title, assign: 'Alle', done: false, by: me, ts: Date.now(), priority: 'normal', repeat: (TASK_REPEAT[t.rhythm] || 'weekly'), due: today, source: 'putzplan'});
-    tasksCreated++;
-  });
-
-  /* Temperatur-Messpunkte */
+  /* Temperatur-Messpunkte (ersetzt gespeicherte Liste – kein Duplikat) */
   var pts = [];
   wiz.tempList.forEach(function(t, i) {
     if (!wiz.tempSel[i]) return;
     var r = TEMP_RANGE[t.type] || {min:0, max:7};
     pts.push({id: 'tp' + i, name: t.name, type: t.type, min: r.min, max: r.max});
   });
-  if (pts.length) dbPut('/tempPoints', pts);
+  dbPut('/tempPoints', pts);
 
-  /* Müllabfuhr → Termine im Müllkalender */
-  MULL_TYPES.forEach(function(t) {
-    var c = wiz.muellCfg[t.key];
-    if (!c || !c.on) return;
-    dbPost('/muell', {type: t.key, date: nextDateForWeekday(c.weekday), repeat: c.rhythm, by: me, ts: Date.now()});
-    muellCreated++;
-  });
+  /* Lieferanten (ersetzt gespeicherte Liste) */
+  dbPut('/suppliers', wiz.suppliers);
 
-  /* Lieferanten → wiederkehrende Bestell-Aufgaben */
-  if (wiz.suppliers.length) {
-    dbPut('/suppliers', wiz.suppliers);
-    wiz.suppliers.forEach(function(s) {
-      dbPost('/tasks', {title: 'Bestellung ' + s.name + ' aufgeben', assign: 'Alle', done: false, by: me, ts: Date.now(), priority: 'normal', repeat: 'weekly', due: nextDateForWeekday(s.orderDay), source: 'lieferant'});
-      tasksCreated++;
+  /* Aufgaben & Müll-Termine nur anlegen, wenn noch nicht vorhanden (duplikatsicher bei Wiederholung) */
+  dbGet('/tasks', function(e1, exTasks) {
+    dbGet('/muell', function(e2, exMuell) {
+      var haveTask = {}, haveMuell = {};
+      if (exTasks) Object.keys(exTasks).forEach(function(k) { var t = exTasks[k]; if (t && t.title) haveTask[t.title] = true; });
+      if (exMuell) Object.keys(exMuell).forEach(function(k) { var m = exMuell[k]; if (m && m.type) haveMuell[m.type] = true; });
+      var today = todayKey(), tasksCreated = 0, muellCreated = 0;
+
+      wiz.clean.forEach(function(t, i) {
+        if (!wiz.cleanSel[i] || haveTask[t.title]) return;
+        dbPost('/tasks', {title: t.title, assign: 'Alle', done: false, by: me, ts: Date.now(), priority: 'normal', repeat: (TASK_REPEAT[t.rhythm] || 'weekly'), due: today, source: 'putzplan'});
+        tasksCreated++;
+      });
+      MULL_TYPES.forEach(function(t) {
+        var c = wiz.muellCfg[t.key];
+        if (!c || !c.on || haveMuell[t.key]) return;
+        dbPost('/muell', {type: t.key, date: nextDateForWeekday(c.weekday), repeat: c.rhythm, by: me, ts: Date.now()});
+        muellCreated++;
+      });
+      wiz.suppliers.forEach(function(s) {
+        var title = 'Bestellung ' + s.name + ' aufgeben';
+        if (haveTask[title]) return;
+        dbPost('/tasks', {title: title, assign: 'Alle', done: false, by: me, ts: Date.now(), priority: 'normal', repeat: 'weekly', due: nextDateForWeekday(s.orderDay), source: 'lieferant'});
+        tasksCreated++;
+      });
+
+      for (var st = 1; st <= WIZ_TOTAL; st++) {
+        if (wiz.biz.setupProgress['step' + st] !== 'skipped') wiz.biz.setupProgress['step' + st] = 'done';
+      }
+      wiz.biz.setupProgress.done = true;
+      saveBusiness();
+      closeWizard();
+      setTimeout(function() { loadTasks(); loadDashExtras(); updateDash(); }, 400);
+      toast('Fertig · ' + tasksCreated + ' neue Aufgaben' + (muellCreated ? ', ' + muellCreated + ' Müll-Termine' : ''));
     });
-  }
-
-  for (var st = 1; st <= WIZ_TOTAL; st++) {
-    if (wiz.biz.setupProgress['step' + st] !== 'skipped') wiz.biz.setupProgress['step' + st] = 'done';
-  }
-  wiz.biz.setupProgress.done = true;
-  saveBusiness();
-  closeWizard();
-  setTimeout(function() { loadTasks(); loadDashExtras(); updateDash(); }, 400);
-  toast('Fertig · ' + tasksCreated + ' Aufgaben' + (muellCreated ? ', ' + muellCreated + ' Müll-Termine' : '') + ' erstellt');
+  });
 }
 
 /* Dashboard-Hinweis, wenn Einrichtung noch offen (nur Admin) */
